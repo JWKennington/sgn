@@ -74,34 +74,56 @@ class SinkElement(Element):
         super(SinkElement, self).__init__(**kwargs)
         self.graph = {}
 
+class FakeSrcPad(SrcPad):
+    pass
+
+class FakeSrc(SrcElement):
+    @initializer
+    def __init__(self, **kwargs):
+        kwargs["src_pads"] = [FakeSrcPad(name = "%s:src" % kwargs["name"])]
+        super(FakeSrc, self).__init__(**kwargs)
 
 class Pipeline(object):
+
+    src_elements = ("FakeSrc",)
+    transform_elements = ("TransformElement",)
+    sink_elements = ("SinkElement",)
+
     @initializer
     def __init__(self, **kwargs):
         self.head = None
         self.graph = {}
-    def SrcElement(self, **kwargs):
-        self.head = SrcElement(**kwargs)
-        self.graph.update(self.head.graph)
-        return self
-    def TransformElement(self, **kwargs):
-        t = TransformElement(**kwargs)
-        t.link(self.head)
-        self.graph.update(t.graph)
-        self.head = t
-        return self
-    def SinkElement(self, **kwargs):
-        s = SinkElement(**kwargs)
-        s.link(self.head)
-        self.graph.update(s.graph)
-        return self
+
+        for method in self.src_elements:
+            def _f(method = method, **kwargs):
+                self.head = eval("%s(**kwargs)" % method)
+                self.graph.update(self.head.graph)
+                return self
+            setattr(self, method, _f)
+        for method in self.transform_elements:
+            def _f(method = method, **kwargs):
+                t = eval("%s(**kwargs)" % method)
+                t.link(self.head)
+                self.graph.update(t.graph)
+                self.head = t
+                return self
+            setattr(self, method, _f)
+        for method in self.sink_elements:
+            def _f(method = method, **kwargs):
+                s = eval("%s(**kwargs)" % method)
+                s.link(self.head)
+                self.graph.update(s.graph)
+                return self
+            setattr(self, method, _f)
+
     def create_graph(self):
         return graphlib.TopologicalSorter(self.graph) 
 
+
 pipeline = Pipeline()
 
-pipeline.SrcElement(
-           name = "fake", src_pads = [SrcPad(name="fake_src_pad")]
+pipeline.FakeSrc(
+           name = "fake"
          ).TransformElement(
            name = "transform", src_pads = [SrcPad(name="transform_src_pad")], sink_pads = [SinkPad(name="transform_sink_pad")]
          ).SinkElement(
