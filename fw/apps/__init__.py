@@ -44,10 +44,18 @@ class Pipeline(object):
         while True:
              ts = graphlib.TopologicalSorter(self.graph)
              ts.prepare()
+	     # FIXME still not quite right, this will only parallelize over
+	     # ready nodes and doesn't allow the possibility that one of those
+	     # nodes might allow others to run...
              while ts.is_active():
+                 tasks = []
                  for node in ts.get_ready():
-                     await node()
-                     ts.done(node)
+                     task = self.loop.create_task(node())
+                     def callback(task, ts = ts, node = node):
+                         ts.done(node)
+                     task.add_done_callback(callback)
+                     tasks.append(task)
+                 await asyncio.gather(*tasks)
 
     def run(self):
         return self.loop.run_until_complete(self.__execute_graphs())
