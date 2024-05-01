@@ -34,7 +34,9 @@ def initializer(func):
 class Buffer(object):
     @initializer
     def __init__(self, **kwargs):
-        pass
+        self.kwargs = kwargs
+    def __repr__(self):
+        return str(self.kwargs)
 
 class Base(object):
     registry = set()
@@ -57,6 +59,7 @@ class Base(object):
 class Pad(Base):
     @initializer
     def __init__(self, **kwargs):
+        assert "element" in kwargs and "call" in kwargs
         super(Pad, self).__init__(**kwargs)
 
 

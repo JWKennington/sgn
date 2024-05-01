@@ -3,7 +3,7 @@ from .. transforms import *
 from .. sinks import *
 import graphlib
 import asyncio
-
+import queue
 
 class Pipeline(object):
 
@@ -44,18 +44,16 @@ class Pipeline(object):
         while True:
              ts = graphlib.TopologicalSorter(self.graph)
              ts.prepare()
-	     # FIXME still not quite right, this will only parallelize over
-	     # ready nodes and doesn't allow the possibility that one of those
-	     # nodes might allow others to run...
+             done_nodes = queue.Queue() # blocks by default
              while ts.is_active():
-                 tasks = []
                  for node in ts.get_ready():
                      task = self.loop.create_task(node())
-                     def callback(task, ts = ts, node = node):
+                     def callback(task, ts = ts, node = node, done_nodes = done_nodes):
                          ts.done(node)
+                         done_nodes.put(node)
                      task.add_done_callback(callback)
-                     tasks.append(task)
-                 await asyncio.gather(*tasks)
+                     await task
+                 done_nodes.get() # blocks until at least one thing is done
 
     def run(self):
         return self.loop.run_until_complete(self.__execute_graphs())
