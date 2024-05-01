@@ -39,14 +39,15 @@ class Pipeline(object):
                 return self
             setattr(self, method, _f)
 
-    def __create_graph(self):
-        return graphlib.TopologicalSorter(self.graph) 
-
-    async def __execute_graph(self):
-        # Replace with some other stopping condition
+    async def __execute_graphs(self):
+        # FIXME can we remove the outer while true and somehow use asyncio to schedule these in succession?
         while True:
-            for node in self.__create_graph().static_order():
-                node()
+             ts = graphlib.TopologicalSorter(self.graph)
+             ts.prepare()
+             while ts.is_active():
+                 for node in ts.get_ready():
+                     await node()
+                     ts.done(node)
 
     def run(self):
-        return self.loop.run_until_complete(self.__execute_graph())
+        return self.loop.run_until_complete(self.__execute_graphs())

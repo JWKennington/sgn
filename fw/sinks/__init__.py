@@ -2,7 +2,7 @@ from .. import base
 
 
 class FakeOutputSinkPad(base.SinkPad):
-    def __call__(self):
+    async def __call__(self):
         self.outbuf = self.other.outbuf
         print (self.other.outbuf)
 

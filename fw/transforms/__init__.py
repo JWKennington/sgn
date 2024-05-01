@@ -2,11 +2,11 @@ from .. base import *
 
 
 class FakeTransformSrcPad(SrcPad):
-    def __call__(self):
+    async def __call__(self):
         self.outbuf = Buffer()
 
 class FakeTransformSinkPad(SinkPad):
-    def __call__(self):
+    async def __call__(self):
         self.inbuf = self.other.outbuf
 
 class FakeTransform(TransformElement):

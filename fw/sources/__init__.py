@@ -1,7 +1,7 @@
 from .. base import *
 
 class FakeHtSrcPad(SrcPad):
-    def __call__(self):
+    async def __call__(self):
         self.outbuf = Buffer()
 
 class FakeHtSinkPad(SinkPad):
