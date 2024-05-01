@@ -1,6 +1,5 @@
 import graphlib
-#import yaml
-from enum import Flag, auto
+import asyncio
 from initializer import initializer
 
 class Buffer(object):
@@ -41,30 +40,35 @@ class SinkPad(Pad):
     @initializer
     def __init__(self, **kwargs):
         super(SinkPad, self).__init__(**kwargs)
+    def link(self, other):
+        self.other = other
+        return {self: set((other,))}
 
 class Element(Base):
 
     @initializer
     def __init__(self, **kwargs):
         super(Element, self).__init__(**kwargs)
+        self.graph = {}
 
     def link(self, other):
+        # someday figure out how to have multiple pads
         assert len(self.sink_pads) == 1 and len(other.src_pads) == 1
-        self.graph.update({self.sink_pads[0]: set((other.src_pads[0],))})
+        self.graph.update(self.sink_pads[0].link(other.src_pads[0]))
 
 class SrcElement(Element):
     @initializer
     def __init__(self, **kwargs):
         assert "src_pads" in kwargs
         super(SrcElement, self).__init__(**kwargs)
-        self.graph = {s: set() for s in self.src_pads}
+        self.graph.update({s: set() for s in self.src_pads})
 
 class TransformElement(Element):
     @initializer
     def __init__(self, **kwargs):
         assert "src_pads" in kwargs and "sink_pads" in kwargs
         super(TransformElement, self).__init__(**kwargs)
-        self.graph = {s: set(self.sink_pads) for s in self.src_pads}
+        self.graph.update({s: set(self.sink_pads) for s in self.src_pads})
         
 
 class SinkElement(Element):
@@ -74,25 +78,56 @@ class SinkElement(Element):
         super(SinkElement, self).__init__(**kwargs)
         self.graph = {}
 
-class FakeSrcPad(SrcPad):
+class FakeHtSrcPad(SrcPad):
+    def __call__(self):
+        self.outbuf = Buffer()
+
+class FakeHtSinkPad(SinkPad):
     pass
 
-class FakeSrc(SrcElement):
+class FakeHtSrc(SrcElement):
     @initializer
     def __init__(self, **kwargs):
-        kwargs["src_pads"] = [FakeSrcPad(name = "%s:src" % kwargs["name"])]
-        super(FakeSrc, self).__init__(**kwargs)
+        kwargs["src_pads"] = [FakeHtSrcPad(name = "%s:src" % kwargs["name"])]
+        super(FakeHtSrc, self).__init__(**kwargs)
+
+
+class FakeTransformSrcPad(SrcPad):
+    def __call__(self):
+        self.outbuf = Buffer()
+
+class FakeTransformSinkPad(SinkPad):
+    def __call__(self):
+        self.inbuf = self.other.outbuf
+
+class FakeTransform(TransformElement):
+    def __init__(self, **kwargs):
+        kwargs["sink_pads"] = [FakeTransformSinkPad(name = "%s:sink" % kwargs["name"])]
+        kwargs["src_pads"] = [FakeTransformSrcPad(name = "%s:src" % kwargs["name"])]
+        super(FakeTransform, self).__init__(**kwargs)
+
+
+class FakeOutputSinkPad(SinkPad):
+    def __call__(self):
+        self.outbuf = self.other.outbuf
+        print (self.other.outbuf)
+
+class FakeOutput(SinkElement):
+    def __init__(self, **kwargs):
+        kwargs["sink_pads"] = [FakeOutputSinkPad(name = "%s:sink" % kwargs["name"])]
+        super(FakeOutput, self).__init__(**kwargs)
 
 class Pipeline(object):
 
-    src_elements = ("FakeSrc",)
-    transform_elements = ("TransformElement",)
-    sink_elements = ("SinkElement",)
+    src_elements = ("FakeHtSrc",)
+    transform_elements = ("FakeTransform",)
+    sink_elements = ("FakeOutput",)
 
     @initializer
     def __init__(self, **kwargs):
         self.head = None
         self.graph = {}
+        self.loop = asyncio.get_event_loop()
 
         for method in self.src_elements:
             def _f(method = method, **kwargs):
@@ -116,21 +151,33 @@ class Pipeline(object):
                 return self
             setattr(self, method, _f)
 
-    def create_graph(self):
+    def __create_graph(self):
         return graphlib.TopologicalSorter(self.graph) 
 
+    async def __execute_graph(self):
+        # Replace with some other stopping condition
+        while True:
+            for node in self.__create_graph().static_order():
+                node()
+
+    def run(self):
+        return self.loop.run_until_complete(self.__execute_graph())
+        
 
 pipeline = Pipeline()
 
-pipeline.FakeSrc(
+pipeline.FakeHtSrc(
            name = "fake"
-         ).TransformElement(
-           name = "transform", src_pads = [SrcPad(name="transform_src_pad")], sink_pads = [SinkPad(name="transform_sink_pad")]
-         ).SinkElement(
-           name = "out", sink_pads = [SinkPad(name="out_sink_pad")]
+         ).FakeTransform(
+           name = "transform"
+         ).FakeOutput(
+           name = "out"
          )
 
-graph = pipeline.create_graph()
+pipeline.run()
 
-for node in graph.static_order():
-    print (node)
+#graph = pipeline.create_graph()
+#
+#for node in graph.static_order():
+#    print ("executing", node)
+#    node()
