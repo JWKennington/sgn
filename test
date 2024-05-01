@@ -2,7 +2,6 @@
 
 import graphlib
 import asyncio
-from initializer import initializer
 
 from fw.apps import Pipeline
         
