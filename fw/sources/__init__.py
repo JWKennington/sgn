@@ -7,8 +7,8 @@ class FakeHtSrc(SrcElement):
         self.cnt = 0
         kwargs["src_pads"] = [SrcPad(name = "%s:%s:src" % (kwargs["name"], channel), element=self, call = self.new_buffer) for channel in kwargs["channels"]]
         super(FakeHtSrc, self).__init__(**kwargs)
-    def new_buffer(self):
+    def new_buffer(self, pad):
         self.cnt += 1
-        return Buffer(cnt = self.cnt, name = self.name)
+        return Buffer(cnt = self.cnt, name = "buffer: '%s'" % pad.name)
 
 sources_registry = ("FakeHtSrc",)

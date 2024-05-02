@@ -56,13 +56,14 @@ class Pipeline(object):
 
     def link(self, **kwargs):
         assert "src_pad_name" in kwargs and "sink_pad_name" in kwargs
-        self.sink_pads[kwargs["sink_pad_name"]].link(self.src_pads[kwargs["src_pad_name"]])
+        self.graph.update(self.sink_pads[kwargs["sink_pad_name"]].link(self.src_pads[kwargs["src_pad_name"]]))
         
 
     async def __execute_graphs(self):
         # FIXME can we remove the outer while true and somehow use asyncio to schedule these in succession?
         while True:
              ts = graphlib.TopologicalSorter(self.graph)
+             print (self.graph)
              ts.prepare()
              done_nodes = queue.Queue() # blocks by default
              while ts.is_active():
@@ -74,6 +75,7 @@ class Pipeline(object):
                      task.add_done_callback(callback)
                      await task
                  done_nodes.get() # blocks until at least one thing is done
+             break
 
     def run(self):
         return self.loop.run_until_complete(self.__execute_graphs())

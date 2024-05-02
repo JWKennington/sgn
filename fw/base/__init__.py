@@ -83,7 +83,7 @@ class SrcPad(Pad):
         super(SrcPad, self).__init__(**kwargs)
 
     async def __call__(self):
-        self.outbuf = self.call()
+        self.outbuf = self.call(pad = self)
 
 
 
@@ -103,7 +103,7 @@ class SinkPad(Pad):
         return {self: set((other,))}
     async def __call__(self):
         self.inbuf = self.other.outbuf
-        self.call(self.inbuf)
+        self.call(self, self.inbuf)
 
 class Element(Base):
     """
