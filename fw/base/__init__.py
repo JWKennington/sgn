@@ -32,6 +32,9 @@ def initializer(func):
     return wrapper
 
 class Buffer(object):
+    """
+    A generic class to hold the basic unit of data that flows through a graph
+    """
     @initializer
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -39,6 +42,11 @@ class Buffer(object):
         return str(self.kwargs)
 
 class Base(object):
+    """
+    A generic class from which all classes that participate in an execution
+    graph should be derived.  It enforces a unique name and hashes based on that
+    name. 
+    """
     registry = set()
 
     @initializer
@@ -57,6 +65,9 @@ class Base(object):
         return self.name
 
 class Pad(Base):
+    """
+    Pads are 1:1 with graph nodes but src and sink pads may be grouped into elements.
+    """
     @initializer
     def __init__(self, **kwargs):
         assert "element" in kwargs and "call" in kwargs
@@ -64,6 +75,9 @@ class Pad(Base):
 
 
 class SrcPad(Pad):
+    """
+    A pad that provides data through a buffer when asked
+    """
     @initializer
     def __init__(self, **kwargs):
         super(SrcPad, self).__init__(**kwargs)
@@ -74,10 +88,17 @@ class SrcPad(Pad):
 
 
 class SinkPad(Pad):
+    """
+    A pad that receives data from a buffer when asked
+    """
     @initializer
     def __init__(self, **kwargs):
         super(SinkPad, self).__init__(**kwargs)
     def link(self, other):
+        """
+	Only sink pads can be linked. A sink pad can be linked to only one
+        source pad, but that source pad may be linked to other sink pads
+        """
         self.other = other
         return {self: set((other,))}
     async def __call__(self):
@@ -85,6 +106,12 @@ class SinkPad(Pad):
         self.call(self.inbuf)
 
 class Element(Base):
+    """
+    A basic container to hold src and sink pads. The assmption is that this
+    will be a base class for code that actually does something. It should never be
+    subclassed directly, instead subclas SrcElement, SinkElement or
+    TransformElement
+    """
 
     @initializer
     def __init__(self, **kwargs):

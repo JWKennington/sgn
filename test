@@ -7,15 +7,16 @@ pipeline = Pipeline()
 #
 #          -------
 #         | src   |
-#          -------
-#         /       \
-#   -------    -------
-#  | trans |  | trans |
-#   -------    -------
-#        \     /
-#        -------
-#       | sink  |
-#        -------
+#          -------       (example of connecting src pad twice)
+#         /       \------------------
+#     H1 /         \ L1              \ L1
+#   ----------      -----------       ------------
+#  | H1 trans |    | L1 trans  |     | L1 trans 2 |
+#   ----------      -----------       ------------
+#     H1 \        / L1                    |
+#        -------                       --------
+#       | sink  |                     | sink 2 |
+#        -------                       --------
 #
 
 
@@ -33,10 +34,18 @@ pipeline.FakeHtSrc(
 pipeline.FakeTransform(
            name = "L1 transform",
            src_pad_name = "fake:L1:src",
-           head_name = "fake",
          ).link(
            src_pad_name = "L1 transform:src",
            sink_pad_name = "out:L1:sink"
+         )
+
+pipeline.FakeTransform(
+           name = "L1 transform 2",
+           src_pad_name = "fake:L1:src",
+           head = "fake"
+         ).FakeOutput(
+           name = "out2",
+           channels = ("L1",)
          )
 
 pipeline.run()
