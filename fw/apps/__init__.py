@@ -63,7 +63,6 @@ class Pipeline(object):
         # FIXME can we remove the outer while true and somehow use asyncio to schedule these in succession?
         while True:
              ts = graphlib.TopologicalSorter(self.graph)
-             print (self.graph)
              ts.prepare()
              done_nodes = queue.Queue() # blocks by default
              while ts.is_active():
