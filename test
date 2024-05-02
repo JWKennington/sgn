@@ -5,47 +5,57 @@ from fw.apps import Pipeline
 pipeline = Pipeline()
 
 #
-#          -------
-#         | src   |
-#          -------       (example of connecting src pad twice)
-#         /       \------------------
-#     H1 /         \ L1              \ L1
-#   ----------      -----------       ------------
-#  | H1 trans |    | L1 trans  |     | L1 trans 2 |
-#   ----------      -----------       ------------
-#     H1 \        / L1                    |
-#        -------                       --------
-#       | sink  |                     | sink 2 |
-#        -------                       --------
+#          ------                               ------
+#         | src1 |                             | src2 |
+#          ------                               ------
+#         /       \---------------                |
+#     H1 /         \ L1           \ L1            | V1
+#   ----------    -----------    ----------      /
+#  | H1trans1 |  | L1trans1  |  | L1trans2 |    /
+#   ----------    -----------    ----------    /
+#          |      |                     |     /
+#       H1  \    / L1                 L1 \   / 
+#           ------                        ------
+#          | snk1 |                      | snk2 |
+#           ------                        ------
 #
 
 
 pipeline.FakeHtSrc(
-           name = "fake",
+           name = "src1",
            channels = ("H1","L1"),
          ).FakeTransform(
-           name = "H1 transform", src_pad_name = "fake:H1:src"
+           name = "H1trans1", src_pad_name = "src1:H1:src"
          ).FakeOutput(
-           name = "out",
+           name = "snk1",
            channels = ("H1","L1"),
-           sink_pad_name = "out:H1:sink"
+           sink_pad_name = "snk1:H1:sink"
          )
 
 pipeline.FakeTransform(
-           name = "L1 transform",
-           src_pad_name = "fake:L1:src",
+           name = "L1trans1",
+           src_pad_name = "src1:L1:src",
          ).link(
-           src_pad_name = "L1 transform:src",
-           sink_pad_name = "out:L1:sink"
+           src_pad_name = "L1trans1:src",
+           sink_pad_name = "snk1:L1:sink"
          )
 
 pipeline.FakeTransform(
-           name = "L1 transform 2",
-           src_pad_name = "fake:L1:src",
-           head = "fake"
+           name = "L1trans2",
+           src_pad_name = "src1:L1:src",
+           head = "src1"
          ).FakeOutput(
-           name = "out2",
-           channels = ("L1",)
+           name = "snk2",
+           channels = ("L1","V1"),
+           sink_pad_name = "snk2:L1:sink"
+         )
+
+pipeline.FakeHtSrc(
+           name = "src2",
+           channels = ("V1",)
+         ).link(
+           src_pad_name = "src2:V1:src",
+           sink_pad_name = "snk2:V1:sink"
          )
 
 pipeline.run()
