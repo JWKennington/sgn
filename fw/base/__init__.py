@@ -90,11 +90,19 @@ class Element(Base):
     def __init__(self, **kwargs):
         super(Element, self).__init__(**kwargs)
         self.graph = {}
-
-    def link(self, other):
-        # someday figure out how to have multiple pads
-        assert len(self.sink_pads) == 1 and len(other.src_pads) == 1
-        self.graph.update(self.sink_pads[0].link(other.src_pads[0]))
+    def link(self, other, **kwargs):
+        sink_pads_by_name = {p.name:p for p in self.sink_pads}
+        if isinstance(other, Pad):
+            src_pad = other
+        else:
+            assert len(other.src_pads) == 1
+            src_pad = other.src_pads[0]
+        if "sink_pad_name" not in kwargs:
+            assert len(self.sink_pads) == 1
+            sink_pad = self.sink_pads[0]
+        else:
+            sink_pad = sink_pads_by_name[kwargs["sink_pad_name"]]
+        self.graph.update(sink_pad.link(src_pad))
 
 class SrcElement(Element):
     @initializer
@@ -102,6 +110,7 @@ class SrcElement(Element):
         assert "src_pads" in kwargs
         super(SrcElement, self).__init__(**kwargs)
         self.graph.update({s: set() for s in self.src_pads})
+        self.src_pad_dict = {p.name:p for p in self.src_pads}
 
 class TransformElement(Element):
     @initializer
@@ -109,6 +118,8 @@ class TransformElement(Element):
         assert "src_pads" in kwargs and "sink_pads" in kwargs
         super(TransformElement, self).__init__(**kwargs)
         self.graph.update({s: set(self.sink_pads) for s in self.src_pads})
+        self.src_pad_dict = {p.name:p for p in self.src_pads}
+        self.sink_pad_dict = {p.name:p for p in self.sink_pads}
         
 
 class SinkElement(Element):
@@ -117,3 +128,4 @@ class SinkElement(Element):
         assert "sink_pads" in kwargs
         super(SinkElement, self).__init__(**kwargs)
         self.graph = {}
+        self.sink_pad_dict = {p.name:p for p in self.sink_pads}

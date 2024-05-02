@@ -4,12 +4,39 @@ from fw.apps import Pipeline
 
 pipeline = Pipeline()
 
+#
+#          -------
+#         | src   |
+#          -------
+#         /       \
+#   -------    -------
+#  | trans |  | trans |
+#   -------    -------
+#        \     /
+#        -------
+#       | sink  |
+#        -------
+#
+
+
 pipeline.FakeHtSrc(
-           name = "fake"
+           name = "fake",
+           channels = ("H1","L1"),
          ).FakeTransform(
-           name = "transform"
+           name = "H1 transform", src_pad_name = "fake:H1:src"
          ).FakeOutput(
-           name = "out"
+           name = "out",
+           channels = ("H1","L1"),
+           sink_pad_name = "out:H1:sink"
+         )
+
+pipeline.FakeTransform(
+           name = "L1 transform",
+           src_pad_name = "fake:L1:src",
+           head_name = "fake",
+         ).link(
+           src_pad_name = "L1 transform:src",
+           sink_pad_name = "out:L1:sink"
          )
 
 pipeline.run()
