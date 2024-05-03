@@ -57,7 +57,7 @@ class Pipeline(object):
     def link(self, **kwargs):
         assert "src_pad_name" in kwargs and "sink_pad_name" in kwargs
         self.graph.update(self.sink_pads[kwargs["sink_pad_name"]].link(self.src_pads[kwargs["src_pad_name"]]))
-        
+        return self 
 
     async def __execute_graphs(self):
         # FIXME can we remove the outer while true and somehow use asyncio to schedule these in succession?

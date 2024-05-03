@@ -15,6 +15,6 @@ class FakeSrc(SrcElement):
         New buffers are created on "pad" with an instance specific count and a name derived from the pad name
         """
         self.cnt += 1
-        return Buffer(cnt = self.cnt, name = "buffer: '%s'" % pad.name)
+        return Buffer(cnt = self.cnt, name = "'%s'" % pad.name)
 
 sources_registry = ("FakeSrc",)
