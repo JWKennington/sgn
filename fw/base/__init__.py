@@ -51,6 +51,9 @@ class Base(object):
 
     @initializer
     def __init__(self, **kwargs):
+        """
+        name must be in kwargs and must not have been used by any derived class instance
+        """
         assert "name" in kwargs
         assert kwargs["name"] not in Base.registry
         Base.registry.add(kwargs["name"])
@@ -66,10 +69,17 @@ class Base(object):
 
 class Pad(Base):
     """
-    Pads are 1:1 with graph nodes but src and sink pads may be grouped into elements.
+    Pads are 1:1 with graph nodes but src and sink pads must be grouped into
+    elements in order to exchange data from sink->src.  src->sink exchanges happen
+    between elements.
     """
     @initializer
     def __init__(self, **kwargs):
+        """
+	A pad must belong to an element and that element must be provided as a
+        keyword argument called "element".  The element must also provide a call
+        function that will be executed when the pad is called
+        """
         assert "element" in kwargs and "call" in kwargs
         super(Pad, self).__init__(**kwargs)
 
@@ -83,13 +93,18 @@ class SrcPad(Pad):
         super(SrcPad, self).__init__(**kwargs)
 
     async def __call__(self):
+        """
+	When called, a source pad receives a buffer from the element that the
+        pad belongs to.
+        """
         self.outbuf = self.call(pad = self)
 
 
 
 class SinkPad(Pad):
     """
-    A pad that receives data from a buffer when asked
+    A pad that receives data from a buffer when asked.  When linked, it returns
+    a dictionary suitable for building a graph in graphlib.
     """
     @initializer
     def __init__(self, **kwargs):
@@ -97,11 +112,19 @@ class SinkPad(Pad):
     def link(self, other):
         """
 	Only sink pads can be linked. A sink pad can be linked to only one
-        source pad, but that source pad may be linked to other sink pads
+	source pad, but multiple sink pads may link to the same src pad.
+        Returns a dictionary of dependencies suitable for adding to a graphlib graph.
         """
         self.other = other
         return {self: set((other,))}
     async def __call__(self):
+        """
+	When called, a sink pad gets the buffer from the linked source pad and
+        then calls the element's provided call function.  NOTE: pads must be called in
+        the correct order such that the upstream sources have new information by the
+        time call is invoked.  This should be done within a directed acyclic graph such
+        as those provided by the apps.Pipeline class.
+        """
         self.inbuf = self.other.outbuf
         self.call(self, self.inbuf)
 
@@ -109,7 +132,7 @@ class Element(Base):
     """
     A basic container to hold src and sink pads. The assmption is that this
     will be a base class for code that actually does something. It should never be
-    subclassed directly, instead subclas SrcElement, SinkElement or
+    subclassed directly, instead subclass SrcElement, SinkElement or
     TransformElement
     """
 
@@ -118,6 +141,16 @@ class Element(Base):
         super(Element, self).__init__(**kwargs)
         self.graph = {}
     def link(self, other, **kwargs):
+        """
+        A element links to another element only on its sink pads.  This function offers a few rules:
+
+        1) If "other" is a source pad, it will be used
+        2) otherwise, if "other" is an element it **must** have only one source pad 
+        3) you must specify a sink pad name if this element instance has more than one sink pad.
+
+	it updates the elements internal dictionary which is suitable for being
+        added to a graphlib graph.
+        """
         sink_pads_by_name = {p.name:p for p in self.sink_pads}
         if isinstance(other, Pad):
             src_pad = other
@@ -134,6 +167,9 @@ class Element(Base):
 class SrcElement(Element):
     @initializer
     def __init__(self, **kwargs):
+        """
+        "src_pads" (iterable) must be in kwargs.  Every source pad is added to the graph with no dependencies.
+        """
         assert "src_pads" in kwargs
         super(SrcElement, self).__init__(**kwargs)
         self.graph.update({s: set() for s in self.src_pads})
@@ -142,6 +178,11 @@ class SrcElement(Element):
 class TransformElement(Element):
     @initializer
     def __init__(self, **kwargs):
+        """
+	Both "src_pads" and "sink_pads" must be in kwargs.  All sink pads
+        depend on all source pads in a transform element. If you don't want that to be
+        true, write more than one transform element.
+        """
         assert "src_pads" in kwargs and "sink_pads" in kwargs
         super(TransformElement, self).__init__(**kwargs)
         self.graph.update({s: set(self.sink_pads) for s in self.src_pads})
@@ -152,6 +193,9 @@ class TransformElement(Element):
 class SinkElement(Element):
     @initializer
     def __init__(self, **kwargs):
+        """
+        "sink_pads" must be in kwargs
+        """
         assert "sink_pads" in kwargs
         super(SinkElement, self).__init__(**kwargs)
         self.graph = {}

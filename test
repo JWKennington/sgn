@@ -21,12 +21,12 @@ pipeline = Pipeline()
 #
 
 
-pipeline.FakeHtSrc(
+pipeline.FakeSrc(
            name = "src1",
            channels = ("H1","L1"),
          ).FakeTransform(
            name = "H1trans1", src_pad_name = "src1:H1:src"
-         ).FakeOutput(
+         ).FakeSink(
            name = "snk1",
            channels = ("H1","L1"),
            sink_pad_name = "snk1:H1:sink"
@@ -44,13 +44,13 @@ pipeline.FakeTransform(
            name = "L1trans2",
            src_pad_name = "src1:L1:src",
            head = "src1"
-         ).FakeOutput(
+         ).FakeSink(
            name = "snk2",
            channels = ("L1","V1"),
            sink_pad_name = "snk2:L1:sink"
          )
 
-pipeline.FakeHtSrc(
+pipeline.FakeSrc(
            name = "src2",
            channels = ("V1",)
          ).link(
