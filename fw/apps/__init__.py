@@ -13,6 +13,12 @@ class Pipeline(object):
 
     @initializer
     def __init__(self, **kwargs):
+        """
+        Class to establish and excecute a graph of elements that will process buffers.
+
+        Registers methods to produce src, transform and sink elements and to assemble those elements
+        in a directed acyclic graph.  Also establishes an event loop.
+        """
         self.head = None
         self.graph = {}
         self.loop = asyncio.get_event_loop()
@@ -55,6 +61,9 @@ class Pipeline(object):
             setattr(self, method, _f)
 
     def link(self, **kwargs):
+        """
+        link a src pad to a sink pad when both are already added to this pipeline. "src_pad_name" and "sink_pad_name" are required.
+        """
         assert "src_pad_name" in kwargs and "sink_pad_name" in kwargs
         self.graph.update(self.sink_pads[kwargs["sink_pad_name"]].link(self.src_pads[kwargs["src_pad_name"]]))
         return self 
@@ -76,4 +85,7 @@ class Pipeline(object):
                 done_nodes.get() # blocks until at least one thing is done
 
     def run(self):
+        """
+        Run the pipeline until End Of Stream (EOS)
+        """
         return self.loop.run_until_complete(self.__execute_graphs())
