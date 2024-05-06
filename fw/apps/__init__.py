@@ -61,20 +61,19 @@ class Pipeline(object):
 
     async def __execute_graphs(self):
         # FIXME can we remove the outer while true and somehow use asyncio to schedule these in succession?
-        while True:
-             ts = graphlib.TopologicalSorter(self.graph)
-             ts.prepare()
-             done_nodes = queue.Queue() # blocks by default
-             while ts.is_active():
-                 for node in ts.get_ready():
-                     task = self.loop.create_task(node())
-                     def callback(task, ts = ts, node = node, done_nodes = done_nodes):
-                         ts.done(node)
-                         done_nodes.put(node)
-                     task.add_done_callback(callback)
-                     await task
-                 done_nodes.get() # blocks until at least one thing is done
-             break
+        while not all(e.EOS for e in self.sinks.values()):
+            ts = graphlib.TopologicalSorter(self.graph)
+            ts.prepare()
+            done_nodes = queue.Queue() # blocks by default
+            while ts.is_active():
+                for node in ts.get_ready():
+                    task = self.loop.create_task(node())
+                    def callback(task, ts = ts, node = node, done_nodes = done_nodes):
+                        ts.done(node)
+                        done_nodes.put(node)
+                    task.add_done_callback(callback)
+                    await task
+                done_nodes.get() # blocks until at least one thing is done
 
     def run(self):
         return self.loop.run_until_complete(self.__execute_graphs())

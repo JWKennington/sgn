@@ -19,9 +19,9 @@ class FakeTransform(TransformElement):
     def transform_buffer(self, pad):
         """
 	The transform buffer just update the name to show the graph history.
-        Useful for proving it works...
+        Useful for proving it works.  "EOS" is set if any input buffers are at EOS.
         """
-        return Buffer(**{"cnt:%s" % b.name:b.cnt for b in self.inbuf.values()}, name = "%s -> '%s'" % ("+".join(b.name for b in self.inbuf.values()), pad.name))
-
+        EOS = any(b.EOS for b in self.inbuf.values())
+        return Buffer(**{"cnt:%s" % b.name:b.cnt for b in self.inbuf.values()}, name = "%s -> '%s'" % ("+".join(b.name for b in self.inbuf.values()), pad.name), EOS = EOS)
 
 transforms_registry = ("FakeTransform",)

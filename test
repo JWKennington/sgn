@@ -24,6 +24,7 @@ pipeline = Pipeline()
 pipeline.FakeSrc(
            name = "src1",
            channels = ("H1","L1"),
+           num_buffers = 2
          ).FakeTransform(
            name = "H1trans1", src_pad_name = "src1:H1:src", in_channels = ("H1",), out_channels = ("H1",)
          ).FakeSink(
@@ -52,7 +53,8 @@ pipeline.FakeTransform(
 
 pipeline.FakeSrc(
            name = "src2",
-           channels = ("V1","K1")
+           channels = ("V1","K1"),
+           num_buffers = 2
          ).FakeTransform(
            name = "V1K1trans1", src_pad_name = "src2:V1:src", in_channels = ("V1","K1"), out_channels = ("V1","K1"), sink_pad_name = "V1K1trans1:V1:sink"
          ).link(
