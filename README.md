@@ -1,4 +1,4 @@
-# greg-fw
+# sgn
 
 This is an attempt to sketch a streaming framework to replace some good aspects of gstlal.
 
