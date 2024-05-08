@@ -18,20 +18,23 @@ At the moment only single src / sink elements are supported for trivial linear g
 
 ## Getting started
 
-Clone the repo and run ```./test```
+Clone the repo and run
 
 ```
-e1-054675:greg-fw channa$ ./test 
-{'cnt': 1, 'name': 'transform'}
-{'cnt': 2, 'name': 'transform'}
-{'cnt': 3, 'name': 'transform'}
-{'cnt': 4, 'name': 'transform'}
-{'cnt': 5, 'name': 'transform'}
-{'cnt': 6, 'name': 'transform'}
-{'cnt': 7, 'name': 'transform'}
-{'cnt': 8, 'name': 'transform'}
-{'cnt': 9, 'name': 'transform'}
-{'cnt': 10, 'name': 'transform'}
-{'cnt': 11, 'name': 'transform'}
-...
+$ python tests/test_graph.py 
+buffer flow:  'src1:H1:src' -> 'H1trans1:H1:src' -> 'snk1:H1:sink'
+buffer flow:  'src1:L1:src' -> 'L1trans1:L1:src' -> 'snk1:L1:sink'
+buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
+buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
+buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
+buffer flow:  'src1:H1:src' -> 'H1trans1:H1:src' -> 'snk1:H1:sink'
+buffer flow:  'src1:L1:src' -> 'L1trans1:L1:src' -> 'snk1:L1:sink'
+buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
+buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
+buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
+buffer flow:  'src1:H1:src' -> 'H1trans1:H1:src' -> 'snk1:H1:sink'
+buffer flow:  'src1:L1:src' -> 'L1trans1:L1:src' -> 'snk1:L1:sink'
+buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
+buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
+buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
 ```
