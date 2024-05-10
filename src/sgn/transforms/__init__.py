@@ -10,7 +10,7 @@ class FakeTransform(TransformElement):
     out_channels: list = None
 
     def __post_init__(self):
-        self.src_pads = [SrcPad(name = "%s:src:%s" % (self.name, channel), element = self, call = self.transform_buffer) for channel in self.out_channels]
+        self.source_pads = [SourcePad(name = "%s:src:%s" % (self.name, channel), element = self, call = self.transform_buffer) for channel in self.out_channels]
         self.sink_pads = [SinkPad(name = "%s:sink:%s" % (self.name, channel), element = self, call = self.get_buffer) for channel in self.in_channels]
         self.inbuf = {}
         super().__post_init__()

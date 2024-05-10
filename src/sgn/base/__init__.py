@@ -6,6 +6,15 @@ import random
 class Buffer:
     """
     A generic class to hold the basic unit of data that flows through a graph
+
+    Parameters
+    ----------
+    EOS : bool, optional
+        Whether this buffer indicates end of stream (EOS), default is false
+    is_gap : bool, optional
+        Whether this buffer is marked as a gap, default is False.
+    metadata : dict, optional
+        Metadata associated with this buffer.
     """
     EOS: bool = False
     is_gap: bool = False
@@ -17,9 +26,14 @@ class Base(object):
     A generic class from which all classes that participate in an execution
     graph should be derived.  It enforces a unique name and hashes based on that
     name. 
+
+    Parameters
+    ----------
+    name : str, optional
+        The unique name for this object, default is a random 64 bit integer
     """
     # according to the docs, this won't be initialized as an instance variable
-    # since it is missing the type hint
+    # since it is missing the type hint. We want this to be a class variable.
     registry = {}
     name: str = str(random.getrandbits(64))
 
@@ -39,28 +53,32 @@ class Base(object):
 @dataclass(repr=False)
 class Element(Base):
     """
-    A basic container to hold src and sink pads. The assmption is that this
+    A basic container to hold source and sink pads. The assmption is that this
     will be a base class for code that actually does something. It should never be
-    subclassed directly, instead subclass SrcElement, SinkElement or
+    subclassed directly, instead subclass SourceElement, SinkElement or
     TransformElement
+
+    Parameters
+    ----------
+    graph : dict, optional
+        The internal relationships between source and sink pads. This must be initialized as None and defaults to None.
+    source_pads: list, optional
+        The list of SourcePad objects. This must be given for SourceElements or TransformElements, default is None
+    sink_pads: list, optional
+        The list of SinkPad objects. This must be given for SinkElements or TransformElements, default is None
     """
     graph: dict = None
     source_pads: list = None
     sink_pads: list = None
-    link_map: dict = None
 
     def __post_init__(self):
+        assert self.graph is None
         if self.graph is None:
             self.graph = {}
-        if self.link_map is None:
-            self.link_map = {}
-        for sink_pad, src_pad in self.link_map.items():
-            if sink_pad not in self.sink_pad_dict:
-                raise ValueError("%s not in %s's list of sink pads %s" % (sink_pad, self.name, list(self.sink_pad_dict.keys())))
 
     @property
-    def src_pad_dict(self):
-        return {p.name:p for p in self.src_pads}
+    def source_pad_dict(self):
+        return {p.name:p for p in self.source_pads}
 
     @property
     def sink_pad_dict(self):
@@ -69,22 +87,37 @@ class Element(Base):
 @dataclass(eq=False, repr=False)
 class Pad(Base):
     """
-    Pads are 1:1 with graph nodes but src and sink pads must be grouped into
-    elements in order to exchange data from sink->src.  src->sink exchanges happen
+    Pads are 1:1 with graph nodes but source and sink pads must be grouped into
+    elements in order to exchange data from sink->source.  source->sink exchanges happen
     between elements.
 
     A pad must belong to an element and that element must be provided as a
     keyword argument called "element".  The element must also provide a call
     function that will be executed when the pad is called. The call function must
     take a pad as an argument, e.g., def call(pad):
+
+    Developers should not subclass or use Pad directly. Instead use SourcePad or SinkPad.
+
+    Parameters
+    ----------
+    element : Element, optional
+        The Element instance associated with this pad, default None
+    call : Callable, optional
+        The function that will be called during graph execution for this pad, default None
+
     """
     element: Element = None
     call: Callable = None
 
 @dataclass(eq=False, repr=False)
-class SrcPad(Pad):
+class SourcePad(Pad):
     """
-    A pad that provides data through a buffer when asked
+    A pad that provides data through a buffer when called. 
+
+    Parameters
+    ----------
+    outbuf : Buffer, optional
+        This attribute is populated when the pad is called defined by the output of the Pad.call function.
     """
     outbuf: Buffer = None
 
@@ -101,6 +134,13 @@ class SinkPad(Pad):
     """
     A pad that receives data from a buffer when asked.  When linked, it returns
     a dictionary suitable for building a graph in graphlib.
+
+    Parameters
+    ----------
+    other: Pad, optional
+        This holds the source pad that is linked to this sink pad, default None
+    inbuf: Buffer, optional
+        This holds the buffer provided by the linked source pad. Generally it gets set when this SinkPad is called, default None
     """
     other: Pad = None
     inbuf: Buffer = None
@@ -108,12 +148,13 @@ class SinkPad(Pad):
     def link(self, other):
         """
 	Only sink pads can be linked. A sink pad can be linked to only one
-	source pad, but multiple sink pads may link to the same src pad.
+	source pad, but multiple sink pads may link to the same source pad.
         Returns a dictionary of dependencies suitable for adding to a graphlib graph.
         """
         self.other = other
-        assert isinstance(self.other, SrcPad)
+        assert isinstance(self.other, SourcePad)
         return {self: set((other,))}
+
     async def __call__(self):
         """
 	When called, a sink pad gets the buffer from the linked source pad and
@@ -127,35 +168,36 @@ class SinkPad(Pad):
 
 
 @dataclass(repr=False)
-class SrcElement(Element):
+class SourceElement(Element):
     """
     Initialize with a list of source pads. Every source pad is added to the graph with no dependencies.
     """
 
     def __post_init__(self):
         super().__post_init__()
-        assert self.src_pads is not None
-        self.graph.update({s: set() for s in self.src_pads})
+        assert self.source_pads and not self.sink_pads
+        self.graph.update({s: set() for s in self.source_pads})
 
 @dataclass(repr=False)
 class TransformElement(Element):
     """
-    Both "src_pads" and "sink_pads" must be in kwargs.  All sink pads
+    Both "source_pads" and "sink_pads" must exist.  All sink pads
     depend on all source pads in a transform element. If you don't want that to be
     true, write more than one transform element.
     """
 
     def __post_init__(self):
         super().__post_init__()
-        assert self.src_pads is not None and self.sink_pads is not None
-        self.graph.update({s: set(self.sink_pads) for s in self.src_pads})
+        assert self.source_pads and self.sink_pads
+        self.graph.update({s: set(self.sink_pads) for s in self.source_pads})
         
-@dataclass(repr=False)
+@dataclass()
 class SinkElement(Element):
     """
-    "sink_pads" must be in kwargs
+    "sink_pads" must exist but not "source_pads"
     """
 
     def __post_init__(self):
         super().__post_init__()
-        assert self.sink_pads is not None
+        print (self)
+        assert self.sink_pads and not self.source_pads

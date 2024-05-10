@@ -8,7 +8,7 @@ import queue
 
 class Pipeline(object):
 
-    src_elements = sources_registry
+    source_elements = sources_registry
     transform_elements = transforms_registry 
     sink_elements = sinks_registry 
 
@@ -16,17 +16,22 @@ class Pipeline(object):
         """
         Class to establish and excecute a graph of elements that will process buffers.
 
-        Registers methods to produce src, transform and sink elements and to assemble those elements
+        Registers methods to produce source, transform and sink elements and to assemble those elements
         in a directed acyclic graph.  Also establishes an event loop.
         """
         self.graph = {}
         self.loop = asyncio.get_event_loop()
         self.sinks = {}
 
-        for method in self.src_elements + self.transform_elements + self.sink_elements:
+        for method in self.source_elements + self.transform_elements + self.sink_elements:
             def _f(self = self, method = method, **kwargs):
+                if "link_map" in kwargs:
+                    link_map = kwargs["link_map"]
+                    del kwargs["link_map"]
+                else:
+                    link_map = {}
                 elem = eval("%s(**kwargs)" % method)
-                self.link(elem.link_map)
+                self.link(link_map)
                 self.graph.update(elem.graph)
                 if method in self.sink_elements:
                     self.sinks[elem.name] = elem
@@ -35,10 +40,10 @@ class Pipeline(object):
 
     def link(self, link_map = {}):
         """
-        link src pads to a sink pads with link_map = {"sink1":"src1", "sink2":"src2", "sink3":src1, ...} 
+        link source pads to a sink pads with link_map = {"sink1":"src1", "sink2":"src2", "sink3":src1, ...} 
         """
-        for sink_name, src_name in link_map.items():
-            self.graph.update(Base.registry[sink_name].link(Base.registry[src_name]))
+        for sink_name, source_name in link_map.items():
+            self.graph.update(Base.registry[sink_name].link(Base.registry[source_name]))
         return self 
 
     async def __execute_graphs(self):
