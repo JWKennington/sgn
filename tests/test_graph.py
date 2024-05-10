@@ -24,23 +24,23 @@ def test_graph(capsys):
     
     pipeline.FakeSrc(
                name = "src1",
-               channels = ("H1","L1"),
+               source_pad_names = ("H1","L1"),
                num_buffers = 2
              ).FakeTransform(
                name = "trans1",
-               in_channels = ("H1",), 
-               out_channels = ("H1",),
+               source_pad_names = ("H1",), 
+               sink_pad_names = ("H1",),
                link_map = {"trans1:sink:H1":"src1:src:H1"}
              ).FakeSink(
                name = "snk1",
-               channels = ("H1","L1"),
+               sink_pad_names = ("H1","L1"),
                link_map = {"snk1:sink:H1":"trans1:src:H1"}
              )
    
     pipeline.FakeTransform(
                name = "trans2",
-               in_channels = ("L1",), 
-               out_channels = ("L1",),
+               source_pad_names = ("L1",), 
+               sink_pad_names = ("L1",),
                link_map = {"trans2:sink:L1":"src1:src:L1"}
              ).link(
                link_map = {"snk1:sink:L1": "trans2:src:L1"}
@@ -48,23 +48,23 @@ def test_graph(capsys):
     
     pipeline.FakeTransform(
                name = "trans3",
-               in_channels = ("L1",),
-               out_channels = ("L1",),
+               source_pad_names = ("L1",),
+               sink_pad_names = ("L1",),
                link_map = { "trans3:sink:L1":"src1:src:L1" }
              ).FakeSink(
                name = "snk2",
-               channels = ("L1","V1","K1"),
+               sink_pad_names = ("L1","V1","K1"),
                link_map = {"snk2:sink:L1":"trans3:src:L1"}
              )
     
     pipeline.FakeSrc(
                name = "src2",
-               channels = ("V1","K1"),
+               source_pad_names = ("V1","K1"),
                num_buffers = 2
              ).FakeTransform(
                name = "trans4",
-               in_channels = ("V1","K1"),
-               out_channels = ("V1","K1"),
+               source_pad_names = ("V1","K1"),
+               sink_pad_names = ("V1","K1"),
                link_map = {"trans4:sink:V1":"src2:src:V1", "trans4:sink:K1":"src2:src:K1"}
              ).link(
                link_map = {"snk2:sink:V1":"trans4:src:V1", "snk2:sink:K1":"trans4:src:K1"}

@@ -171,12 +171,26 @@ class SinkPad(Pad):
 class SourceElement(Element):
     """
     Initialize with a list of source pads. Every source pad is added to the graph with no dependencies.
+
+    Parameters
+    ----------
+    source_pad_names : list, optional
+        Set the list of source pad names. These need to be unique for an element but not for an application. The resulting full names will be made with "<self.name>:src:<source_pad_name>"
     """
 
+    source_pad_names: list = None
+
     def __post_init__(self):
+        self.source_pads = [SourcePad(name = "%s:src:%s" % (self.name, n), element=self, call = self.new_buffer) for n in self.source_pad_names]
         super().__post_init__()
         assert self.source_pads and not self.sink_pads
         self.graph.update({s: set() for s in self.source_pads})
+
+    def new_buffer(self, pad):
+        """
+        New buffers are created on "pad". Must be provided by subclass
+        """
+        raise NotImplementedError
 
 @dataclass(repr=False)
 class TransformElement(Element):
@@ -184,20 +198,50 @@ class TransformElement(Element):
     Both "source_pads" and "sink_pads" must exist.  All sink pads
     depend on all source pads in a transform element. If you don't want that to be
     true, write more than one transform element.
+
+    Parameters
+    ----------
+    source_pad_names : list, optional
+        Set the list of source pad names. These need to be unique for an element but not for an application. The resulting full names will be made with "<self.name>:src:<source_pad_name>"
+    sink_pad_names : list, optional
+        Set the list of sink pad names. These need to be unique for an element but not for an application. The resulting full names will be made with "<self.name>:sink:<sink_pad_name>"
     """
 
+    source_pad_names: list = None
+    sink_pad_names: list = None
+
     def __post_init__(self):
+        self.source_pads = [SourcePad(name = "%s:src:%s" % (self.name, n), element = self, call = self.transform_buffer) for n in self.source_pad_names]
+        self.sink_pads = [SinkPad(name = "%s:sink:%s" % (self.name, n), element = self, call = self.get_buffer) for n in self.sink_pad_names]
         super().__post_init__()
         assert self.source_pads and self.sink_pads
         self.graph.update({s: set(self.sink_pads) for s in self.source_pads})
-        
+
+    def get_buffer(self, pad, buf):
+        raise NotImplementedError
+
+    def transform_buffer(self, pad):
+        raise NotImplementedError
+       
+
 @dataclass()
 class SinkElement(Element):
     """
     "sink_pads" must exist but not "source_pads"
+
+    Parameters
+    ----------
+    sink_pad_names : list, optional
+        Set the list of sink pad names. These need to be unique for an element but not for an application. The resulting full names will be made with "<self.name>:sink:<sink_pad_name>"
     """
 
+    sink_pad_names: list = None
+
     def __post_init__(self):
+        self.sink_pads = [SinkPad(name = "%s:sink:%s" % (self.name, n), element=self, call = self.get_buffer) for n in self.sink_pad_names]
         super().__post_init__()
-        print (self)
         assert self.sink_pads and not self.source_pads
+
+    def get_buffer(self, pad, buf):
+        raise NotImplementedError
+

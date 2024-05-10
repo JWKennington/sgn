@@ -4,15 +4,12 @@ from ..base import *
 @dataclass
 class FakeSink(SinkElement):
     """
-    A fake sink element that has sink pads given by "channels" named
-    "name:sink:channel". "channels" is a required kwarg
+    A fake sink element
     """
-    channels: list = None
     def __post_init__(self):
-        self.sink_pads = [SinkPad(name = "%s:sink:%s" % (self.name, channel), element=self, call = self.get_buffer) for channel in self.channels]
-        self.at_eos = {p:False for p in self.sink_pads}
         self.inbuf = None
         super().__post_init__()
+        self.at_eos = {p:False for p in self.sink_pads}
 
     def get_buffer(self, pad, buf):
         """
