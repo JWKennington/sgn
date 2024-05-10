@@ -1,6 +1,7 @@
 from .. sources import *
 from .. transforms import *
 from .. sinks import *
+from .. base import Base
 import graphlib
 import asyncio
 import queue
@@ -11,61 +12,33 @@ class Pipeline(object):
     transform_elements = transforms_registry 
     sink_elements = sinks_registry 
 
-    @initializer
-    def __init__(self, **kwargs):
+    def __init__(self):
         """
         Class to establish and excecute a graph of elements that will process buffers.
 
         Registers methods to produce src, transform and sink elements and to assemble those elements
         in a directed acyclic graph.  Also establishes an event loop.
         """
-        self.head = None
         self.graph = {}
         self.loop = asyncio.get_event_loop()
-        self.sources = {} 
         self.sinks = {}
-        self.transforms = {}
-        self.src_pads = {}
-        self.sink_pads = {} # FIXME populate this
 
-        for method in self.src_elements:
-            def _f(method = method, **kwargs):
-                self.head = eval("%s(**kwargs)" % method)
-                self.sources[self.head.name] = self.head
-                self.src_pads.update(self.head.src_pad_dict)
-                self.graph.update(self.head.graph)
-                return self
-            setattr(self, method, _f)
-        for method in self.transform_elements:
-            def _f(method = method, **kwargs):
-                t = eval("%s(**kwargs)" % method)
-                h = self.head if "src_pad_name" not in kwargs else self.src_pads[kwargs["src_pad_name"]]
-                t.link(h, **kwargs)
-                self.graph.update(t.graph)
-                self.head = t
-                self.transforms[self.head.name] = self.head
-                self.src_pads.update(self.head.src_pad_dict)
-                self.sink_pads.update(self.head.sink_pad_dict)
-                return self
-            setattr(self, method, _f)
-        for method in self.sink_elements:
-            def _f(method = method, **kwargs):
-                s = eval("%s(**kwargs)" % method)
-                h = self.head if "src_pad_name" not in kwargs else self.src_pads[kwargs["src_pad_name"]]
-                s.link(h, **kwargs)
-                self.sinks[s.name] = s
-                self.sink_pads.update(s.sink_pad_dict)
-                self.head = None
-                self.graph.update(s.graph)
+        for method in self.src_elements + self.transform_elements + self.sink_elements:
+            def _f(self = self, method = method, **kwargs):
+                elem = eval("%s(**kwargs)" % method)
+                self.link(elem.link_map)
+                self.graph.update(elem.graph)
+                if method in self.sink_elements:
+                    self.sinks[elem.name] = elem
                 return self
             setattr(self, method, _f)
 
-    def link(self, **kwargs):
+    def link(self, link_map = {}):
         """
-        link a src pad to a sink pad when both are already added to this pipeline. "src_pad_name" and "sink_pad_name" are required.
+        link src pads to a sink pads with link_map = {"sink1":"src1", "sink2":"src2", "sink3":src1, ...} 
         """
-        assert "src_pad_name" in kwargs and "sink_pad_name" in kwargs
-        self.graph.update(self.sink_pads[kwargs["sink_pad_name"]].link(self.src_pads[kwargs["src_pad_name"]]))
+        for sink_name, src_name in link_map.items():
+            self.graph.update(Base.registry[sink_name].link(Base.registry[src_name]))
         return self 
 
     async def __execute_graphs(self):
