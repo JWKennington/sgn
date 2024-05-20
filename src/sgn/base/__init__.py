@@ -1,6 +1,6 @@
+import random
 from dataclasses import dataclass
 from typing import Callable
-import random
 
 
 @dataclass

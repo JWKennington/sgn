@@ -1,5 +1,9 @@
 from dataclasses import dataclass
-from ..base import *
+
+from ..base import (
+    Buffer,
+    SourceElement,
+)
 
 
 @dataclass

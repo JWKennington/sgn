@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from ..base import *
+
+from ..base import SinkElement
 
 
 @dataclass

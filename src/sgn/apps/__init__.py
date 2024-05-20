@@ -1,10 +1,12 @@
-from ..sources import *
-from ..transforms import *
-from ..sinks import *
-from ..base import Base
-import graphlib
 import asyncio
 import queue
+
+import graphlib
+
+from ..base import Base
+from ..sinks import *
+from ..sources import *
+from ..transforms import *
 
 
 class Pipeline(object):
