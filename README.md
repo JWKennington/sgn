@@ -14,7 +14,7 @@ There are the following concepts defined
 
 ## limitations
 
-At the moment only single src / sink elements are supported for trivial linear graphs.  There is a skeleton to start expanding it and it is written such that hopefully it will be possible.
+NONE
 
 ## Getting started
 
