@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-import setuptools
+from setuptools import setup
 
-
-if __name__ == "__main__":
-    setuptools.setup()
-
+setup(use_scm_version={"write_to": "src/sgn/_version.py"})
