@@ -6,7 +6,7 @@ from sgn.transforms import FakeTransform
 from sgn.sinks import FakeSink
 
 
-def test_graph(capsys):
+def test_graph(capsys): 
 
     pipeline = Pipeline()
 

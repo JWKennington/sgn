@@ -1,7 +1,6 @@
 import asyncio
-import queue
-
 import graphlib
+import queue
 
 from ..base import (
     Base,
