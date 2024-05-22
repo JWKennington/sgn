@@ -3,7 +3,10 @@ import queue
 
 import graphlib
 
-from ..base import Base
+from ..base import (
+    Base,
+    Element,
+)
 from ..sinks import *
 from ..sources import *
 from ..transforms import *
@@ -47,6 +50,7 @@ class Pipeline(object):
         """
         if link_map is None:
             link_map = {}
+        assert isinstance(element, Element), f"Element {element} is not an instance of a sgn.Element"
         self.link(link_map)
         self.graph.update(element.graph)
         if type(element).__name__ in self.sink_elements:
