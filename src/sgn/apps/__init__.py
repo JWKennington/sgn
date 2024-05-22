@@ -37,13 +37,21 @@ class Pipeline(object):
                 else:
                     link_map = {}
                 elem = eval("%s(**kwargs)" % method)
-                self.link(link_map)
-                self.graph.update(elem.graph)
-                if method in self.sink_elements:
-                    self.sinks[elem.name] = elem
-                return self
+                return self.insert(elem, link_map=link_map)
 
             setattr(self, method, _f)
+
+    def insert(self, element, link_map=None):
+        """
+        Insert element into the pipeline
+        """
+        if link_map is None:
+            link_map = {}
+        self.link(link_map)
+        self.graph.update(element.graph)
+        if type(element).__name__ in self.sink_elements:
+            self.sinks[element.name] = element
+        return self
 
     def link(self, link_map={}):
         """
