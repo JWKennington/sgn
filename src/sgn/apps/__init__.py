@@ -3,17 +3,14 @@ import queue
 
 import graphlib
 
-from ..base import Base
-from ..sinks import *
-from ..sources import *
-from ..transforms import *
+from ..base import (
+    Base,
+    Element,
+    SinkElement,
+)
 
 
 class Pipeline(object):
-
-    source_elements = sources_registry
-    transform_elements = transforms_registry
-    sink_elements = sinks_registry
 
     def __init__(self):
         """
@@ -26,24 +23,18 @@ class Pipeline(object):
         self.loop = asyncio.get_event_loop()
         self.sinks = {}
 
-        for method in (
-            self.source_elements + self.transform_elements + self.sink_elements
-        ):
-
-            def _f(self=self, method=method, **kwargs):
-                if "link_map" in kwargs:
-                    link_map = kwargs["link_map"]
-                    del kwargs["link_map"]
-                else:
-                    link_map = {}
-                elem = eval("%s(**kwargs)" % method)
-                self.link(link_map)
-                self.graph.update(elem.graph)
-                if method in self.sink_elements:
-                    self.sinks[elem.name] = elem
-                return self
-
-            setattr(self, method, _f)
+    def insert(self, *elements, link_map=None):
+        """
+        Insert element(s) into the pipeline
+        """
+        for element in elements:
+            assert isinstance(element, Element), f"Element {element} is not an instance of a sgn.Element"
+            self.graph.update(element.graph)
+            if isinstance(element, SinkElement):
+                self.sinks[element.name] = element
+        if link_map is not None:
+            self.link(link_map)
+        return self
 
     def link(self, link_map={}):
         """
