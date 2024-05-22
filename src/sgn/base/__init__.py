@@ -1,6 +1,6 @@
 import random
-from dataclasses import dataclass
-from typing import Callable
+from dataclasses import dataclass, field
+from typing import Callable, Optional
 
 
 @dataclass
@@ -20,11 +20,11 @@ class Buffer:
 
     EOS: bool = False
     is_gap: bool = False
-    metadata: dict = None
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
-class Base(object):
+class Base:
     """
     A generic class from which all classes that participate in an execution
     graph should be derived.  It enforces a unique name and hashes based on that
@@ -65,25 +65,20 @@ class Element(Base):
 
     Parameters
     ----------
-    graph : dict, optional
-        The internal relationships between source and sink pads. This must be
-        initialized as None and defaults to None.
     source_pads: list, optional
         The list of SourcePad objects. This must be given for SourceElements or
-        TransformElements, default is None
+        TransformElements
     sink_pads: list, optional
         The list of SinkPad objects. This must be given for SinkElements or
-        TransformElements, default is None
+        TransformElements
     """
 
-    graph: dict = None
-    source_pads: list = None
-    sink_pads: list = None
+    source_pads: list = field(default_factory=list)
+    sink_pads: list = field(default_factory=list)
+    graph: dict = field(init=False)
 
     def __post_init__(self):
-        assert self.graph is None
-        if self.graph is None:
-            self.graph = {}
+        self.graph = {}
 
     @property
     def source_pad_dict(self):
@@ -119,8 +114,8 @@ class Pad(Base):
 
     """
 
-    element: Element = None
-    call: Callable = None
+    element: Optional[Element] = None
+    call: Optional[Callable] = None
 
 
 @dataclass(eq=False, repr=False)
@@ -135,7 +130,7 @@ class SourcePad(Pad):
         output of the Pad.call function.
     """
 
-    outbuf: Buffer = None
+    outbuf: Optional[Buffer] = None
 
     async def __call__(self):
         """
@@ -160,8 +155,8 @@ class SinkPad(Pad):
         gets set when this SinkPad is called, default None
     """
 
-    other: Pad = None
-    inbuf: Buffer = None
+    other: Optional[Pad] = None
+    inbuf: Optional[Buffer] = None
 
     def link(self, other):
         """
@@ -201,7 +196,7 @@ class SourceElement(Element):
         made with "<self.name>:src:<source_pad_name>"
     """
 
-    source_pad_names: list = None
+    source_pad_names: list = field(default_factory=list)
 
     def __post_init__(self):
         self.source_pads = [
@@ -240,8 +235,8 @@ class TransformElement(Element):
         "<self.name>:sink:<sink_pad_name>"
     """
 
-    source_pad_names: list = None
-    sink_pad_names: list = None
+    source_pad_names: list = field(default_factory=list)
+    sink_pad_names: list = field(default_factory=list)
 
     def __post_init__(self):
         self.source_pads = [
@@ -269,7 +264,7 @@ class TransformElement(Element):
         raise NotImplementedError
 
 
-@dataclass()
+@dataclass
 class SinkElement(Element):
     """
     "sink_pads" must exist but not "source_pads"
@@ -282,7 +277,7 @@ class SinkElement(Element):
         "<self.name>:sink:<sink_pad_name>"
     """
 
-    sink_pad_names: list = None
+    sink_pad_names: list = field(default_factory=list)
 
     def __post_init__(self):
         self.sink_pads = [

@@ -5,8 +5,7 @@ import queue
 from ..base import Base, Element, SinkElement
 
 
-class Pipeline(object):
-
+class Pipeline:
     def __init__(self):
         """
         Class to establish and excecute a graph of elements that will process
