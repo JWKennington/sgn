@@ -29,6 +29,3 @@ class FakeSink(SinkElement):
         If buffers on any sink pads are End of Stream (EOS), then mark this whole element as EOS
         """
         return any(self.at_eos.values())
-
-
-sinks_registry = ("FakeSink",)

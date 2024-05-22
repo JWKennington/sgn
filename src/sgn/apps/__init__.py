@@ -8,16 +8,9 @@ from ..base import (
     Element,
     SinkElement,
 )
-from ..sinks import *
-from ..sources import *
-from ..transforms import *
 
 
 class Pipeline(object):
-
-    source_elements = sources_registry
-    transform_elements = transforms_registry
-    sink_elements = sinks_registry
 
     def __init__(self):
         """
@@ -29,21 +22,6 @@ class Pipeline(object):
         self.graph = {}
         self.loop = asyncio.get_event_loop()
         self.sinks = {}
-
-        for method in (
-            self.source_elements + self.transform_elements + self.sink_elements
-        ):
-
-            def _f(self=self, method=method, **kwargs):
-                if "link_map" in kwargs:
-                    link_map = kwargs["link_map"]
-                    del kwargs["link_map"]
-                else:
-                    link_map = {}
-                elem = eval("%s(**kwargs)" % method)
-                return self.insert(elem, link_map=link_map)
-
-            setattr(self, method, _f)
 
     def insert(self, element, link_map=None):
         """

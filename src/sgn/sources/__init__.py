@@ -29,6 +29,3 @@ class FakeSrc(SourceElement):
             metadata={"cnt": self.cnt, "name": "'%s'" % pad.name},
             EOS=self.cnt[pad] > self.num_buffers,
         )
-
-
-sources_registry = ("FakeSrc",)

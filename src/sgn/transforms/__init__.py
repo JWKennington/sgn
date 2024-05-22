@@ -34,6 +34,3 @@ class FakeTransform(TransformElement):
             pad.name,
         )
         return Buffer(metadata=metadata, EOS=EOS)
-
-
-transforms_registry = ("FakeTransform",)
