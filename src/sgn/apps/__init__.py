@@ -23,17 +23,17 @@ class Pipeline(object):
         self.loop = asyncio.get_event_loop()
         self.sinks = {}
 
-    def insert(self, element, link_map=None):
+    def insert(self, *elements, link_map=None):
         """
-        Insert element into the pipeline
+        Insert element(s) into the pipeline
         """
-        if link_map is None:
-            link_map = {}
-        assert isinstance(element, Element), f"Element {element} is not an instance of a sgn.Element"
-        self.link(link_map)
-        self.graph.update(element.graph)
-        if isinstance(element, SinkElement):
-            self.sinks[element.name] = element
+        for element in elements:
+            assert isinstance(element, Element), f"Element {element} is not an instance of a sgn.Element"
+            self.graph.update(element.graph)
+            if isinstance(element, SinkElement):
+                self.sinks[element.name] = element
+        if link_map is not None:
+            self.link(link_map)
         return self
 
     def link(self, link_map={}):
