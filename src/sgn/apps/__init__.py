@@ -6,6 +6,7 @@ import graphlib
 from ..base import (
     Base,
     Element,
+    SinkElement,
 )
 from ..sinks import *
 from ..sources import *
@@ -53,7 +54,7 @@ class Pipeline(object):
         assert isinstance(element, Element), f"Element {element} is not an instance of a sgn.Element"
         self.link(link_map)
         self.graph.update(element.graph)
-        if type(element).__name__ in self.sink_elements:
+        if isinstance(element, SinkElement):
             self.sinks[element.name] = element
         return self
 
