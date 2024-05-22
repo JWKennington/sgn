@@ -1,9 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import (
-    Buffer,
-    TransformElement,
-)
+from ..base import Buffer, TransformElement
 
 
 @dataclass
@@ -22,7 +19,8 @@ class FakeTransform(TransformElement):
     def transform_buffer(self, pad):
         """
         The transform buffer just update the name to show the graph history.
-        Useful for proving it works.  "EOS" is set if any input buffers are at EOS.
+        Useful for proving it works.  "EOS" is set if any input buffers are at
+        EOS.
         """
         EOS = any(b.EOS for b in self.inbuf.values())
         metadata = {

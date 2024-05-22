@@ -1,15 +1,13 @@
 from dataclasses import dataclass
 
-from ..base import (
-    Buffer,
-    SourceElement,
-)
+from ..base import Buffer, SourceElement
 
 
 @dataclass
 class FakeSrc(SourceElement):
     """
-    "num_buffers" is required and sets how many buffers will be created before setting "EOS"
+    "num_buffers" is required and sets how many buffers will be created before
+    setting "EOS"
     """
 
     num_buffers: int = 0
@@ -21,8 +19,8 @@ class FakeSrc(SourceElement):
     def new_buffer(self, pad):
         """
         New buffers are created on "pad" with an instance specific count and a
-        name derived from the pad name. "EOS" is set if we have surpassed the requested
-        number of buffers.
+        name derived from the pad name. "EOS" is set if we have surpassed the
+        requested number of buffers.
         """
         self.cnt[pad] += 1
         return Buffer(

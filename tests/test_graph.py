@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 from sgn.apps import Pipeline
+from sgn.sinks import FakeSink
 from sgn.sources import FakeSrc
 from sgn.transforms import FakeTransform
-from sgn.sinks import FakeSink
 
 
-def test_graph(capsys): 
+def test_graph(capsys):
 
     pipeline = Pipeline()
 
@@ -27,9 +27,7 @@ def test_graph(capsys):
     #
 
     pipeline.insert(
-        FakeSrc(
-            name="src1", source_pad_names=("H1", "L1"), num_buffers=2
-        )
+        FakeSrc(name="src1", source_pad_names=("H1", "L1"), num_buffers=2)
     ).insert(
         FakeTransform(
             name="trans1",
@@ -52,9 +50,7 @@ def test_graph(capsys):
             sink_pad_names=("L1",),
         ),
         link_map={"trans2:sink:L1": "src1:src:L1"},
-    ).link(
-        link_map={"snk1:sink:L1": "trans2:src:L1"}
-    )
+    ).link(link_map={"snk1:sink:L1": "trans2:src:L1"})
 
     pipeline.insert(
         FakeTransform(
@@ -71,11 +67,7 @@ def test_graph(capsys):
         link_map={"snk2:sink:L1": "trans3:src:L1"},
     )
 
-    pipeline.insert(
-        FakeSrc(
-            name="src2", source_pad_names=("V1", "K1"), num_buffers=2
-        )
-    )
+    pipeline.insert(FakeSrc(name="src2", source_pad_names=("V1", "K1"), num_buffers=2))
     pipeline.insert(
         FakeTransform(
             name="trans4",
@@ -88,7 +80,7 @@ def test_graph(capsys):
             "trans4:sink:V1": "src2:src:V1",
             "trans4:sink:K1": "src2:src:K1",
             "snk2:sink:V1": "trans4:src:V1",
-            "snk2:sink:K1": "trans4:src:K1"
+            "snk2:sink:K1": "trans4:src:K1",
         }
     )
 
