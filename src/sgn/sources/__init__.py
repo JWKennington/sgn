@@ -25,7 +25,9 @@ class FakeSrc(SourceElement):
         self.cnt[pad] += 1
         return [
             Buffer(
-                metadata={"cnt": self.cnt, "name": "'%s'" % pad.name},
+                metadata={
+                    "name": "%s[%d]" % (pad.name, self.cnt[pad]),
+                },
                 EOS=self.cnt[pad] > self.num_buffers,
             )
         ]
