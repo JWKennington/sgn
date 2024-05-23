@@ -6,22 +6,8 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools_scm]
+write_to = "src/sgn/_version.py"
 
-[project]
-name = "sgn"
-version = "0.0.1"
-authors = [
-  { name="Chad Hanna", email="crh184@psu.edu" },
-]
-description = "Streaming Graph Navigator. A framework to help navigate buffers through a graph. The buffers must flow."
-readme = "README.md"
-requires-python = ">=3.9"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
-    "Operating System :: OS Independent",
-]
-
-[project.urls]
-Homepage = "https://git.ligo.org/greg/sgn"
-Issues = "https://git.ligo.org/greg/sgn/issues"
+[tool.isort]
+profile = "black"
