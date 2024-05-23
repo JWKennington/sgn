@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import Buffer, SourceElement
+from ..base import Buffer, SourceElement, SourcePad
 
 
 @dataclass
@@ -16,7 +16,7 @@ class FakeSrc(SourceElement):
         super().__post_init__()
         self.cnt = {p: 0 for p in self.source_pads}
 
-    def new(self, pad):
+    def new(self, pad: SourcePad) -> list[Buffer]:
         """
         New buffers are created on "pad" with an instance specific count and a
         name derived from the pad name. "EOS" is set if we have surpassed the

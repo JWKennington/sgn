@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 import asyncio
 import graphlib
-import queue
+from queue import Queue
+from typing import Optional
 
-from ..base import Base, Element, SinkElement
+from ..base import Base, Element, Pad, SinkElement, SinkPad, SourcePad
 
 
 class Pipeline:
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Class to establish and excecute a graph of elements that will process
         buffers.
@@ -15,11 +18,13 @@ class Pipeline:
         assemble those elements in a directed acyclic graph.  Also establishes
         an event loop.
         """
-        self.graph = {}
+        self.graph: dict[SourcePad, set[SinkPad]] = {}
         self.loop = asyncio.get_event_loop()
-        self.sinks = {}
+        self.sinks: dict[str, SinkElement] = {}
 
-    def insert(self, *elements, link_map=None):
+    def insert(
+        self, *elements: Element, link_map: Optional[dict[str, str]] = None
+    ) -> Pipeline:
         """
         Insert element(s) into the pipeline
         """
@@ -34,7 +39,7 @@ class Pipeline:
             self.link(link_map)
         return self
 
-    def link(self, link_map={}):
+    def link(self, link_map: dict[str, str]) -> Pipeline:
         """
         link source pads to a sink pads with link_map = {"sink1":"src1",
         "sink2":"src2", "sink3":src1, ...}
@@ -43,13 +48,13 @@ class Pipeline:
             self.graph.update(Base.registry[sink_name].link(Base.registry[source_name]))
         return self
 
-    async def __execute_graphs(self):
+    async def __execute_graphs(self) -> None:
         # FIXME can we remove the outer while true and somehow use asyncio to
         # schedule these in succession?
         while not all(e.EOS for e in self.sinks.values()):
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
-            done_nodes = queue.Queue()  # blocks by default
+            done_nodes: Queue[Pad] = Queue()  # blocks by default
             while ts.is_active():
                 for node in ts.get_ready():
                     task = self.loop.create_task(node())
@@ -62,8 +67,8 @@ class Pipeline:
                     await task
                 done_nodes.get()  # blocks until at least one thing is done
 
-    def run(self):
+    def run(self) -> None:
         """
         Run the pipeline until End Of Stream (EOS)
         """
-        return self.loop.run_until_complete(self.__execute_graphs())
+        self.loop.run_until_complete(self.__execute_graphs())
