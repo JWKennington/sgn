@@ -10,18 +10,16 @@ class FakeSink(SinkElement):
     """
 
     def __post_init__(self):
-        self.inbuf = None
         super().__post_init__()
         self.at_eos = {p: False for p in self.sink_pads}
 
-    def get_buffer(self, pad, buf):
+    def pull(self, pad, bufs):
         """
         getting the buffer on the pad just modifies the name to show this final
         graph point and the prints it to prove it all works.
         """
-        self.inbuf = buf
-        self.at_eos[pad] = self.inbuf.EOS
-        print("buffer flow: ", "%s -> '%s'" % (self.inbuf.metadata["name"], pad.name))
+        self.at_eos[pad] = bufs[-1].EOS
+        print("buffer flow: ", "%s -> '%s'" % (bufs[-1].metadata["name"], pad.name))
 
     @property
     def EOS(self):

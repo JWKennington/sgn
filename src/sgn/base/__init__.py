@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 
 @dataclass
@@ -125,19 +125,19 @@ class SourcePad(Pad):
 
     Parameters
     ----------
-    outbuf : Buffer, optional
+    outbufs : List[Buffer], optional
         This attribute is populated when the pad is called defined by the
         output of the Pad.call function.
     """
 
-    outbuf: Optional[Buffer] = None
+    outbufs: Optional[List[Buffer]] = None
 
     async def __call__(self):
         """
         When called, a source pad receives a buffer from the element that the
         pad belongs to.
         """
-        self.outbuf = self.call(pad=self)
+        self.outbufs = self.call(pad=self)
 
 
 @dataclass(eq=False, repr=False)
@@ -150,13 +150,13 @@ class SinkPad(Pad):
     ----------
     other: Pad, optional
         This holds the source pad that is linked to this sink pad, default None
-    inbuf: Buffer, optional
+    inbufs: List[Buffer], optional
         This holds the buffer provided by the linked source pad. Generally it
         gets set when this SinkPad is called, default None
     """
 
     other: Optional[Pad] = None
-    inbuf: Optional[Buffer] = None
+    inbufs: Optional[List[Buffer]] = None
 
     def link(self, other):
         """
@@ -178,8 +178,8 @@ class SinkPad(Pad):
         directed acyclic graph such as those provided by the apps.Pipeline
         class.
         """
-        self.inbuf = self.other.outbuf
-        self.call(self, self.inbuf)
+        self.inbufs = self.other.outbufs
+        self.call(self, self.inbufs)
 
 
 @dataclass(repr=False)
@@ -200,16 +200,14 @@ class SourceElement(Element):
 
     def __post_init__(self):
         self.source_pads = [
-            SourcePad(
-                name="%s:src:%s" % (self.name, n), element=self, call=self.new_buffer
-            )
+            SourcePad(name="%s:src:%s" % (self.name, n), element=self, call=self.new)
             for n in self.source_pad_names
         ]
         super().__post_init__()
         assert self.source_pads and not self.sink_pads
         self.graph.update({s: set() for s in self.source_pads})
 
-    def new_buffer(self, pad):
+    def new(self, pad):
         """
         New buffers are created on "pad". Must be provided by subclass
         """
@@ -243,24 +241,22 @@ class TransformElement(Element):
             SourcePad(
                 name="%s:src:%s" % (self.name, n),
                 element=self,
-                call=self.transform_buffer,
+                call=self.transform,
             )
             for n in self.source_pad_names
         ]
         self.sink_pads = [
-            SinkPad(
-                name="%s:sink:%s" % (self.name, n), element=self, call=self.get_buffer
-            )
+            SinkPad(name="%s:sink:%s" % (self.name, n), element=self, call=self.pull)
             for n in self.sink_pad_names
         ]
         super().__post_init__()
         assert self.source_pads and self.sink_pads
         self.graph.update({s: set(self.sink_pads) for s in self.source_pads})
 
-    def get_buffer(self, pad, buf):
+    def pull(self, pad, bufs):
         raise NotImplementedError
 
-    def transform_buffer(self, pad):
+    def transform(self, pad):
         raise NotImplementedError
 
 
@@ -281,13 +277,11 @@ class SinkElement(Element):
 
     def __post_init__(self):
         self.sink_pads = [
-            SinkPad(
-                name="%s:sink:%s" % (self.name, n), element=self, call=self.get_buffer
-            )
+            SinkPad(name="%s:sink:%s" % (self.name, n), element=self, call=self.pull)
             for n in self.sink_pad_names
         ]
         super().__post_init__()
         assert self.sink_pads and not self.source_pads
 
-    def get_buffer(self, pad, buf):
+    def pull(self, pad, bufs):
         raise NotImplementedError
