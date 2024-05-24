@@ -100,11 +100,6 @@ buffer flow:  src1:src:L1[1] -> trans2:src:L1 -> snk1:sink:L1
 buffer flow:  src1:src:L1[1] -> trans3:src:L1 -> snk2:sink:L1
 buffer flow:  src2:src:V1[1]+src2:src:K1[1] -> trans4:src:V1 -> snk2:sink:V1
 buffer flow:  src2:src:V1[1]+src2:src:K1[1] -> trans4:src:K1 -> snk2:sink:K1
-buffer flow:  src1:src:H1[2] -> trans1:src:H1 -> snk1:sink:H1
-buffer flow:  src1:src:L1[2] -> trans2:src:L1 -> snk1:sink:L1
-buffer flow:  src1:src:L1[2] -> trans3:src:L1 -> snk2:sink:L1
-buffer flow:  src2:src:V1[2]+src2:src:K1[2] -> trans4:src:V1 -> snk2:sink:V1
-buffer flow:  src2:src:V1[2]+src2:src:K1[2] -> trans4:src:K1 -> snk2:sink:K1
 """.strip()
         )
 

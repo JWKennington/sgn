@@ -28,6 +28,6 @@ class FakeSrc(SourceElement):
                 metadata={
                     "name": "%s[%d]" % (pad.name, self.cnt[pad]),
                 },
-                EOS=self.cnt[pad] >= self.num_buffers,
+                EOS=self.cnt[pad] >= self.num_buffers - 1,
             )
         ]
