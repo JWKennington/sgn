@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import Buffer, TransformElement
+from ..base import Buffer, SourcePad, TransformElement
 
 
 @dataclass
@@ -13,10 +13,10 @@ class FakeTransform(TransformElement):
         self.inbufs = {}
         super().__post_init__()
 
-    def pull(self, pad, bufs):
+    def pull(self, pad: SourcePad, bufs: list[Buffer]) -> None:
         self.inbufs[pad] = bufs
 
-    def transform(self, pad):
+    def transform(self, pad: SourcePad) -> list[Buffer]:
         """
         The transform buffer just update the name to show the graph history.
         Useful for proving it works.  "EOS" is set if any input buffers are at

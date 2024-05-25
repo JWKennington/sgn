@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import random
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, ClassVar, Optional
 
 
 @dataclass
@@ -36,22 +38,20 @@ class Base:
         The unique name for this object, default is a random 64 bit integer
     """
 
-    # according to the docs, this won't be initialized as an instance variable
-    # since it is missing the type hint. We want this to be a class variable.
-    registry = {}
+    registry: ClassVar[dict[str, Base]] = {}
     name: str = str(random.getrandbits(64))
 
     def __post_init__(self):
         assert self.name not in Base.registry
         Base.registry[self.name] = self
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return hash(self) == hash(other)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.name
 
 
@@ -73,19 +73,19 @@ class Element(Base):
         TransformElements
     """
 
-    source_pads: list = field(default_factory=list)
-    sink_pads: list = field(default_factory=list)
-    graph: dict = field(init=False)
+    source_pads: list[SourcePad] = field(default_factory=list)
+    sink_pads: list[SinkPad] = field(default_factory=list)
+    graph: dict[SourcePad, set[SinkPad]] = field(init=False)
 
     def __post_init__(self):
         self.graph = {}
 
     @property
-    def source_pad_dict(self):
+    def source_pad_dict(self) -> dict[str, SourcePad]:
         return {p.name: p for p in self.source_pads}
 
     @property
-    def sink_pad_dict(self):
+    def sink_pad_dict(self) -> dict[str, SinkPad]:
         return {p.name: p for p in self.sink_pads}
 
 
@@ -117,6 +117,9 @@ class Pad(Base):
     element: Optional[Element] = None
     call: Optional[Callable] = None
 
+    async def __call__(self) -> None:
+        raise NotImplementedError
+
 
 @dataclass(eq=False, repr=False)
 class SourcePad(Pad):
@@ -125,14 +128,14 @@ class SourcePad(Pad):
 
     Parameters
     ----------
-    outbufs : List[Buffer], optional
+    outbufs : list[Buffer], optional
         This attribute is populated when the pad is called defined by the
         output of the Pad.call function.
     """
 
-    outbufs: Optional[List[Buffer]] = None
+    outbufs: Optional[list[Buffer]] = None
 
-    async def __call__(self):
+    async def __call__(self) -> None:
         """
         When called, a source pad receives a buffer from the element that the
         pad belongs to.
@@ -156,9 +159,9 @@ class SinkPad(Pad):
     """
 
     other: Optional[Pad] = None
-    inbufs: Optional[List[Buffer]] = None
+    inbufs: Optional[list[Buffer]] = None
 
-    def link(self, other):
+    def link(self, other) -> dict[SinkPad, set[SourcePad]]:
         """
         Only sink pads can be linked. A sink pad can be linked to only one
         source pad, but multiple sink pads may link to the same source pad.
@@ -169,7 +172,7 @@ class SinkPad(Pad):
         assert isinstance(self.other, SourcePad)
         return {self: set((other,))}
 
-    async def __call__(self):
+    async def __call__(self) -> None:
         """
         When called, a sink pad gets the buffer from the linked source pad and
         then calls the element's provided call function.  NOTE: pads must be
@@ -196,7 +199,7 @@ class SourceElement(Element):
         made with "<self.name>:src:<source_pad_name>"
     """
 
-    source_pad_names: list = field(default_factory=list)
+    source_pad_names: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.source_pads = [
@@ -207,7 +210,7 @@ class SourceElement(Element):
         assert self.source_pads and not self.sink_pads
         self.graph.update({s: set() for s in self.source_pads})
 
-    def new(self, pad):
+    def new(self, pad: SourcePad) -> list[Buffer]:
         """
         New buffers are created on "pad". Must be provided by subclass
         """
@@ -233,8 +236,8 @@ class TransformElement(Element):
         "<self.name>:sink:<sink_pad_name>"
     """
 
-    source_pad_names: list = field(default_factory=list)
-    sink_pad_names: list = field(default_factory=list)
+    source_pad_names: list[str] = field(default_factory=list)
+    sink_pad_names: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.source_pads = [
@@ -253,10 +256,10 @@ class TransformElement(Element):
         assert self.source_pads and self.sink_pads
         self.graph.update({s: set(self.sink_pads) for s in self.source_pads})
 
-    def pull(self, pad, bufs):
+    def pull(self, pad: SourcePad, bufs: list[Buffer]) -> None:
         raise NotImplementedError
 
-    def transform(self, pad):
+    def transform(self, pad: SourcePad) -> list[Buffer]:
         raise NotImplementedError
 
 
@@ -273,7 +276,7 @@ class SinkElement(Element):
         "<self.name>:sink:<sink_pad_name>"
     """
 
-    sink_pad_names: list = field(default_factory=list)
+    sink_pad_names: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.sink_pads = [
@@ -283,5 +286,5 @@ class SinkElement(Element):
         super().__post_init__()
         assert self.sink_pads and not self.source_pads
 
-    def pull(self, pad, bufs):
+    def pull(self, pad: SinkPad, bufs: list[Buffer]) -> None:
         raise NotImplementedError

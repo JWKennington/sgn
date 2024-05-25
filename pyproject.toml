@@ -11,3 +11,7 @@ write_to = "src/sgn/_version.py"
 
 [tool.isort]
 profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = "build"
