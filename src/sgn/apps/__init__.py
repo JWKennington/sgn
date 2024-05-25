@@ -51,7 +51,7 @@ class Pipeline:
     async def __execute_graphs(self) -> None:
         # FIXME can we remove the outer while true and somehow use asyncio to
         # schedule these in succession?
-        while not all(e.EOS for e in self.sinks.values()):
+        while not all(sink.at_eos for sink in self.sinks.values()):
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
             done_nodes: Queue[Pad] = Queue()  # blocks by default

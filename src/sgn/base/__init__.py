@@ -283,8 +283,23 @@ class SinkElement(Element):
             SinkPad(name="%s:sink:%s" % (self.name, n), element=self, call=self.pull)
             for n in self.sink_pad_names
         ]
+        self._at_eos = {p: False for p in self.sink_pads}
         super().__post_init__()
         assert self.sink_pads and not self.source_pads
+
+    @property
+    def at_eos(self) -> bool:
+        """
+        If buffers on any sink pads are End of Stream (EOS), then mark this
+        whole element as EOS
+        """
+        return any(self._at_eos.values())
+
+    def mark_eos(self, pad: SinkPad) -> None:
+        """
+        Marks a sink pad as receiving the End of Stream (EOS).
+        """
+        self._at_eos[pad] = True
 
     def pull(self, pad: SinkPad, bufs: list[Buffer]) -> None:
         raise NotImplementedError
