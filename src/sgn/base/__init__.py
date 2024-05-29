@@ -58,9 +58,6 @@ class Base:
     def __eq__(self, other) -> bool:
         return hash(self) == hash(other)
 
-    def __repr__(self) -> str:
-        return self.name
-
 
 @dataclass(eq=False, repr=False)
 class Pad(Base):
