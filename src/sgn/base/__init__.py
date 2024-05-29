@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass, field
 from typing import Callable, ClassVar, Optional
+import uuid
 
 
 @dataclass
@@ -35,18 +35,25 @@ class Base:
     Parameters
     ----------
     name : str, optional
-        The unique name for this object, default is a random 64 bit integer
+        The unique name for this object, defaults to the objects unique
+        uuid4 hex string if not specified
+
     """
 
-    registry: ClassVar[dict[str, Base]] = {}
-    name: str = str(random.getrandbits(64))
+    name: Optional[str] = None
 
     def __post_init__(self):
-        assert self.name not in Base.registry
-        Base.registry[self.name] = self
+        # give every element a truly unique identifier
+        self.__id = uuid.uuid4().hex
+        if self.name is None:
+            self.name = self.__id
 
+    # Note: we need the Base class to be hashable, so that it can be
+    # used as a key in a dictionary, but mutable dataclasses are not
+    # hashable by default, so we have to define our own hash function
+    # here.
     def __hash__(self) -> int:
-        return hash(self.name)
+        return hash(self.__id)
 
     def __eq__(self, other) -> bool:
         return hash(self) == hash(other)
