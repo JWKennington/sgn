@@ -188,6 +188,10 @@ class Element(Base):
     def sink_pad_dict(self) -> dict[str, SinkPad]:
         return {p.name: p for p in self.sink_pads}
 
+    @property
+    def pad_list(self) -> list[Pad]:
+        return (self.source_pads or []) + (self.sink_pads or [])
+
 
 @dataclass(repr=False)
 class SourceElement(Element):

@@ -18,6 +18,7 @@ class Pipeline:
         assemble those elements in a directed acyclic graph.  Also establishes
         an event loop.
         """
+        self.__registry: dict[str, Base] = {}
         self.graph: dict[SourcePad, set[SinkPad]] = {}
         self.loop = asyncio.get_event_loop()
         self.sinks: dict[str, SinkElement] = {}
@@ -32,20 +33,30 @@ class Pipeline:
             assert isinstance(
                 element, Element
             ), f"Element {element} is not an instance of a sgn.Element"
-            self.graph.update(element.graph)
+            assert (
+                element.name not in self.__registry
+            ), f"Element name '{element.name}' is already in use in this pipeline"
+            self.__registry[element.name] = element
+            for pad in element.pad_list:
+                assert (
+                    pad.name not in self.__registry
+                ), f"Pad name '{pad.name}' is already in use in this pipeline"
+                self.__registry[pad.name] = pad
             if isinstance(element, SinkElement):
                 self.sinks[element.name] = element
+            self.graph.update(element.graph)
         if link_map is not None:
             self.link(link_map)
         return self
 
     def link(self, link_map: dict[str, str]) -> Pipeline:
         """
-        link source pads to a sink pads with link_map = {"sink1":"src1",
-        "sink2":"src2", "sink3":src1, ...}
+        link source pads to a sink pads with link_map = {sink_pad_name:src_pad_name, ...}
         """
-        for sink_name, source_name in link_map.items():
-            self.graph.update(Base.registry[sink_name].link(Base.registry[source_name]))
+        for sink_pad_name, source_pad_name in link_map.items():
+            self.graph.update(
+                self.__registry[sink_pad_name].link(self.__registry[source_pad_name])
+            )
         return self
 
     async def __execute_graphs(self) -> None:
