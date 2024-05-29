@@ -121,25 +121,25 @@ class SinkPad(Pad):
 
     Parameters
     ----------
-    other: Pad, optional
+    other: SourcePad, optional
         This holds the source pad that is linked to this sink pad, default None
     inbufs: List[Buffer], optional
         This holds the buffer provided by the linked source pad. Generally it
         gets set when this SinkPad is called, default None
     """
 
-    other: Optional[Pad] = None
+    other: Optional[SourcePad] = None
     inbufs: Optional[list[Buffer]] = None
+    def link(self, other: SourcePad) -> dict[SinkPad, set[SourcePad]]:
 
-    def link(self, other) -> dict[SinkPad, set[SourcePad]]:
         """
         Only sink pads can be linked. A sink pad can be linked to only one
         source pad, but multiple sink pads may link to the same source pad.
         Returns a dictionary of dependencies suitable for adding to a graphlib
         graph.
         """
+        assert isinstance(other, SourcePad), "other is not an instanace of SourcePad"
         self.other = other
-        assert isinstance(self.other, SourcePad)
         return {self: set((other,))}
 
     async def __call__(self) -> None:
