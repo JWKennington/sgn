@@ -11,7 +11,7 @@ help :
 
 .PHONY: test
 test :
-	pytest -v --cov=sgn --cov-report=term-missing .
+	PYTHONPATH=src pytest -v --cov=sgn --cov-report=term-missing .
 
 .PHONY: lint
 lint :
