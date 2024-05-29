@@ -55,40 +55,6 @@ class Base:
         return self.name
 
 
-@dataclass(repr=False)
-class Element(Base):
-    """
-    A basic container to hold source and sink pads. The assmption is that this
-    will be a base class for code that actually does something. It should never
-    be subclassed directly, instead subclass SourceElement, SinkElement or
-    TransformElement
-
-    Parameters
-    ----------
-    source_pads: list, optional
-        The list of SourcePad objects. This must be given for SourceElements or
-        TransformElements
-    sink_pads: list, optional
-        The list of SinkPad objects. This must be given for SinkElements or
-        TransformElements
-    """
-
-    source_pads: list[SourcePad] = field(default_factory=list)
-    sink_pads: list[SinkPad] = field(default_factory=list)
-    graph: dict[SourcePad, set[SinkPad]] = field(init=False)
-
-    def __post_init__(self):
-        self.graph = {}
-
-    @property
-    def source_pad_dict(self) -> dict[str, SourcePad]:
-        return {p.name: p for p in self.source_pads}
-
-    @property
-    def sink_pad_dict(self) -> dict[str, SinkPad]:
-        return {p.name: p for p in self.sink_pads}
-
-
 @dataclass(eq=False, repr=False)
 class Pad(Base):
     """
@@ -183,6 +149,40 @@ class SinkPad(Pad):
         """
         self.inbufs = self.other.outbufs
         self.call(self, self.inbufs)
+
+
+@dataclass(repr=False)
+class Element(Base):
+    """
+    A basic container to hold source and sink pads. The assmption is that this
+    will be a base class for code that actually does something. It should never
+    be subclassed directly, instead subclass SourceElement, SinkElement or
+    TransformElement
+
+    Parameters
+    ----------
+    source_pads: list, optional
+        The list of SourcePad objects. This must be given for SourceElements or
+        TransformElements
+    sink_pads: list, optional
+        The list of SinkPad objects. This must be given for SinkElements or
+        TransformElements
+    """
+
+    source_pads: list[SourcePad] = field(default_factory=list)
+    sink_pads: list[SinkPad] = field(default_factory=list)
+    graph: dict[SourcePad, set[SinkPad]] = field(init=False)
+
+    def __post_init__(self):
+        self.graph = {}
+
+    @property
+    def source_pad_dict(self) -> dict[str, SourcePad]:
+        return {p.name: p for p in self.source_pads}
+
+    @property
+    def sink_pad_dict(self) -> dict[str, SinkPad]:
+        return {p.name: p for p in self.sink_pads}
 
 
 @dataclass(repr=False)
