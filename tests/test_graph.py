@@ -12,7 +12,7 @@ def test_simple(capsys):
         FakeSrc(
             name="src1",
             source_pad_names=("H1",),
-            num_buffers=3,
+            num_frames=3,
         ),
         FakeTransform(
             name="trans1",
@@ -34,9 +34,9 @@ def test_simple(capsys):
         assert (
             captured.out.strip()
             == """
-buffer flow:  src1:src:H1[0] -> trans1:src:H1 -> snk1:sink:H1
-buffer flow:  src1:src:H1[1] -> trans1:src:H1 -> snk1:sink:H1
-buffer flow:  src1:src:H1[2] -> trans1:src:H1 -> snk1:sink:H1
+frame flow:  src1:src:H1[0] -> trans1:src:H1 -> snk1:sink:H1
+frame flow:  src1:src:H1[1] -> trans1:src:H1 -> snk1:sink:H1
+frame flow:  src1:src:H1[2] -> trans1:src:H1 -> snk1:sink:H1  EOS
 """.strip()
         )
 
@@ -62,7 +62,7 @@ def test_graph(capsys):
     #
 
     pipeline.insert(
-        FakeSrc(name="src1", source_pad_names=("H1", "L1"), num_buffers=2)
+        FakeSrc(name="src1", source_pad_names=("H1", "L1"), num_frames=2)
     ).insert(
         FakeTransform(
             name="trans1",
@@ -102,7 +102,7 @@ def test_graph(capsys):
         link_map={"snk2:sink:L1": "trans3:src:L1"},
     )
 
-    pipeline.insert(FakeSrc(name="src2", source_pad_names=("V1", "K1"), num_buffers=2))
+    pipeline.insert(FakeSrc(name="src2", source_pad_names=("V1", "K1"), num_frames=2))
     pipeline.insert(
         FakeTransform(
             name="trans4",
@@ -125,16 +125,16 @@ def test_graph(capsys):
         assert (
             captured.out.strip()
             == """
-buffer flow:  src1:src:H1[0] -> trans1:src:H1 -> snk1:sink:H1
-buffer flow:  src1:src:L1[0] -> trans2:src:L1 -> snk1:sink:L1
-buffer flow:  src1:src:L1[0] -> trans3:src:L1 -> snk2:sink:L1
-buffer flow:  src2:src:V1[0]+src2:src:K1[0] -> trans4:src:V1 -> snk2:sink:V1
-buffer flow:  src2:src:V1[0]+src2:src:K1[0] -> trans4:src:K1 -> snk2:sink:K1
-buffer flow:  src1:src:H1[1] -> trans1:src:H1 -> snk1:sink:H1
-buffer flow:  src1:src:L1[1] -> trans2:src:L1 -> snk1:sink:L1
-buffer flow:  src1:src:L1[1] -> trans3:src:L1 -> snk2:sink:L1
-buffer flow:  src2:src:V1[1]+src2:src:K1[1] -> trans4:src:V1 -> snk2:sink:V1
-buffer flow:  src2:src:V1[1]+src2:src:K1[1] -> trans4:src:K1 -> snk2:sink:K1
+frame flow:  src1:src:H1[0] -> trans1:src:H1 -> snk1:sink:H1
+frame flow:  src1:src:L1[0] -> trans2:src:L1 -> snk1:sink:L1
+frame flow:  src1:src:L1[0] -> trans3:src:L1 -> snk2:sink:L1
+frame flow:  src2:src:V1[0]+src2:src:K1[0] -> trans4:src:V1 -> snk2:sink:V1
+frame flow:  src2:src:V1[0]+src2:src:K1[0] -> trans4:src:K1 -> snk2:sink:K1
+frame flow:  src1:src:H1[1] -> trans1:src:H1 -> snk1:sink:H1  EOS
+frame flow:  src1:src:L1[1] -> trans2:src:L1 -> snk1:sink:L1  EOS
+frame flow:  src1:src:L1[1] -> trans3:src:L1 -> snk2:sink:L1  EOS
+frame flow:  src2:src:V1[1]+src2:src:K1[1] -> trans4:src:V1 -> snk2:sink:V1  EOS
+frame flow:  src2:src:V1[1]+src2:src:K1[1] -> trans4:src:K1 -> snk2:sink:K1  EOS
 """.strip()
         )
 

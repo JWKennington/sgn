@@ -12,7 +12,7 @@ class Pipeline:
     def __init__(self) -> None:
         """
         Class to establish and excecute a graph of elements that will process
-        buffers.
+        frames.
 
         Registers methods to produce source, transform and sink elements and to
         assemble those elements in a directed acyclic graph.  Also establishes

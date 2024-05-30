@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import Buffer, SinkElement, SinkPad
+from ..base import Frame, SinkElement, SinkPad
 
 
 @dataclass
@@ -9,11 +9,14 @@ class FakeSink(SinkElement):
     A fake sink element
     """
 
-    def pull(self, pad: SinkPad, bufs: list[Buffer]) -> None:
+    def pull(self, pad: SinkPad, frame: Frame) -> None:
         """
-        getting the buffer on the pad just modifies the name to show this final
+        getting the frame on the pad just modifies the name to show this final
         graph point and the prints it to prove it all works.
         """
-        if bufs[-1].EOS:
+        if frame.EOS:
             self.mark_eos(pad)
-        print("buffer flow:  %s -> %s" % (bufs[-1].metadata["name"], pad.name))
+        msg = "frame flow:  %s -> %s" % (frame.metadata["name"], pad.name)
+        if self.at_eos:
+            msg += "  EOS"
+        print(msg)

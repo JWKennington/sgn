@@ -6,18 +6,19 @@ import uuid
 
 
 @dataclass
-class Buffer:
+class Frame:
     """
     A generic class to hold the basic unit of data that flows through a graph
 
     Parameters
     ----------
     EOS : bool, optional
-        Whether this buffer indicates end of stream (EOS), default is false
+        Whether this frame indicates end of stream (EOS), default is false
     is_gap : bool, optional
-        Whether this buffer is marked as a gap, default is False.
+        Whether this frame is marked as a gap, default is False.
     metadata : dict, optional
-        Metadata associated with this buffer.
+        Metadata associated with this frame.
+
     """
 
     EOS: bool = False
@@ -94,42 +95,44 @@ class Pad(Base):
 @dataclass(eq=False, repr=False)
 class SourcePad(Pad):
     """
-    A pad that provides data through a buffer when called.
+    A pad that provides a data Frame when called.
 
     Parameters
     ----------
-    outbufs : list[Buffer], optional
-        This attribute is populated when the pad is called defined by the
-        output of the Pad.call function.
+    output : Frame, optional
+        This attribute is set to be the output Frame when the pad is called.
+
     """
 
-    outbufs: Optional[list[Buffer]] = None
+    output: Optional[Frame] = None
 
     async def __call__(self) -> None:
         """
-        When called, a source pad receives a buffer from the element that the
-        pad belongs to.
+        When called, a source pad receives a Frame from the element that
+        the pad belongs to.
+
         """
-        self.outbufs = self.call(pad=self)
+        self.output = self.call(pad=self)
 
 
 @dataclass(eq=False, repr=False)
 class SinkPad(Pad):
     """
-    A pad that receives data from a buffer when asked.  When linked, it returns
+    A pad that receives a data Frame when called.  When linked, it returns
     a dictionary suitable for building a graph in graphlib.
 
     Parameters
     ----------
     other: SourcePad, optional
         This holds the source pad that is linked to this sink pad, default None
-    inbufs: List[Buffer], optional
-        This holds the buffer provided by the linked source pad. Generally it
+    input: Frame, optional
+        This holds the Frame provided by the linked source pad. Generally it
         gets set when this SinkPad is called, default None
     """
 
     other: Optional[SourcePad] = None
-    inbufs: Optional[list[Buffer]] = None
+    input: Optional[Frame] = None
+
     def link(self, other: SourcePad) -> dict[SinkPad, set[SourcePad]]:
 
         """
@@ -144,15 +147,16 @@ class SinkPad(Pad):
 
     async def __call__(self) -> None:
         """
-        When called, a sink pad gets the buffer from the linked source pad and
+        When called, a sink pad gets a Frame from the linked source pad and
         then calls the element's provided call function.  NOTE: pads must be
         called in the correct order such that the upstream sources have new
         information by the time call is invoked.  This should be done within a
         directed acyclic graph such as those provided by the apps.Pipeline
         class.
+
         """
-        self.inbufs = self.other.outbufs
-        self.call(self, self.inbufs)
+        self.input = self.other.output
+        self.call(self, self.input)
 
 
 @dataclass(repr=False)
@@ -218,9 +222,9 @@ class SourceElement(Element):
         assert self.source_pads and not self.sink_pads
         self.graph.update({s: set() for s in self.source_pads})
 
-    def new(self, pad: SourcePad) -> list[Buffer]:
+    def new(self, pad: SourcePad) -> Frame:
         """
-        New buffers are created on "pad". Must be provided by subclass
+        New frames are created on "pad". Must be provided by subclass
         """
         raise NotImplementedError
 
@@ -264,10 +268,10 @@ class TransformElement(Element):
         assert self.source_pads and self.sink_pads
         self.graph.update({s: set(self.sink_pads) for s in self.source_pads})
 
-    def pull(self, pad: SourcePad, bufs: list[Buffer]) -> None:
+    def pull(self, pad: SourcePad, frame: Frame) -> None:
         raise NotImplementedError
 
-    def transform(self, pad: SourcePad) -> list[Buffer]:
+    def transform(self, pad: SourcePad) -> Frame:
         raise NotImplementedError
 
 
@@ -298,7 +302,7 @@ class SinkElement(Element):
     @property
     def at_eos(self) -> bool:
         """
-        If buffers on any sink pads are End of Stream (EOS), then mark this
+        If frames on any sink pads are End of Stream (EOS), then mark this
         whole element as EOS
         """
         return any(self._at_eos.values())
@@ -309,5 +313,5 @@ class SinkElement(Element):
         """
         self._at_eos[pad] = True
 
-    def pull(self, pad: SinkPad, bufs: list[Buffer]) -> None:
+    def pull(self, pad: SinkPad, frame: Frame) -> None:
         raise NotImplementedError
