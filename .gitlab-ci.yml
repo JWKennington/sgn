@@ -1,0 +1,11 @@
+include:
+  - component: git.ligo.org/computing/gitlab/components/python/sdist@~latest
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@~latest
+  - component: git.ligo.org/computing/gitlab/components/python/code-quality@~latest
+  - component: git.ligo.org/computing/gitlab/components/python/test@~latest
+    inputs:
+      python_versions:
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
