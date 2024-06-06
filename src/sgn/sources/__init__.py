@@ -1,33 +1,32 @@
 from dataclasses import dataclass
 
-from ..base import Buffer, SourceElement, SourcePad
+from ..base import Frame, SourceElement, SourcePad
 
 
 @dataclass
 class FakeSrc(SourceElement):
     """
-    "num_buffers" is required and sets how many buffers will be created before
-    setting "EOS"
+    "num_frames" is required and sets how many Frames will be
+    created before returning an EOS
     """
 
-    num_buffers: int = 0
+    num_frames: int = 0
 
     def __post_init__(self):
         super().__post_init__()
         self.cnt = {p: -1 for p in self.source_pads}
 
-    def new(self, pad: SourcePad) -> list[Buffer]:
+    def new(self, pad: SourcePad) -> Frame:
         """
-        New buffers are created on "pad" with an instance specific count and a
-        name derived from the pad name. "EOS" is set if we have surpassed the
-        requested number of buffers.
+        New Frames are created on "pad" with an instance specific count and a
+        name derived from the pad name. EOS is set if we have surpassed the
+        requested number of Frames.
+
         """
         self.cnt[pad] += 1
-        return [
-            Buffer(
-                metadata={
-                    "name": "%s[%d]" % (pad.name, self.cnt[pad]),
-                },
-                EOS=self.cnt[pad] >= self.num_buffers - 1,
-            )
-        ]
+        return Frame(
+            metadata={
+                "name": "%s[%d]" % (pad.name, self.cnt[pad]),
+            },
+            EOS=self.cnt[pad] >= self.num_frames - 1,
+        )
