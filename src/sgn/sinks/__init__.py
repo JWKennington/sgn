@@ -16,4 +16,4 @@ class FakeSink(SinkElement):
         """
         if bufs[-1].EOS:
             self.mark_eos(pad)
-        print("buffer flow: ", "%s -> '%s'" % (bufs[-1].metadata["name"], pad.name))
+        print("buffer flow:  %s -> %s" % (bufs[-1].metadata["name"], pad.name))

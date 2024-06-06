@@ -14,7 +14,7 @@ class FakeSrc(SourceElement):
 
     def __post_init__(self):
         super().__post_init__()
-        self.cnt = {p: 0 for p in self.source_pads}
+        self.cnt = {p: -1 for p in self.source_pads}
 
     def new(self, pad: SourcePad) -> list[Buffer]:
         """
@@ -25,7 +25,9 @@ class FakeSrc(SourceElement):
         self.cnt[pad] += 1
         return [
             Buffer(
-                metadata={"cnt": self.cnt, "name": "'%s'" % pad.name},
-                EOS=self.cnt[pad] > self.num_buffers,
+                metadata={
+                    "name": "%s[%d]" % (pad.name, self.cnt[pad]),
+                },
+                EOS=self.cnt[pad] >= self.num_buffers - 1,
             )
         ]

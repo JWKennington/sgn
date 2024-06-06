@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass, field
 from typing import Callable, ClassVar, Optional
+import uuid
 
 
 @dataclass
@@ -35,58 +35,28 @@ class Base:
     Parameters
     ----------
     name : str, optional
-        The unique name for this object, default is a random 64 bit integer
+        The unique name for this object, defaults to the objects unique
+        uuid4 hex string if not specified
+
     """
 
-    registry: ClassVar[dict[str, Base]] = {}
-    name: str = str(random.getrandbits(64))
+    name: Optional[str] = None
 
     def __post_init__(self):
-        assert self.name not in Base.registry
-        Base.registry[self.name] = self
+        # give every element a truly unique identifier
+        self.__id = uuid.uuid4().hex
+        if self.name is None:
+            self.name = self.__id
 
+    # Note: we need the Base class to be hashable, so that it can be
+    # used as a key in a dictionary, but mutable dataclasses are not
+    # hashable by default, so we have to define our own hash function
+    # here.
     def __hash__(self) -> int:
-        return hash(self.name)
+        return hash(self.__id)
 
     def __eq__(self, other) -> bool:
         return hash(self) == hash(other)
-
-    def __repr__(self) -> str:
-        return self.name
-
-
-@dataclass(repr=False)
-class Element(Base):
-    """
-    A basic container to hold source and sink pads. The assmption is that this
-    will be a base class for code that actually does something. It should never
-    be subclassed directly, instead subclass SourceElement, SinkElement or
-    TransformElement
-
-    Parameters
-    ----------
-    source_pads: list, optional
-        The list of SourcePad objects. This must be given for SourceElements or
-        TransformElements
-    sink_pads: list, optional
-        The list of SinkPad objects. This must be given for SinkElements or
-        TransformElements
-    """
-
-    source_pads: list[SourcePad] = field(default_factory=list)
-    sink_pads: list[SinkPad] = field(default_factory=list)
-    graph: dict[SourcePad, set[SinkPad]] = field(init=False)
-
-    def __post_init__(self):
-        self.graph = {}
-
-    @property
-    def source_pad_dict(self) -> dict[str, SourcePad]:
-        return {p.name: p for p in self.source_pads}
-
-    @property
-    def sink_pad_dict(self) -> dict[str, SinkPad]:
-        return {p.name: p for p in self.sink_pads}
 
 
 @dataclass(eq=False, repr=False)
@@ -183,6 +153,44 @@ class SinkPad(Pad):
         """
         self.inbufs = self.other.outbufs
         self.call(self, self.inbufs)
+
+
+@dataclass(repr=False)
+class Element(Base):
+    """
+    A basic container to hold source and sink pads. The assmption is that this
+    will be a base class for code that actually does something. It should never
+    be subclassed directly, instead subclass SourceElement, SinkElement or
+    TransformElement
+
+    Parameters
+    ----------
+    source_pads: list, optional
+        The list of SourcePad objects. This must be given for SourceElements or
+        TransformElements
+    sink_pads: list, optional
+        The list of SinkPad objects. This must be given for SinkElements or
+        TransformElements
+    """
+
+    source_pads: list[SourcePad] = field(default_factory=list)
+    sink_pads: list[SinkPad] = field(default_factory=list)
+    graph: dict[SourcePad, set[SinkPad]] = field(init=False)
+
+    def __post_init__(self):
+        self.graph = {}
+
+    @property
+    def source_pad_dict(self) -> dict[str, SourcePad]:
+        return {p.name: p for p in self.source_pads}
+
+    @property
+    def sink_pad_dict(self) -> dict[str, SinkPad]:
+        return {p.name: p for p in self.sink_pads}
+
+    @property
+    def pad_list(self) -> list[Pad]:
+        return (self.source_pads or []) + (self.sink_pads or [])
 
 
 @dataclass(repr=False)

@@ -24,11 +24,10 @@ class FakeTransform(TransformElement):
         """
         EOS = any(b[-1].EOS for b in self.inbufs.values())
         metadata = {
-            "cnt:%s" % b[-1].metadata["name"]: b[-1].metadata["cnt"]
-            for b in self.inbufs.values()
+            "name": "%s -> %s"
+            % (
+                "+".join(b[-1].metadata["name"] for b in self.inbufs.values()),
+                pad.name,
+            )
         }
-        metadata["name"] = "%s -> '%s'" % (
-            "+".join(b[-1].metadata["name"] for b in self.inbufs.values()),
-            pad.name,
-        )
         return [Buffer(metadata=metadata, EOS=EOS)]
