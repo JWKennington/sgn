@@ -38,3 +38,37 @@ buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
 buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
 buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
 ```
+
+## TODO
+
+### Elements
+
+- Frame reader with support for different channels on different source pads -  Zach (sgn-ligo)
+- Logical averager (I have no idea what that means)
+- Resampler
+- Transfer function. Will this be based on FFT? 
+- Demodulator - assigned today. Dave + Josh (sgn-ts)
+- Multiplier / divider Jo and Teddy (sgn-ts)
+- Adder / subtractor
+- Stateless function generator.  f(t) = … Kuba (sgn-ts)
+- Gate 
+- Coherence calculation
+- FIR filtering
+- Adaptive FIR filtering
+- State vector creator
+- Frame writing 
+- Metadata injector? Or make it an optional argument to src pads?
+- Scald kafka sink
+- Whitener - Zach + Becca (sgn-ts or sgn-ligo? Sort of depends… but if it is gstlal’s algorithm it needs lal maybe?)
+- Injection element
+- Dev /shm src
+- Segment gate
+- Ht gate
+- complex->real/imag parts
+
+
+### General
+
+- Check if things are linked
+- Think about logging? (progress report)
+
