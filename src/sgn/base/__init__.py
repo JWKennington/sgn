@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Callable, ClassVar, Optional
-import uuid
 
 
 @dataclass
@@ -27,6 +27,7 @@ class Frame:
 
     def __post_init__(self):
         self.metadata["__graph__"] = ""
+
 
 @dataclass
 class Base:
@@ -137,7 +138,6 @@ class SinkPad(Pad):
     input: Optional[Frame] = None
 
     def link(self, other: SourcePad) -> dict[SinkPad, set[SourcePad]]:
-
         """
         Only sink pads can be linked. A sink pad can be linked to only one
         source pad, but multiple sink pads may link to the same source pad.

@@ -51,7 +51,8 @@ class Pipeline:
 
     def link(self, link_map: dict[str, str]) -> Pipeline:
         """
-        link source pads to a sink pads with link_map = {sink_pad_name:src_pad_name, ...}
+        link source pads to a sink pads with
+        link_map = {sink_pad_name:src_pad_name, ...}
         """
         for sink_pad_name, source_pad_name in link_map.items():
             self.graph.update(
