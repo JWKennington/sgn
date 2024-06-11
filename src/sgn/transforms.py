@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import Frame, SourcePad, TransformElement
+from .base import Frame, SourcePad, TransformElement
 
 
 @dataclass

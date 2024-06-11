@@ -5,7 +5,7 @@ import graphlib
 from queue import Queue
 from typing import Optional
 
-from ..base import Base, Element, Pad, SinkElement, SinkPad, SourcePad
+from .base import Base, Element, Pad, SinkElement, SinkPad, SourcePad
 
 
 class Pipeline:
