@@ -25,6 +25,8 @@ class Frame:
     is_gap: bool = False
     metadata: dict = field(default_factory=dict)
 
+    def __post_init__(self):
+        self.metadata["__graph__"] = ""
 
 @dataclass
 class Base:
@@ -113,6 +115,7 @@ class SourcePad(Pad):
 
         """
         self.output = self.call(pad=self)
+        self.output.metadata["__graph__"] += "-> %s " % self.name
 
 
 @dataclass(eq=False, repr=False)
@@ -156,6 +159,7 @@ class SinkPad(Pad):
 
         """
         self.input = self.other.output
+        self.input.metadata["__graph__"] += "-> %s " % self.name
         self.call(self, self.input)
 
 
