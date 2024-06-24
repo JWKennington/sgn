@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from typing import Callable, Iterable, Optional, Union
 
 
 @dataclass
@@ -261,7 +261,7 @@ class SourceElement(UniqueID, ElementLike):
         made with "<self.name>:src:<source_pad_name>"
     """
 
-    source_pad_names: list[str] = field(default_factory=list)
+    source_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
         super().__post_init__()
@@ -298,8 +298,8 @@ class TransformElement(UniqueID, ElementLike):
         "<self.name>:sink:<sink_pad_name>"
     """
 
-    source_pad_names: list[str] = field(default_factory=list)
-    sink_pad_names: list[str] = field(default_factory=list)
+    source_pad_names: Iterable[str] = field(default_factory=list)
+    sink_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
         super().__post_init__()
@@ -338,7 +338,7 @@ class SinkElement(UniqueID, ElementLike):
         "<self.name>:sink:<sink_pad_name>"
     """
 
-    sink_pad_names: list[str] = field(default_factory=list)
+    sink_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
         super().__post_init__()
