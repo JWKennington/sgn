@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import graphlib
-from queue import Queue
 from typing import Optional, Union
 
 from .base import Element, ElementLike, Pad, SinkElement, SinkPad, SourcePad
@@ -65,27 +64,19 @@ class Pipeline:
 
         return self
 
-    async def __execute_graphs(self) -> None:
-        # FIXME can we remove the outer while true and somehow use asyncio to
-        # schedule these in succession?
+    async def _execute_graphs(self) -> None:
         while not all(sink.at_eos for sink in self.sinks.values()):
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
-            done_nodes: Queue[Pad] = Queue()  # blocks by default
             while ts.is_active():
-                for node in ts.get_ready():
-                    task = self.loop.create_task(node())  # type: ignore
-
-                    def callback(task, ts=ts, node=node, done_nodes=done_nodes):
-                        ts.done(node)
-                        done_nodes.put(node)
-
-                    task.add_done_callback(callback)
-                    await task
-                done_nodes.get()  # blocks until at least one thing is done
+                # concurrently execute the next batch of ready nodes
+                nodes = ts.get_ready()
+                tasks = [self.loop.create_task(node()) for node in nodes]  # type: ignore # noqa: E501
+                await asyncio.gather(*tasks)
+                ts.done(*nodes)
 
     def run(self) -> None:
         """
         Run the pipeline until End Of Stream (EOS)
         """
-        self.loop.run_until_complete(self.__execute_graphs())
+        self.loop.run_until_complete(self._execute_graphs())
