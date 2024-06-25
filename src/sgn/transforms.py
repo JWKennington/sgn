@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import  Frame, SourcePad, TransformElement
+from .base import Frame, SourcePad, TransformElement
 
 
 @dataclass
@@ -23,7 +23,8 @@ class FakeTransform(TransformElement):
         """
         return Frame(
             metadata={
-                "name": "%s -> %s" % (
+                "name": "%s -> %s"
+                % (
                     "+".join(f.metadata["name"] for f in self.inputs.values()),
                     pad.name,
                 )

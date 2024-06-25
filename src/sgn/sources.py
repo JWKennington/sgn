@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import Frame, SourceElement, SourcePad
+from .base import Frame, SourceElement, SourcePad
 
 
 @dataclass

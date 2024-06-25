@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..base import Frame, SinkElement, SinkPad
+from .base import Frame, SinkElement, SinkPad
 
 
 @dataclass
