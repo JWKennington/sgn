@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import graphlib
+import os.path
 from typing import Optional, Union
 
 from .base import Element, ElementLike, Pad, SinkElement, SinkPad, SourcePad
@@ -63,6 +64,34 @@ class Pipeline:
             self.graph.update(graph)
 
         return self
+
+    def visualize(self, path: str) -> None:
+        try:
+            import graphviz
+        except ImportError:
+            raise ImportError("graphviz needs to be installed to visualize pipelines")
+
+        # create the graph
+        dot = graphviz.Digraph()
+        for sink in self.sinks:
+            dot.node(sink)
+        for node, edges in self.graph.items():
+            if isinstance(node, SourcePad):
+                continue  # only process sink pads
+            sink_name, _, pad_name = node.name.split(":", 2)
+            for edge in edges:
+                source_name, _, _ = edge.name.split(":", 2)
+                dot.edge(source_name, sink_name, label=pad_name)
+
+        # write to disk
+        directory, filename = os.path.split(path)
+        name, extension = os.path.splitext(filename)
+        dot.render(
+            filename=name,
+            directory=directory,
+            format=extension.strip("."),
+            cleanup=True,
+        )
 
     async def _execute_graphs(self) -> None:
         while not all(sink.at_eos for sink in self.sinks.values()):
