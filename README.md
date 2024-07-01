@@ -4,7 +4,7 @@ This is an attempt to sketch a streaming framework to replace some good aspects 
 
 There are the following concepts defined
 
-- **Buffer**: An object designed to carry data through some execution graph
+- **Frame**: An object designed to carry data through some execution graph
 - **Source Pad**: An object that is designed to create a buffer when asked
 - **Sink Pad**: An object that will receive a buffer when asked
 - **Source Elements**: These manage the creation of buffers on one or more Pads with the assumption that they will be executed as part of a graph
