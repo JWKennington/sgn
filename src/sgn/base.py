@@ -26,7 +26,8 @@ class Frame:
     metadata: dict = field(default_factory=dict)
 
     def __post_init__(self):
-        self.metadata["__graph__"] = ""
+        if "__graph__" not in self.metadata:
+            self.metadata["__graph__"] = ""
 
 
 class _PostInitBase:
