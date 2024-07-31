@@ -6,3 +6,7 @@ site/
 __pycache__
 _version.py
 .coverage
+
+# IDE specific files
+.vscode/
+.idea/
