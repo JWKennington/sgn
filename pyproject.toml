@@ -11,8 +11,8 @@ write_to = "src/sgn/_version.py"
 
 [tool.coverage.paths]
 source = [
-  "src/sgn/",
-  "*/sgn/",
+    "src/sgn/",
+    "*/sgn/",
 ]
 
 [tool.coverage.report]
