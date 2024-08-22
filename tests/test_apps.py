@@ -2,6 +2,7 @@
 """
 import pathlib
 import tempfile
+from unittest import mock
 
 import pytest
 
@@ -75,7 +76,6 @@ class TestPipeline:
 
         p.run()
 
-    @pytest.mark.skipif(graphviz is None, reason="graphviz not installed")
     def test_vizualize(self):
         """Test to graph and output"""
         p = Pipeline()
@@ -105,3 +105,20 @@ class TestPipeline:
             assert not path.exists()
             p.visualize(path)
             assert path.exists()
+
+    def test_vizualize_err_no_graphviz(self):
+        """Test to graph and output
+        Mock the graphviz import to raise ModuleNotFoundError by patching sys.modules
+        """
+        p = Pipeline()
+        p.insert(
+            FakeSrc(
+                name="src1",
+                source_pad_names=("H1",),
+                num_frames=3,
+            )
+        )
+
+        with mock.patch.dict("sys.modules", {"graphviz": None}):
+            with pytest.raises(ImportError):
+                p.visualize('test.svg')

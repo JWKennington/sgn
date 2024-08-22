@@ -4,8 +4,14 @@ include:
   - component: git.ligo.org/computing/gitlab/components/python/code-quality@~latest
   - component: git.ligo.org/computing/gitlab/components/python/test@~latest
     inputs:
+      install_extra: test
       python_versions:
         - "3.9"
         - "3.10"
         - "3.11"
         - "3.12"
+
+python_test:
+  before_script:
+    - apt-get update
+    - apt-get install -yqq graphviz
