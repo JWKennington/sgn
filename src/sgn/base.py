@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional, Union
+from typing import Callable, Iterable, Optional, Union, Any
 
 
 @dataclass
@@ -24,6 +24,7 @@ class Frame:
     EOS: bool = False
     is_gap: bool = False
     metadata: dict = field(default_factory=dict)
+    data: Any = None
 
     def __post_init__(self):
         if "__graph__" not in self.metadata:

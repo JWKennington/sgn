@@ -22,6 +22,7 @@ class TestFrame:
         assert not f.EOS
         assert not f.is_gap
         assert f.metadata == {'__graph__': ''}
+        assert f.data is None
 
 
 class TestPostInitBase:
