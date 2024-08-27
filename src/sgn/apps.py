@@ -1,3 +1,6 @@
+"""Pipeline class and related utilities to establish and execute a graph of element tasks
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,10 +12,15 @@ from .base import Element, ElementLike, Pad, SinkElement, SinkPad, SourcePad
 
 
 class Pipeline:
+    """A Pipeline is essentially a directed acyclic graph of tasks that process frames.
+    These tasks are grouped using Pads and Elements. The Pipeline class is responsible
+    for registering methods to produce source, transform and sink elements and to
+    assemble those elements in a directed acyclic graph. It also establishes an event loop
+    to execute the graph asynchronously.
+    """
+
     def __init__(self) -> None:
-        """
-        Class to establish and excecute a graph of elements that will process
-        frames.
+        """Class to establish and execute a graph of elements that will process frames.
 
         Registers methods to produce source, transform and sink elements and to
         assemble those elements in a directed acyclic graph.  Also establishes
@@ -24,22 +32,30 @@ class Pipeline:
         self.sinks: dict[str, SinkElement] = {}
 
     def insert(
-        self, *elements: Element, link_map: Optional[dict[str, str]] = None
+            self, *elements: Element, link_map: Optional[dict[str, str]] = None
     ) -> Pipeline:
-        """
-        Insert element(s) into the pipeline
+        """Insert element(s) into the pipeline
+
+        Args:
+            *elements:
+                Iterable[Element], the ordered elements to insert into the pipeline
+            link_map:
+                Optional[dict[str, str]], a mapping of source pad to sink pad names to link
+
+        Returns:
+            Pipeline, the pipeline with the elements inserted
         """
         for element in elements:
             assert isinstance(
                 element, ElementLike
             ), f"Element {element} is not an instance of a sgn.Element"
             assert (
-                element.name not in self._registry
+                    element.name not in self._registry
             ), f"Element name '{element.name}' is already in use in this pipeline"
             self._registry[element.name] = element
             for pad in element.pad_list:
                 assert (
-                    pad.name not in self._registry
+                        pad.name not in self._registry
                 ), f"Pad name '{pad.name}' is already in use in this pipeline"
                 self._registry[pad.name] = pad
             if isinstance(element, SinkElement):
@@ -66,6 +82,15 @@ class Pipeline:
         return self
 
     def visualize(self, path: str) -> None:
+        """Convert the pipeline to a graph using graphviz, then render into a visual file
+
+        Args:
+            path:
+                str, the relative or full path to the file to write the graph to
+
+        Returns:
+            None
+        """
         try:
             import graphviz
         except ImportError:
@@ -94,6 +119,11 @@ class Pipeline:
         )
 
     async def _execute_graphs(self) -> None:
+        """Async graph execution function
+
+        Returns:
+            None
+        """
         while not all(sink.at_eos for sink in self.sinks.values()):
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
@@ -105,7 +135,9 @@ class Pipeline:
                 ts.done(*nodes)
 
     def run(self) -> None:
-        """
-        Run the pipeline until End Of Stream (EOS)
+        """Run the pipeline until End Of Stream (EOS)
+
+        Returns:
+            None
         """
         self.loop.run_until_complete(self._execute_graphs())

@@ -1,3 +1,6 @@
+"""Base classes for building a graph of elements and pads
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -7,20 +10,16 @@ from typing import Callable, Iterable, Optional, Union, Any
 
 @dataclass
 class Frame:
+    """Generic class to hold the basic unit of data that flows through a graph
+
+    Args:
+        EOS:
+            bool, default False, Whether this frame indicates end of stream (EOS)
+        is_gap:
+            bool, default False, Whether this frame is marked as a gap
+        metadata:
+            dict, optional, Metadata associated with this frame.
     """
-    A generic class to hold the basic unit of data that flows through a graph
-
-    Parameters
-    ----------
-    EOS : bool, optional
-        Whether this frame indicates end of stream (EOS), default is false
-    is_gap : bool, optional
-        Whether this frame is marked as a gap, default is False.
-    metadata : dict, optional
-        Metadata associated with this frame.
-
-    """
-
     EOS: bool = False
     is_gap: bool = False
     metadata: dict = field(default_factory=dict)
@@ -32,57 +31,71 @@ class Frame:
 
 
 class _PostInitBase:
-    """
-    Used to resolve issues with the builtin object class with __post_init__
+    """Mixin class used to resolve issues with the builtin object class with __post_init__
     and using multiple inheritance. See https://stackoverflow.com/a/59987363/23231262.
     """
 
     def __post_init__(self):
-        # just intercept the __post_init__ calls so they
-        # aren't relayed to `object`
+        """Intercept the __post_init__ calls so they aren't relayed to `object`
+
+        Returns:
+            None
+        """
         pass
 
 
 @dataclass
 class UniqueID(_PostInitBase):
-    """
-    A generic class from which all classes that participate in an execution
-    graph should be derived.  It enforces a unique name and hashes based on that
+    """Generic class from which all classes that participate in an execution
+    graph should be derived. Enforces a unique name and hashes based on that
     name.
 
-    Parameters
-    ----------
-    name : str, optional
-        The unique name for this object, defaults to the objects unique
-        uuid4 hex string if not specified
-
+    Args:
+        name:
+            str, optional, The unique name for this object, defaults to the objects unique
+            uuid4 hex string if not specified
     """
-
     name: str = ""
     _id: str = field(init=False)
 
     def __post_init__(self):
+        """Handle setup of the UniqueID class, including the `._id` attribute
+
+        Returns:
+            None
+        """
         super().__post_init__()
         # give every element a truly unique identifier
         self._id = uuid.uuid4().hex
         if not self.name:
             self.name = self._id
 
-    # Note: we need the Base class to be hashable, so that it can be
-    # used as a key in a dictionary, but mutable dataclasses are not
-    # hashable by default, so we have to define our own hash function
-    # here.
     def __hash__(self) -> int:
+        """Compute the hash of the object based on the unique id
+
+        Notes:
+            Motivation:
+                we need the Base class to be hashable, so that it can be
+                used as a key in a dictionary, but mutable dataclasses are not
+                hashable by default, so we have to define our own hash function
+                here.
+            Stability:
+                As currently implemented, the hash of a UniqueID object will not be stable across
+                python sessions, and should therefore not be used for checksum purposes.
+
+        Returns:
+            int, hash of the object
+        """
         return hash(self._id)
 
     def __eq__(self, other) -> bool:
+        """Check if two objects are equal based on their unique id and types"""
         return hash(self) == hash(other)
 
 
 @dataclass(eq=False, repr=False)
 class PadLike:
-    """
-    Pads are 1:1 with graph nodes but source and sink pads must be grouped into
+    """Pads are 1:1 with graph nodes but source and sink pads must be grouped into
     elements in order to exchange data from sink->source.  source->sink
     exchanges happen between elements.
 
@@ -94,50 +107,55 @@ class PadLike:
     Developers should not subclass or use Pad directly. Instead use SourcePad
     or SinkPad.
 
-    Parameters
-    ----------
-    element : Element
-        The Element instance associated with this pad
-    call : Callable
-        The function that will be called during graph execution for this pad
-
+    Args:
+        element:
+            Element, The Element instance associated with this pad
+        call:
+            Callable, The function that will be called during graph execution for this pad
     """
-
     element: Element
     call: Callable
 
     async def __call__(self) -> None:
+        """The call method for a pad must be implemented by the element that the pad
+        belongs to.  This method will be called when the pad is called in the graph.
+
+        Returns:
+            None
+        """
         raise NotImplementedError
 
 
 @dataclass(eq=False, repr=False)
 class _SourcePadLike(PadLike):
+    """A pad that provides a data Frame when called.
+
+    Args:
+        element:
+            Element, The Element instance associated with this pad
+        call:
+            Callable, The function that will be called during graph execution for this pad
+        output:
+            Frame, optional, This attribute is set to be the output Frame when the pad is called.
     """
-    A pad that provides a data Frame when called.
-
-    Parameters
-    ----------
-    output : Frame, optional
-        This attribute is set to be the output Frame when the pad is called.
-
-    """
-
     output: Optional[Frame] = None
 
 
 @dataclass(eq=False, repr=False)
 class _SinkPadLike(PadLike):
-    """
-    A pad that receives a data Frame when called.  When linked, it returns
+    """A pad that receives a data Frame when called.  When linked, it returns
     a dictionary suitable for building a graph in graphlib.
 
-    Parameters
-    ----------
-    other: SourcePad, optional
-        This holds the source pad that is linked to this sink pad, default None
-    input: Frame, optional
-        This holds the Frame provided by the linked source pad. Generally it
-        gets set when this SinkPad is called, default None
+    Args:
+        element:
+            Element, The Element instance associated with this pad
+        call:
+            Callable, The function that will be called during graph execution for this pad
+        other:
+            SourcePad, optional, This holds the source pad that is linked to this sink pad, default None
+        input:
+            Frame, optional, This holds the Frame provided by the linked source pad. Generally it
+            gets set when this SinkPad is called, default None
     """
 
     other: Optional[SourcePad] = None
@@ -146,21 +164,25 @@ class _SinkPadLike(PadLike):
 
 @dataclass(eq=False, repr=False)
 class SourcePad(UniqueID, _SourcePadLike):
-    """
-    A pad that provides a data Frame when called.
+    """A pad that provides a data Frame when called.
 
-    Parameters
-    ----------
-    output : Frame, optional
-        This attribute is set to be the output Frame when the pad is called.
-
+    Args:
+        element:
+            Element, The Element instance associated with this pad
+        call:
+            Callable, The function that will be called during graph execution for this pad
+        name:
+            str, optional, The unique name for this object
+        output:
+            Frame, optional, This attribute is set to be the output Frame when the pad is called.
     """
 
     async def __call__(self) -> None:
-        """
-        When called, a source pad receives a Frame from the element that
+        """When called, a source pad receives a Frame from the element that
         the pad belongs to.
 
+        Returns:
+            None, updates the output attribute of the pad
         """
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
@@ -169,39 +191,55 @@ class SourcePad(UniqueID, _SourcePadLike):
 
 @dataclass(eq=False, repr=False)
 class SinkPad(UniqueID, _SinkPadLike):
-    """
-    A pad that receives a data Frame when called.  When linked, it returns
+    """A pad that receives a data Frame when called.  When linked, it returns
     a dictionary suitable for building a graph in graphlib.
 
-    Parameters
-    ----------
-    other: SourcePad, optional
-        This holds the source pad that is linked to this sink pad, default None
-    input: Frame, optional
-        This holds the Frame provided by the linked source pad. Generally it
-        gets set when this SinkPad is called, default None
+    Args:
+        element:
+            Element, The Element instance associated with this pad
+        call:
+            Callable, The function that will be called during graph execution for this pad, takes two arguments,
+            the pad and the frame
+        other:
+            SourcePad, optional, This holds the source pad that is linked to this sink pad, default None
+        input:
+            Frame, optional, This holds the Frame provided by the linked source pad. Generally it
+            gets set when this SinkPad is called, default None
+        name:
+            str, optional, The unique name for this object
     """
 
     def link(self, other: SourcePad) -> dict[SinkPad, set[SourcePad]]:
-        """
-        Only sink pads can be linked. A sink pad can be linked to only one
-        source pad, but multiple sink pads may link to the same source pad.
-        Returns a dictionary of dependencies suitable for adding to a graphlib
-        graph.
+        """Returns a dictionary of dependencies suitable for adding to a graphlib graph.
+
+        Args:
+            other:
+                SourcePad, The source pad to link to this sink pad
+
+        Notes:
+            Many-to-one (source, sink) Not Supported:
+                Only sink pads can be linked. A sink pad can be linked to only one
+                source pad, but multiple sink pads may link to the same source pad.
+
+        Returns:
+            dict[SinkPad, set[SourcePad]], a dictionary of dependencies suitable for adding to a graphlib graph
         """
         assert isinstance(other, SourcePad), "other is not an instance of SourcePad"
         self.other = other
         return {self: set((other,))}
 
     async def __call__(self) -> None:
-        """
-        When called, a sink pad gets a Frame from the linked source pad and
-        then calls the element's provided call function.  NOTE: pads must be
-        called in the correct order such that the upstream sources have new
-        information by the time call is invoked.  This should be done within a
-        directed acyclic graph such as those provided by the apps.Pipeline
-        class.
+        """When called, a sink pad gets a Frame from the linked source pad and
+        then calls the element's provided call function.
 
+        Notes:
+            Pad Call Order:
+                pads must be called in the correct order such that the upstream sources have new
+                information by the time call is invoked. This should be done within a directed
+                acyclic graph such as those provided by the apps.Pipeline class.
+
+        Returns:
+            None, updates the input attribute of the pad
         """
         assert isinstance(self.other, SourcePad), "Sink pad has not been linked"
         self.input = self.other.output
@@ -212,60 +250,77 @@ class SinkPad(UniqueID, _SinkPadLike):
 
 @dataclass(repr=False)
 class ElementLike(_PostInitBase):
-    """
-    A basic container to hold source and sink pads. The assmption is that this
+    """A basic container to hold source and sink pads. The assumption is that this
     will be a base class for code that actually does something. It should never
     be subclassed directly, instead subclass SourceElement, SinkElement or
     TransformElement
 
-    Parameters
-    ----------
-    source_pads: list, optional
-        The list of SourcePad objects. This must be given for SourceElements or
-        TransformElements
-    sink_pads: list, optional
-        The list of SinkPad objects. This must be given for SinkElements or
-        TransformElements
+    Args:
+        source_pads:
+            list, optional, The list of SourcePad objects. This must be given for SourceElements or
+            TransformElements
+        sink_pads:
+            list, optional, The list of SinkPad objects. This must be given for SinkElements or
+            TransformElements
     """
-
     source_pads: list[SourcePad] = field(default_factory=list)
     sink_pads: list[SinkPad] = field(default_factory=list)
     graph: dict[SourcePad, set[SinkPad]] = field(init=False)
 
     def __post_init__(self):
+        """Establish the graph attribute as an empty dictionary
+
+        Returns:
+            None
+        """
         super().__post_init__()
         self.graph = {}
 
     @property
     def source_pad_dict(self) -> dict[str, SourcePad]:
+        """Return a dictionary of source pads with the pad name as the key"""
         return {p.name: p for p in self.source_pads}
 
     @property
     def sink_pad_dict(self) -> dict[str, SinkPad]:
+        """Return a dictionary of sink pads with the pad name as the key"""
         return {p.name: p for p in self.sink_pads}
 
     @property
     def pad_list(self) -> list[Pad]:
+        """Return a list of all pads"""
         return self.source_pads + self.sink_pads
 
 
 @dataclass(repr=False)
 class SourceElement(UniqueID, ElementLike):
-    """
-    Initialize with a list of source pads. Every source pad is added to the
+    """Initialize with a list of source pads. Every source pad is added to the
     graph with no dependencies.
 
-    Parameters
-    ----------
-    source_pad_names : list, optional
-        Set the list of source pad names. These need to be unique for an
-        element but not for an application. The resulting full names will be
-        made with "<self.name>:src:<source_pad_name>"
+    Args:
+        name:
+            str, optional, The unique name for this object
+        source_pads:
+            list, optional, Set the list of source pads. These need to be unique for an
+            element but not for an application. The resulting full names will be
+            made with "<self.name>:src:<source_pad_name>"
+        sink_pads:
+            list, optional, Set the list of sink pads. These need to be unique for an element
+            but not for an application. The resulting full names will be made with
+            "<self.name>:sink:<sink_pad_name>"
+        source_pad_names:
+            list, optional, Set the list of source pad names. These need to be unique for an
+            element but not for an application. The resulting full names will be
+            made with "<self.name>:src:<source_pad_name>"
     """
-
     source_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
+        """Establish the source pads and graph attributes
+
+        Returns:
+            None
+        """
         super().__post_init__()
         self.source_pads = [
             SourcePad(name="%s:src:%s" % (self.name, n), element=self, call=self.new)
@@ -275,35 +330,49 @@ class SourceElement(UniqueID, ElementLike):
         self.graph.update({s: set() for s in self.source_pads})
 
     def new(self, pad: SourcePad) -> Frame:
-        """
-        New frames are created on "pad". Must be provided by subclass
+        """New frames are created on "pad". Must be provided by subclass
+
+        Args:
+            pad:
+                SourcePad, The source pad through which the frame is passed
+
+        Returns:
+            Frame, The new frame to be passed through the source pad
         """
         raise NotImplementedError
 
 
 @dataclass(repr=False)
 class TransformElement(UniqueID, ElementLike):
-    """
-    Both "source_pads" and "sink_pads" must exist.  All sink pads depend on all
+    """Both "source_pads" and "sink_pads" must exist.  All sink pads depend on all
     source pads in a transform element. If you don't want that to be true,
     write more than one transform element.
 
-    Parameters
-    ----------
-    source_pad_names : list, optional
-        Set the list of source pad names. These need to be unique for an
-        element but not for an application. The resulting full names will be
-        made with "<self.name>:src:<source_pad_name>"
-    sink_pad_names : list, optional
-        Set the list of sink pad names. These need to be unique for an element
-        but not for an application. The resulting full names will be made with
-        "<self.name>:sink:<sink_pad_name>"
+    Args:
+        name:
+            str, optional, The unique name for this object
+        source_pads:
+            list, optional, Set the list of source pads.
+        sink_pads:
+            list, optional, Set the list of sink pads.
+        source_pad_names:
+            list, optional, Set the list of source pad names. These need to be unique for an
+            element but not for an application. The resulting full names will be made
+            with "<self.name>:src:<source_pad_name>"
+        sink_pad_names:
+            list, optional, Set the list of sink pad names. These need to be unique for an element
+            but not for an application. The resulting full names will be made
+            with "<self.name>:sink:<sink_pad_name>"
     """
-
     source_pad_names: Iterable[str] = field(default_factory=list)
     sink_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
+        """Establish the source pads and sink pads and graph attributes
+
+        Returns:
+            None
+        """
         super().__post_init__()
         self.source_pads = [
             SourcePad(
@@ -321,28 +390,60 @@ class TransformElement(UniqueID, ElementLike):
         self.graph.update({s: set(self.sink_pads) for s in self.source_pads})
 
     def pull(self, pad: SourcePad, frame: Frame) -> None:
+        """Pull data from the input pads (source pads of upstream elements),
+        must be implemented by subclasses
+
+        Args:
+            pad:
+                SourcePad, The source pad from which the frame is pulled
+            frame:
+                Frame, The frame that is pulled from the source pad
+
+        Returns:
+            None
+        """
         raise NotImplementedError
 
     def transform(self, pad: SourcePad) -> Frame:
+        """The transform function must be provided by the subclass. It should take
+        the source pad as an argument and return a new frame.
+
+        Args:
+            pad:
+                SourcePad, The source pad that is providing the frame to be transformed
+
+        Returns:
+            Frame, The transformed frame
+        """
         raise NotImplementedError
 
 
 @dataclass
 class SinkElement(UniqueID, ElementLike):
-    """
-    "sink_pads" must exist but not "source_pads"
+    """Sink element represents a terminal node in a pipeline, that typically writes data
+    to disk, etc. Sink_pads must exist but not source_pads
 
-    Parameters
-    ----------
-    sink_pad_names : list, optional
-        Set the list of sink pad names. These need to be unique for an element
-        but not for an application. The resulting full names will be made with
-        "<self.name>:sink:<sink_pad_name>"
+    Args:
+        name:
+            str, optional, The unique name for this object
+        sink_pads:
+            list, optional, Set the list of sink pads. These need to be unique for an element
+            but not for an application. The resulting full names will be made with
+            "<self.name>:sink:<sink_pad_name>"
+        sink_pad_names:
+            list, optional, Set the list of sink pad names. These need to be unique for an element
+            but not for an application. The resulting full names will be made with
+            "<self.name>:sink:<sink_pad_name>"
     """
 
     sink_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
+        """Establish the sink pads and graph attributes
+
+        Returns:
+            None
+        """
         super().__post_init__()
         self.sink_pads = [
             SinkPad(name="%s:sink:%s" % (self.name, n), element=self, call=self.pull)
@@ -353,19 +454,41 @@ class SinkElement(UniqueID, ElementLike):
 
     @property
     def at_eos(self) -> bool:
-        """
-        If frames on any sink pads are End of Stream (EOS), then mark this
+        """If frames on any sink pads are End of Stream (EOS), then mark this
         whole element as EOS
+
+        Returns:
+            bool, True if any sink pad is at EOS, False otherwise
         """
         return any(self._at_eos.values())
 
     def mark_eos(self, pad: SinkPad) -> None:
-        """
-        Marks a sink pad as receiving the End of Stream (EOS).
+        """Marks a sink pad as receiving the End of Stream (EOS). The
+        EOS marker signals that no more frames will be received on this pad.
+
+        Args:
+            pad:
+                SinkPad, The sink pad that is receiving the
+
+        Returns:
+            None
         """
         self._at_eos[pad] = True
 
     def pull(self, pad: SinkPad, frame: Frame) -> None:
+        """Pull for a SinkElement represents the action of associating a frame with a particular input source pad
+        a frame. This function must be provided by the subclass, and is where any "final" behavior must occur, e.g.
+        writing to disk, etc.
+
+        Args:
+            pad:
+                SinkPad, The sink pad that is receiving the frame
+            frame:
+                Frame, The frame that is being received
+
+        Returns:
+            None
+        """
         raise NotImplementedError
 
 
