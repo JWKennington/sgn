@@ -10,6 +10,18 @@ include:
         - "3.10"
         - "3.11"
         - "3.12"
+  - component: git.ligo.org/computing/gitlab/components/sphinx/apidoc@~latest
+    inputs:
+      module_dir: "src/sgn"
+      sphinx_sourcedir: "docs"
+      requirements: "-r docs/requirements.txt"
+  - component: git.ligo.org/computing/gitlab/components/sphinx/build@~latest
+    inputs:
+      sphinx_sourcedir: "docs"
+      requirements: "-r docs/requirements.txt"
+  - component: git.ligo.org/computing/gitlab/components/sphinx/pages@~latest
+    inputs:
+      pages_when: "default"
 
 python_test:
   before_script:
