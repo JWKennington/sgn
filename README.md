@@ -1,74 +1,108 @@
-# sgn
+<!-- index.rst content start -->
+# SGN Documentation
 
-This is an attempt to sketch a streaming framework to replace some good aspects of gstlal.
+SGN is a lightweight Python library for creating and executing task graphs
+asynchronously for streaming data. With only builtin-dependencies, SGN is easy to install and use. 
+This page is for the base library `sgn`, but there is a family of libraries that extend the functionality of SGN,
+including:
 
-There are the following concepts defined
+- [`sgn-ts`](https://git.ligo.org/greg/sgn-ts): TimeSeries utilities for SGN
+- [`sgn-ligo`](https://git.ligo.org/greg/sgn-ligo): LSC specific utilities for SGN
+- [`sgn-try`](https://git.ligo.org/greg/sgn-try): Process monitoring and alerting utilities for SGN
 
-- **Frame**: An object designed to carry data through some execution graph
-- **Source Pad**: An object that is designed to create a buffer when asked
-- **Sink Pad**: An object that will receive a buffer when asked
-- **Source Elements**: These manage the creation of buffers on one or more Pads with the assumption that they will be executed as part of a graph
-- **Sink Elements**: These manage the consumption of buffers on one or more Pads with the assumption that they will be executed as part of a graph
-- **Transform Elements**: These manage the consumption of buffers that immediately result in the production of new buffers.
-- **Pipelines**: These manage the graph execution to pull buffers through the graph and potentially handle other events.
+## Installation
 
-## limitations
+To install SGN, simply run:
 
-NONE
-
-## Getting started
-
-Clone the repo and run
-
-```
-$ python tests/test_graph.py 
-buffer flow:  'src1:H1:src' -> 'H1trans1:H1:src' -> 'snk1:H1:sink'
-buffer flow:  'src1:L1:src' -> 'L1trans1:L1:src' -> 'snk1:L1:sink'
-buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
-buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
-buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
-buffer flow:  'src1:H1:src' -> 'H1trans1:H1:src' -> 'snk1:H1:sink'
-buffer flow:  'src1:L1:src' -> 'L1trans1:L1:src' -> 'snk1:L1:sink'
-buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
-buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
-buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
-buffer flow:  'src1:H1:src' -> 'H1trans1:H1:src' -> 'snk1:H1:sink'
-buffer flow:  'src1:L1:src' -> 'L1trans1:L1:src' -> 'snk1:L1:sink'
-buffer flow:  'src1:L1:src' -> 'L1trans2:L1:src' -> 'snk2:L1:sink'
-buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:V1:src' -> 'snk2:V1:sink'
-buffer flow:  'src2:V1:src'+'src2:K1:src' -> 'V1K1trans1:K1:src' -> 'snk2:K1:sink'
+```bash
+pip install sgn
 ```
 
-## TODO
+SGN has no dependencies outside of the Python standard library, so it should be easy to install on any
+system.
 
-### Elements
+## Quickstart
 
-- Frame reader with support for different channels on different source pads -  Zach (sgn-ligo)
-- Logical averager (I have no idea what that means)
-- Resampler
-- Transfer function. Will this be based on FFT? 
-- Demodulator - assigned today. Dave + Josh (sgn-ts)
-- Multiplier / divider Jo and Teddy (sgn-ts)
-- Adder / subtractor
-- Stateless function generator.  f(t) = … Kuba (sgn-ts)
-- Gate 
-- Coherence calculation
-- FIR filtering
-- Adaptive FIR filtering
-- State vector creator
-- Frame writing 
-- Metadata injector? Or make it an optional argument to src pads?
-- Scald kafka sink
-- Whitener - Zach + Becca (sgn-ts or sgn-ligo? Sort of depends… but if it is gstlal’s algorithm it needs lal maybe?)
-- Injection element
-- Dev /shm src
-- Segment gate
-- Ht gate
-- complex->real/imag parts
+To get started with SGN, you can create a simple task graph that represents
+a simple data processing pipeline with integers. Here's an example:
+
+```python
+from collections import deque
+from sgn import Pipeline, DequeSink, DequeSource, CallableTransform
 
 
-### General
+# Define a function to use in the pipeline
+def add_ten(frame):
+    return None if frame.data is None else frame.data + 10
 
-- Check if things are linked
-- Think about logging? (progress report)
 
+# Create source element
+src = DequeSource(
+    name="src1",
+    source_pad_names=["H1"],
+    deqs={"src1:src:H1": deque([1, 2, 3])},
+    limits=3
+)
+
+# Create a transform element using an arbitrary function
+trn1 = CallableTransform.from_callable(
+    name="t1",
+    sink_pad_names=["H1"],
+    callable=add_ten,
+    output_name="H1",
+)
+
+# Create the sink so we can access the data after running
+snk = DequeSink(
+    name="snk1",
+    sink_pad_names=("H1",),
+)
+
+# Create the Pipeline
+p = Pipeline()
+
+# Insert elements into pipeline and link them explicitly
+p.insert(src, trn1, snk, link_map={
+    "t1:sink:H1": "src1:src:H1",
+    "snk1:sink:H1": "t1:src:H1",
+})
+
+# Run the pipeline
+p.run()
+
+# Check the result of the sink queue to see outputs
+assert snk.deqs["snk1:sink:H1"] == deque([13, 12, 11])
+```
+
+The above example can be modified to use any data type, including json-friendly
+nested dictionaries, lists, and strings. The `CallableTransform` class can be used to
+create a transform element using any arbitrary function. The `DeqSource` and `DeqSink` classes
+are used to create source and sink elements that use `collections.deque` to store data.
+
+## General Concepts
+
+SGN is designed to be simple and easy to use. Here we outline the key concepts, but for more detail see the
+key concepts page in the documentation with link: concepts.rst
+In SGN there are a few concepts to understand:
+
+### Graph Construction
+
+- **Sources**: Sources are the starting point of a task graph. They produce data that can be consumed by
+  other tasks.
+
+- **Transforms**: Transforms are tasks that consume data from one or more sources, process it, and produce new data.
+
+- **Sinks**: Sinks are tasks that consume data from one or more sources and do something with it. This could be writing the data to a file, sending it over the network, or anything else.
+
+### Control Flow
+
+Using these concepts, you can create complex task graphs using SGN that process and move data in a variety of ways.
+The SGN library provides a simple API for creating and executing task graphs, with a few key types:
+
+- **Frame**: A frame is a unit of data that is passed between tasks in a task graph. Frames can contain any type of data, and can be passed between tasks in a task graph.
+
+- **Pad**: A pad is a connection point between two tasks in a task graph. Pads are used to pass frames between tasks, and can be used to connect tasks in a task graph. An edge is a connection between two pads in a task graph.
+
+- **Element**: An element is a task in a task graph. Elements can be sources, transforms, or sinks, and can be connected together to create a task graph.
+
+- **Pipeline**: A pipeline is a collection of elements that are connected together to form a task graph. Pipelines can be executed to process data, and can be used to create complex data processing workflows.

@@ -88,8 +88,6 @@ class Pipeline:
             path:
                 str, the relative or full path to the file to write the graph to
 
-        Returns:
-            None
         """
         try:
             import graphviz
@@ -121,8 +119,6 @@ class Pipeline:
     async def _execute_graphs(self) -> None:
         """Async graph execution function
 
-        Returns:
-            None
         """
         while not all(sink.at_eos for sink in self.sinks.values()):
             ts = graphlib.TopologicalSorter(self.graph)
@@ -137,7 +133,5 @@ class Pipeline:
     def run(self) -> None:
         """Run the pipeline until End Of Stream (EOS)
 
-        Returns:
-            None
         """
         self.loop.run_until_complete(self._execute_graphs())

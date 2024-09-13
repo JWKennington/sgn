@@ -38,8 +38,6 @@ class _PostInitBase:
     def __post_init__(self):
         """Intercept the __post_init__ calls so they aren't relayed to `object`
 
-        Returns:
-            None
         """
         pass
 
@@ -61,8 +59,6 @@ class UniqueID(_PostInitBase):
     def __post_init__(self):
         """Handle setup of the UniqueID class, including the `._id` attribute
 
-        Returns:
-            None
         """
         super().__post_init__()
         # give every element a truly unique identifier
@@ -120,8 +116,6 @@ class PadLike:
         """The call method for a pad must be implemented by the element that the pad
         belongs to.  This method will be called when the pad is called in the graph.
 
-        Returns:
-            None
         """
         raise NotImplementedError
 
@@ -180,9 +174,6 @@ class SourcePad(UniqueID, _SourcePadLike):
     async def __call__(self) -> None:
         """When called, a source pad receives a Frame from the element that
         the pad belongs to.
-
-        Returns:
-            None, updates the output attribute of the pad
         """
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
@@ -237,9 +228,6 @@ class SinkPad(UniqueID, _SinkPadLike):
                 pads must be called in the correct order such that the upstream sources have new
                 information by the time call is invoked. This should be done within a directed
                 acyclic graph such as those provided by the apps.Pipeline class.
-
-        Returns:
-            None, updates the input attribute of the pad
         """
         assert isinstance(self.other, SourcePad), "Sink pad has not been linked"
         self.input = self.other.output
@@ -270,8 +258,6 @@ class ElementLike(_PostInitBase):
     def __post_init__(self):
         """Establish the graph attribute as an empty dictionary
 
-        Returns:
-            None
         """
         super().__post_init__()
         self.graph = {}
@@ -318,8 +304,6 @@ class SourceElement(UniqueID, ElementLike):
     def __post_init__(self):
         """Establish the source pads and graph attributes
 
-        Returns:
-            None
         """
         super().__post_init__()
         self.source_pads = [
@@ -370,8 +354,6 @@ class TransformElement(UniqueID, ElementLike):
     def __post_init__(self):
         """Establish the source pads and sink pads and graph attributes
 
-        Returns:
-            None
         """
         super().__post_init__()
         self.source_pads = [
@@ -399,8 +381,6 @@ class TransformElement(UniqueID, ElementLike):
             frame:
                 Frame, The frame that is pulled from the source pad
 
-        Returns:
-            None
         """
         raise NotImplementedError
 
@@ -441,8 +421,6 @@ class SinkElement(UniqueID, ElementLike):
     def __post_init__(self):
         """Establish the sink pads and graph attributes
 
-        Returns:
-            None
         """
         super().__post_init__()
         self.sink_pads = [
@@ -451,6 +429,7 @@ class SinkElement(UniqueID, ElementLike):
         ]
         self._at_eos = {p: False for p in self.sink_pads}
         assert self.sink_pads and not self.source_pads
+        self.sink_pad_names_full = [p.name for p in self.sink_pads]
 
     @property
     def at_eos(self) -> bool:
@@ -460,6 +439,7 @@ class SinkElement(UniqueID, ElementLike):
         Returns:
             bool, True if any sink pad is at EOS, False otherwise
         """
+        # TODO generalize this to be able to choose any v. all EOS propagation
         return any(self._at_eos.values())
 
     def mark_eos(self, pad: SinkPad) -> None:
@@ -470,8 +450,6 @@ class SinkElement(UniqueID, ElementLike):
             pad:
                 SinkPad, The sink pad that is receiving the
 
-        Returns:
-            None
         """
         self._at_eos[pad] = True
 
@@ -486,8 +464,6 @@ class SinkElement(UniqueID, ElementLike):
             frame:
                 Frame, The frame that is being received
 
-        Returns:
-            None
         """
         raise NotImplementedError
 
