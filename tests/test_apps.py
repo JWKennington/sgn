@@ -2,14 +2,15 @@
 """
 import pathlib
 import tempfile
+from collections import deque
 from unittest import mock
 
 import pytest
 
 from sgn.apps import Pipeline
-from sgn.sinks import FakeSink
-from sgn.sources import FakeSrc
-from sgn.transforms import FakeTransform
+from sgn.sinks import DequeSink
+from sgn.sources import DequeSource
+from sgn.transforms import CallableTransform
 
 # Cross-compatibility with graphviz
 try:
@@ -32,8 +33,8 @@ class TestPipeline:
     def test_element_validation(self):
         """Test element validation"""
         p = Pipeline()
-        e1 = FakeSrc(name="src1", source_pad_names=("H1",), num_frames=3)
-        e2 = FakeSrc(name="src2", source_pad_names=("H1",), num_frames=3)
+        e1 = DequeSource(name="src1", source_pad_names=("H1",))
+        e2 = DequeSource(name="src2", source_pad_names=("H1",))
         # Bad don't do this only checking for state
         e2.source_pads[0].name = e1.source_pads[0].name
 
@@ -53,50 +54,59 @@ class TestPipeline:
     def test_run(self):
         """Test execute graphs"""
         p = Pipeline()
+        snk = DequeSink(
+            name="snk1",
+            sink_pad_names=("H1",),
+        )
         p.insert(
-            FakeSrc(
+            DequeSource(
                 name="src1",
                 source_pad_names=("H1",),
-                num_frames=3,
+                # TODO add key formatting helper
+                iters={"src1:src:H1": deque([1, 2, 3])},
             ),
-            FakeTransform(
-                name="trans1",
+            CallableTransform.from_callable(
+                name="t1",
                 sink_pad_names=("H1",),
-                source_pad_names=("H1",),
+                callable=lambda frame: None if frame.data is None else frame.data + 10,
+                output_name="H1",
             ),
-            FakeSink(
-                name="snk1",
-                sink_pad_names=("H1",),
-            ),
+            snk
+            ,
             link_map={
-                "trans1:sink:H1": "src1:src:H1",
-                "snk1:sink:H1": "trans1:src:H1",
+                "t1:sink:H1": "src1:src:H1",
+                "snk1:sink:H1": "t1:src:H1",
             },
         )
 
         p.run()
+        assert snk.deques["snk1:sink:H1"] == deque([13, 12, 11])
 
     def test_vizualize(self):
         """Test to graph and output"""
         p = Pipeline()
+        snk = DequeSink(
+            name="snk1",
+            sink_pad_names=("H1",),
+        )
         p.insert(
-            FakeSrc(
+            DequeSource(
                 name="src1",
                 source_pad_names=("H1",),
-                num_frames=3,
+                # TODO add key formatting helper
+                iters={"src1:src:H1": deque([1, 2, 3])},
             ),
-            FakeTransform(
-                name="trans1",
+            CallableTransform.from_callable(
+                name="t1",
                 sink_pad_names=("H1",),
-                source_pad_names=("H1",),
+                callable=lambda frame: None if frame.data is None else frame.data + 10,
+                output_name="H1",
             ),
-            FakeSink(
-                name="snk1",
-                sink_pad_names=("H1",),
-            ),
+            snk
+            ,
             link_map={
-                "trans1:sink:H1": "src1:src:H1",
-                "snk1:sink:H1": "trans1:src:H1",
+                "t1:sink:H1": "src1:src:H1",
+                "snk1:sink:H1": "t1:src:H1",
             },
         )
 
@@ -112,10 +122,9 @@ class TestPipeline:
         """
         p = Pipeline()
         p.insert(
-            FakeSrc(
+            DequeSource(
                 name="src1",
                 source_pad_names=("H1",),
-                num_frames=3,
             )
         )
 
