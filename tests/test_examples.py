@@ -21,6 +21,51 @@ class TestExamples:
                  link_map={"snk1:sink:H1": "src1:src:H1"})
         p.run()
 
+    def test_example_simple(self):
+        """Test the simple example."""
+        import functools
+        from sgn import Pipeline, CollectSink, IterSource, CallableTransform
+
+        # Define a function to use in the pipeline
+        def scale(frame, factor: float):
+            return None if frame.data is None else frame.data * factor
+
+        # Create source element
+        src = IterSource(
+            name="src1",
+            source_pad_names=["H1"],
+            iters={"src1:src:H1": [1, 2, 3]},
+        )
+
+        # Create a transform element using an arbitrary function
+        trn1 = CallableTransform.from_callable(
+            name="t1",
+            sink_pad_names=["H1"],
+            callable=functools.partial(scale, factor=10),
+            output_name="H1",
+        )
+
+        # Create the sink so we can access the data after running
+        snk = CollectSink(
+            name="snk1",
+            sink_pad_names=("H1",),
+        )
+
+        # Create the Pipeline
+        p = Pipeline()
+
+        # Insert elements into pipeline and link them explicitly
+        p.insert(src, trn1, snk, link_map={
+            "t1:sink:H1": "src1:src:H1",
+            "snk1:sink:H1": "t1:src:H1",
+        })
+
+        # Run the pipeline
+        p.run()
+
+        # Check the result of the sink queue to see outputs
+        assert list(snk.collects["snk1:sink:H1"]) == [10, 20, 30]
+
     def test_example_scalars(self):
         """Test the first example."""
         from sgn import Pipeline, DequeSink, DequeSource, CallableTransform

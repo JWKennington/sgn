@@ -3,16 +3,19 @@
    :start-after: <!-- index.rst content start -->
 
 
-Guides and Tutorials
---------------------
+Examples
+--------
 
 For more information on how to use SGN, see the following guides and tutorials:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Guides and Tutorials:
+   :caption: Examples:
 
-   concepts
+   examples/index
+   examples/trivial
+   examples/simple
+   examples/simple-json
 
 
 API Reference

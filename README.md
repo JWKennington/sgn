@@ -27,21 +27,17 @@ To get started with SGN, you can create a simple task graph that represents
 a simple data processing pipeline with integers. Here's an example:
 
 ```python
-from collections import deque
 from sgn import Pipeline, DequeSink, DequeSource, CallableTransform
-
 
 # Define a function to use in the pipeline
 def add_ten(frame):
     return None if frame.data is None else frame.data + 10
 
-
 # Create source element
 src = DequeSource(
     name="src1",
     source_pad_names=["H1"],
-    deqs={"src1:src:H1": deque([1, 2, 3])},
-    limits=3
+    iters={"src1:src:H1": [1, 2, 3]},
 )
 
 # Create a transform element using an arbitrary function
@@ -71,7 +67,7 @@ p.insert(src, trn1, snk, link_map={
 p.run()
 
 # Check the result of the sink queue to see outputs
-assert snk.deqs["snk1:sink:H1"] == deque([13, 12, 11])
+assert list(snk.deques["snk1:sink:H1"]) == [13, 12, 11]
 ```
 
 The above example can be modified to use any data type, including json-friendly
