@@ -49,6 +49,7 @@ class CollectSink(SinkElement):
             If the frame is empty, it is not added to the deque. The motivating principle is that "empty frames preserve the sink deque".
             An empty deque is equivalent (for our purposes) to a deque filled with "None" values, so we prevent the latter from being possible.
     """
+
     collects: dict[str, Collection[Any]] = None
     extract_data: bool = True
     collection_factory: callable = list
@@ -58,9 +59,14 @@ class CollectSink(SinkElement):
         super().__post_init__()
         # Setup the deque_map if not given
         if self.collects is None:
-            self.collects = {pad.name: self.collection_factory() for pad in self.sink_pads}
+            self.collects = {
+                pad.name: self.collection_factory() for pad in self.sink_pads
+            }
         else:
-            self.collects = {name: self.collection_factory(iterable) for name, iterable in self.collects.items()}
+            self.collects = {
+                name: self.collection_factory(iterable)
+                for name, iterable in self.collects.items()
+            }
 
         # Check that the deque_map has the correct number of deque s
         if not len(self.collects) == len(self.sink_pads):
@@ -69,7 +75,9 @@ class CollectSink(SinkElement):
         # Check that the deque_map has the correct pad names
         for pad_name in self.collects:
             if pad_name not in self.sink_pad_names_full:
-                raise ValueError(f"DequeSink has a iterable for a pad that does not exist, got: {pad_name}, options are: {self.sink_pad_names}")
+                raise ValueError(
+                    f"DequeSink has a iterable for a pad that does not exist, got: {pad_name}, options are: {self.sink_pad_names}"
+                )
 
     def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Pull a frame into the sink and add it to the deque for that pad
@@ -107,6 +115,7 @@ class DequeSink(CollectSink):
             If the frame is empty, it is not added to the deque. The motivating principle is that "empty frames preserve the sink deque".
             An empty deque is equivalent (for our purposes) to a deque filled with "None" values, so we prevent the latter from being possible.
     """
+
     collection_factory: callable = deque
 
     @property
