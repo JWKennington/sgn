@@ -15,6 +15,7 @@ class NullSource(SourceElement):
     """A source that does precisely nothing. It is useful for testing and debugging,
     and will always produce empty frames
     """
+
     frame_factory: callable = Frame
 
     def __post_init__(self):
@@ -51,6 +52,7 @@ class IterSource(SourceElement):
             where the key is the pad name and the value is the boolean. If a bool is given,
             the value is applied to all pads. If True, EOS is signaled when the iterator is empty.
     """
+
     iters: dict[str, Iterable[Any]] = None
     eos_on_empty: Union[dict[str, bool], bool] = True
     frame_factory: callable = Frame
@@ -67,14 +69,21 @@ class IterSource(SourceElement):
     def _setup_iters(self):
         # Setup the iter_map if not given
         if self.iters is None:
-            self.iters = {pad.name: self._coerce_iterator([]) for pad in self.source_pads}
+            self.iters = {
+                pad.name: self._coerce_iterator([]) for pad in self.source_pads
+            }
         else:
-            self.iters = {name: self._coerce_iterator(iterable) for name, iterable in self.iters.items()}
+            self.iters = {
+                name: self._coerce_iterator(iterable)
+                for name, iterable in self.iters.items()
+            }
 
     def _setup_eos_on_empty(self):
         # Setup the limits if not given
         if isinstance(self.eos_on_empty, bool):
-            self.eos_on_empty = {pad.name: self.eos_on_empty for pad in self.source_pads}
+            self.eos_on_empty = {
+                pad.name: self.eos_on_empty for pad in self.source_pads
+            }
 
     def _validate_iters(self):
         # Check that the deque_map has the correct number of deque s
@@ -84,8 +93,10 @@ class IterSource(SourceElement):
         # Check that the deque_map has the correct pad names
         for pad_name in self.iters:
             if pad_name not in [pad.name for pad in self.source_pads]:
-                raise ValueError(f"DequeSource has a deque  for a pad that does not exist, got: {pad_name}, "
-                                 f"options are: {[pad.name for pad in self.source_pads]}")
+                raise ValueError(
+                    f"DequeSource has a deque  for a pad that does not exist, got: {pad_name}, "
+                    f"options are: {[pad.name for pad in self.source_pads]}"
+                )
 
     def _validate_eos_on_empty(self):
         # Check that the limits has the correct number of limits
@@ -95,8 +106,10 @@ class IterSource(SourceElement):
         # Check that the limits has the correct pad names
         for pad_name in self.eos_on_empty:
             if pad_name not in [pad.name for pad in self.source_pads]:
-                raise ValueError(f"DequeSource has a eos on empty for a pad that does not exist, "
-                                 f"got: {pad_name}, options are: {self.source_pad_names}")
+                raise ValueError(
+                    f"DequeSource has a eos on empty for a pad that does not exist, "
+                    f"got: {pad_name}, options are: {self.source_pad_names}"
+                )
 
     def _coerce_iterator(self, iterable):
         """Coerce the iterable to an iterator if it is not already one.
@@ -163,10 +176,7 @@ class IterSource(SourceElement):
         data = self._get_value(pad_iter)
 
         # Return the frame
-        return self.frame_factory(
-            EOS=data is None and pad_eos_on_empty,
-            data=data
-        )
+        return self.frame_factory(EOS=data is None and pad_eos_on_empty, data=data)
 
 
 @dataclass

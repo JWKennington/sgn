@@ -32,7 +32,7 @@ class Pipeline:
         self.sinks: dict[str, SinkElement] = {}
 
     def insert(
-            self, *elements: Element, link_map: Optional[dict[str, str]] = None
+        self, *elements: Element, link_map: Optional[dict[str, str]] = None
     ) -> Pipeline:
         """Insert element(s) into the pipeline
 
@@ -50,12 +50,12 @@ class Pipeline:
                 element, ElementLike
             ), f"Element {element} is not an instance of a sgn.Element"
             assert (
-                    element.name not in self._registry
+                element.name not in self._registry
             ), f"Element name '{element.name}' is already in use in this pipeline"
             self._registry[element.name] = element
             for pad in element.pad_list:
                 assert (
-                        pad.name not in self._registry
+                    pad.name not in self._registry
                 ), f"Pad name '{pad.name}' is already in use in this pipeline"
                 self._registry[pad.name] = pad
             if isinstance(element, SinkElement):
@@ -117,9 +117,7 @@ class Pipeline:
         )
 
     async def _execute_graphs(self) -> None:
-        """Async graph execution function
-
-        """
+        """Async graph execution function"""
         while not all(sink.at_eos for sink in self.sinks.values()):
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
@@ -131,7 +129,5 @@ class Pipeline:
                 ts.done(*nodes)
 
     def run(self) -> None:
-        """Run the pipeline until End Of Stream (EOS)
-
-        """
+        """Run the pipeline until End Of Stream (EOS)"""
         self.loop.run_until_complete(self._execute_graphs())

@@ -20,6 +20,7 @@ class Frame:
         metadata:
             dict, optional, Metadata associated with this frame.
     """
+
     EOS: bool = False
     is_gap: bool = False
     metadata: dict = field(default_factory=dict)
@@ -36,9 +37,7 @@ class _PostInitBase:
     """
 
     def __post_init__(self):
-        """Intercept the __post_init__ calls so they aren't relayed to `object`
-
-        """
+        """Intercept the __post_init__ calls so they aren't relayed to `object`"""
         pass
 
 
@@ -53,13 +52,12 @@ class UniqueID(_PostInitBase):
             str, optional, The unique name for this object, defaults to the objects unique
             uuid4 hex string if not specified
     """
+
     name: str = ""
     _id: str = field(init=False)
 
     def __post_init__(self):
-        """Handle setup of the UniqueID class, including the `._id` attribute
-
-        """
+        """Handle setup of the UniqueID class, including the `._id` attribute"""
         super().__post_init__()
         # give every element a truly unique identifier
         self._id = uuid.uuid4().hex
@@ -109,6 +107,7 @@ class PadLike:
         call:
             Callable, The function that will be called during graph execution for this pad
     """
+
     element: Element
     call: Callable
 
@@ -132,6 +131,7 @@ class _SourcePadLike(PadLike):
         output:
             Frame, optional, This attribute is set to be the output Frame when the pad is called.
     """
+
     output: Optional[Frame] = None
 
 
@@ -251,14 +251,13 @@ class ElementLike(_PostInitBase):
             list, optional, The list of SinkPad objects. This must be given for SinkElements or
             TransformElements
     """
+
     source_pads: list[SourcePad] = field(default_factory=list)
     sink_pads: list[SinkPad] = field(default_factory=list)
     graph: dict[SourcePad, set[SinkPad]] = field(init=False)
 
     def __post_init__(self):
-        """Establish the graph attribute as an empty dictionary
-
-        """
+        """Establish the graph attribute as an empty dictionary"""
         super().__post_init__()
         self.graph = {}
 
@@ -299,12 +298,11 @@ class SourceElement(UniqueID, ElementLike):
             element but not for an application. The resulting full names will be
             made with "<self.name>:src:<source_pad_name>"
     """
+
     source_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
-        """Establish the source pads and graph attributes
-
-        """
+        """Establish the source pads and graph attributes"""
         super().__post_init__()
         self.source_pads = [
             SourcePad(name="%s:src:%s" % (self.name, n), element=self, call=self.new)
@@ -348,13 +346,12 @@ class TransformElement(UniqueID, ElementLike):
             but not for an application. The resulting full names will be made
             with "<self.name>:sink:<sink_pad_name>"
     """
+
     source_pad_names: Iterable[str] = field(default_factory=list)
     sink_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
-        """Establish the source pads and sink pads and graph attributes
-
-        """
+        """Establish the source pads and sink pads and graph attributes"""
         super().__post_init__()
         self.source_pads = [
             SourcePad(
@@ -419,9 +416,7 @@ class SinkElement(UniqueID, ElementLike):
     sink_pad_names: Iterable[str] = field(default_factory=list)
 
     def __post_init__(self):
-        """Establish the sink pads and graph attributes
-
-        """
+        """Establish the sink pads and graph attributes"""
         super().__post_init__()
         self.sink_pads = [
             SinkPad(name="%s:sink:%s" % (self.name, n), element=self, call=self.pull)

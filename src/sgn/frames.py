@@ -15,4 +15,5 @@ class IterFrame(Frame):
         data:
             Iterable, the data to store in the frame
     """
+
     data: Iterable[Any] = None
