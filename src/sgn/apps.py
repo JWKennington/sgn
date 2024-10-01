@@ -1,4 +1,5 @@
-"""Pipeline class and related utilities to establish and execute a graph of element tasks
+"""Pipeline class and related utilities to establish and execute a graph of
+element tasks
 """
 
 from __future__ import annotations
@@ -12,15 +13,16 @@ from .base import Element, ElementLike, Pad, SinkElement, SinkPad, SourcePad
 
 
 class Pipeline:
-    """A Pipeline is essentially a directed acyclic graph of tasks that process frames.
-    These tasks are grouped using Pads and Elements. The Pipeline class is responsible
-    for registering methods to produce source, transform and sink elements and to
-    assemble those elements in a directed acyclic graph. It also establishes an event loop
-    to execute the graph asynchronously.
+    """A Pipeline is essentially a directed acyclic graph of tasks that process
+    frames. These tasks are grouped using Pads and Elements. The Pipeline class
+    is responsible for registering methods to produce source, transform and
+    sink elements and to assemble those elements in a directed acyclic graph.
+    It also establishes an event loop to execute the graph asynchronously.
     """
 
     def __init__(self) -> None:
-        """Class to establish and execute a graph of elements that will process frames.
+        """Class to establish and execute a graph of elements that will process
+        frames.
 
         Registers methods to produce source, transform and sink elements and to
         assemble those elements in a directed acyclic graph.  Also establishes
@@ -38,9 +40,11 @@ class Pipeline:
 
         Args:
             *elements:
-                Iterable[Element], the ordered elements to insert into the pipeline
+                Iterable[Element], the ordered elements to insert into the
+                pipeline
             link_map:
-                Optional[dict[str, str]], a mapping of source pad to sink pad names to link
+                Optional[dict[str, str]], a mapping of source pad to sink pad
+                names to link
 
         Returns:
             Pipeline, the pipeline with the elements inserted
@@ -77,16 +81,18 @@ class Pipeline:
             assert isinstance(source_pad, SourcePad)
 
             graph = sink_pad.link(source_pad)
-            self.graph.update(graph)
+            self.graph.update(graph)  # type: ignore
 
         return self
 
     def visualize(self, path: str) -> None:
-        """Convert the pipeline to a graph using graphviz, then render into a visual file
+        """Convert the pipeline to a graph using graphviz, then render into a
+        visual file
 
         Args:
             path:
-                str, the relative or full path to the file to write the graph to
+                str, the relative or full path to the file to write the graph
+                to
 
         """
         try:

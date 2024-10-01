@@ -8,8 +8,8 @@ except ImportError:
 
 # Import flattening
 from sgn.apps import Pipeline
-from sgn.base import SourcePad, SinkPad, TransformElement, SourceElement, SinkElement
+from sgn.base import SinkElement, SinkPad, SourceElement, SourcePad, TransformElement
 from sgn.frames import Frame, IterFrame
-from sgn.sinks import NullSink, CollectSink, DequeSink
-from sgn.sources import NullSource, IterSource, DequeSource
+from sgn.sinks import CollectSink, DequeSink, NullSink
+from sgn.sources import DequeSource, IterSource, NullSource
 from sgn.transforms import CallableTransform

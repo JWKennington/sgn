@@ -1,5 +1,6 @@
 """Sphinx configuration
 """
+
 import dataclasses
 import inspect
 import operator
@@ -7,7 +8,7 @@ import os
 import sys
 import traceback
 
-sys.path.insert(0, os.path.abspath('../src/'))
+sys.path.insert(0, os.path.abspath("../src/"))
 
 project = "SGN"
 author = "Chad Hanna, Patrick Godwin, Jameson Rollins, James Kennington"
@@ -16,10 +17,10 @@ _repo_root_url = "https://git.ligo.org/greg/sgn"
 
 extensions = [
     "sphinx.ext.autodoc",
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.linkcode',
-    'myst_parser',
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.linkcode",
+    "myst_parser",
 ]
 
 html_theme = "furo"
@@ -91,7 +92,7 @@ def linkcode_resolve(domain, info) -> str:
     if not fn:
         return
 
-    fn = os.path.relpath(fn, start=os.path.dirname(__import__('sgn').__file__))
+    fn = os.path.relpath(fn, start=os.path.dirname(__import__("sgn").__file__))
 
     # Try to get line number
     try:

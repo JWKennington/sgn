@@ -1,8 +1,8 @@
 """Frame classes for the SGN framework.
 """
 
-from dataclasses import dataclass
-from typing import Iterable, Any
+from dataclasses import dataclass, field
+from typing import Any, Iterable
 
 from sgn.base import Frame
 
@@ -16,4 +16,4 @@ class IterFrame(Frame):
             Iterable, the data to store in the frame
     """
 
-    data: Iterable[Any] = None
+    data: Iterable[Any] = field(default_factory=list)

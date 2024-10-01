@@ -1,22 +1,25 @@
 """Source elements for generating data streams.
 
-New classes need not be subclassed from DequeSource, but should at least be ultimately a subclass of SourceElement.
+New classes need not be subclassed from DequeSource, but should at least be
+ultimately a subclass of SourceElement.
 """
+
+from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Union, Iterator, Generator, Iterable, Any
+from typing import Any, Callable, Generator, Iterable, Iterator, Optional, Union
 
 from .base import Frame, SourceElement, SourcePad
 
 
 @dataclass
 class NullSource(SourceElement):
-    """A source that does precisely nothing. It is useful for testing and debugging,
-    and will always produce empty frames
+    """A source that does precisely nothing. It is useful for testing and
+    debugging, and will always produce empty frames
     """
 
-    frame_factory: callable = Frame
+    frame_factory: Callable = Frame
 
     def __post_init__(self):
         super().__post_init__()
@@ -38,24 +41,25 @@ class NullSource(SourceElement):
 
 @dataclass
 class IterSource(SourceElement):
-    """A source element that has one iterable per source pad. The
-    end of stream is controlled by setting an optional limit on the number of
-    times a deque can be empty before EOS is signaled.
+    """A source element that has one iterable per source pad. The end of stream
+    is controlled by setting an optional limit on the number of times a deque
+    can be empty before EOS is signaled.
 
     Args:
         iters:
-            dict[str, Iterable[Any]], a mapping of source pads to iterables, where the key
-            is the pad name and the value is the Iterable. These will be coerced to
-            iterators, so they can be any iterable type.
+            dict[str, Iterable[Any]], a mapping of source pads to iterables,
+            where the key is the pad name and the value is the Iterable. These
+            will be coerced to iterators, so they can be any iterable type.
         eos_on_empty:
-            Union[dict[str, bool], bool], default True, a mapping of source pads to boolean values,
-            where the key is the pad name and the value is the boolean. If a bool is given,
-            the value is applied to all pads. If True, EOS is signaled when the iterator is empty.
+            Union[dict[str, bool], bool], default True, a mapping of source
+            pads to boolean values, where the key is the pad name and the value
+            is the boolean. If a bool is given, the value is applied to all
+            pads. If True, EOS is signaled when the iterator is empty.
     """
 
-    iters: dict[str, Iterable[Any]] = None
+    iters: Optional[dict[str, Iterable[Any]]] = None
     eos_on_empty: Union[dict[str, bool], bool] = True
-    frame_factory: callable = Frame
+    frame_factory: Callable = Frame
 
     def __post_init__(self):
         """Post init checks for the DequeSource element."""
@@ -94,8 +98,8 @@ class IterSource(SourceElement):
         for pad_name in self.iters:
             if pad_name not in [pad.name for pad in self.source_pads]:
                 raise ValueError(
-                    f"DequeSource has a deque  for a pad that does not exist, got: {pad_name}, "
-                    f"options are: {[pad.name for pad in self.source_pads]}"
+                    "DequeSource has a deque for a pad that does not exist, "
+                    f"got: {pad_name}, options are: {self.source_pad_names}"
                 )
 
     def _validate_eos_on_empty(self):
@@ -144,8 +148,8 @@ class IterSource(SourceElement):
 
     def update(self, pad: SourcePad):
         """Update the iterator for the pad. This is a no-op for IterSource.
-        For subclasses that need to update the iterator, this method should be overridden.
-        Examples include reading from a file or network stream.
+        For subclasses that need to update the iterator, this method should be
+        overridden. Examples include reading from a file or network stream.
 
         Args:
             pad:
@@ -169,6 +173,8 @@ class IterSource(SourceElement):
         self.update(pad=pad)
 
         # Get the pad iterator
+        assert isinstance(self.iters, dict)
+        assert isinstance(self.eos_on_empty, dict)
         pad_iter = self.iters[pad.name]
         pad_eos_on_empty = self.eos_on_empty[pad.name]
 
@@ -181,18 +187,19 @@ class IterSource(SourceElement):
 
 @dataclass
 class DequeSource(IterSource):
-    """A source element that has one double-ended-queue (deque ) per source pad. The
-    end of stream is controlled by setting an optional limit on the number of
-    times a deque can be empty before EOS is signaled.
+    """A source element that has one double-ended-queue (deque ) per source
+    pad. The end of stream is controlled by setting an optional limit on the
+    number of times a deque can be empty before EOS is signaled.
 
     Args:
         iters:
-            dict[str, deque ], a mapping of source pads to deque s, where the key
-            is the pad name and the value is the deque
+            dict[str, deque ], a mapping of source pads to deque s, where the
+            key is the pad name and the value is the deque
         eos_on_empty:
-            Union[dict[str, bool], bool], default True, a mapping of source pads to boolean values,
-            where the key is the pad name and the value is the boolean. If a bool is given,
-            the value is applied to all pads. If True, EOS is signaled when the deque is empty.
+            Union[dict[str, bool], bool], default True, a mapping of source
+            pads to boolean values, where the key is the pad name and the value
+            is the boolean. If a bool is given, the value is applied to all
+            pads. If True, EOS is signaled when the deque is empty.
     """
 
     def _coerce_iterator(self, iterable):
@@ -223,6 +230,7 @@ class DequeSource(IterSource):
             return None
 
     @property
-    def deques(self) -> dict[str, deque]:
+    def deques(self) -> dict[str, Iterable]:
         """Get the iters property with more explicit alias"""
+        assert isinstance(self.iters, dict)
         return self.iters
