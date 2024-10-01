@@ -1,8 +1,10 @@
 """Transforms elements and related utilities for the SGN framework
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Optional
 
 from sgn.base import Frame, SourcePad, TransformElement
 
@@ -32,24 +34,27 @@ class InputPull(TransformElement):
 
 @dataclass
 class CallableTransform(InputPull):
-    """A transform element that takes a mapping of {(input, combinations) -> callable}, each of which
-    is mapped to a unique output pad.
+    """A transform element that takes a mapping of {(input, combinations) ->
+    callable}, each of which is mapped to a unique output pad.
 
     Args:
         callmap:
-            dict[tuple[str, ...], Callable], a mapping of input combinations to callables
+            dict[tuple[str, ...], Callable], a mapping of input combinations to
+            callables
         namemap:
-            dict[tuple[str, ...], str], a mapping of input combinations to output pad names
+            dict[tuple[str, ...], str], a mapping of input combinations to
+            output pad names
     """
 
-    callmap: dict[tuple[str, ...], Callable] = None
-    namemap: dict[tuple[str, ...], str] = None
+    callmap: Optional[dict[tuple[str, ...], Callable]] = None
+    namemap: Optional[dict[tuple[str, ...], str]] = None
 
     def __post_init__(self):
         """Setup callable mappings and name associated source pads."""
         if self.source_pads or self.source_pad_names:
             raise ValueError(
-                "CallableTransform does not accept source_pads or source_pad_names, they are inferred from callmap and namemap"
+                "CallableTransform does not accept source_pads or "
+                "source_pad_names, they are inferred from callmap and namemap"
             )
 
         # Setup callable maps
@@ -92,7 +97,8 @@ class CallableTransform(InputPull):
         # Check that callmap and namemap have same set of keys
         if set(self.callmap.keys()) != set(self.namemap.keys()):
             raise ValueError(
-                f"callmap and namemap must have the same set of keys, got {set(self.callmap.keys())} and {set(self.namemap.keys())}"
+                "callmap and namemap must have the same set of keys, "
+                f"got {set(self.callmap.keys())} and {set(self.namemap.keys())}"
             )
 
         self._namemap_lookup = {
@@ -119,6 +125,7 @@ class CallableTransform(InputPull):
         input_keys = self._namemap_lookup[pad.name]
 
         # Get callable
+        assert isinstance(self.callmap, dict)
         func = self.callmap[input_keys]
 
         # Get inputs
@@ -141,7 +148,8 @@ class CallableTransform(InputPull):
         sink_pad_names: list[str],
         combos: Iterable[tuple[tuple[str, ...], Callable, str]],
     ):
-        """Create a CallableTransform from a list of combinations where each combination is
+        """Create a CallableTransform from a list of combinations where each
+        combination is
 
             (input_keys, func, output_name)
 
@@ -151,8 +159,10 @@ class CallableTransform(InputPull):
             sink_pad_names:
                 list[str], the names of the sink pads (input pads)
             combos:
-                Iterable[tuple[tuple[str, ...], Callable, str]], a list of combinations to create the CallableTransform,
-                where each combination is a tuple of the input keys, the callable, and the output name
+                Iterable[tuple[tuple[str, ...], Callable, str]], a list of
+                combinations to create the CallableTransform, where each
+                combination is a tuple of the input keys, the callable, and the
+                output name
 
         Returns:
             CallableTransform, the created CallableTransform
@@ -168,9 +178,10 @@ class CallableTransform(InputPull):
         name: str,
         sink_pad_names: list[str],
         callable: Callable,
-        output_name: str = None,
+        output_name: Optional[str] = None,
     ):
-        """Create a CallableTransform from a single callable that will be applied to all inputs
+        """Create a CallableTransform from a single callable that will be
+        applied to all inputs
 
         Args:
             name:

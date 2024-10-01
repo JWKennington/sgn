@@ -1,3 +1,0 @@
-# Requirements for docs build
-furo
-myst-parser

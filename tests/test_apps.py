@@ -1,5 +1,6 @@
 """Unit tests for the apps module
 """
+
 import pathlib
 import tempfile
 from collections import deque
@@ -71,8 +72,7 @@ class TestPipeline:
                 callable=lambda frame: None if frame.data is None else frame.data + 10,
                 output_name="H1",
             ),
-            snk
-            ,
+            snk,
             link_map={
                 "t1:sink:H1": "src1:src:H1",
                 "snk1:sink:H1": "t1:src:H1",
@@ -102,8 +102,7 @@ class TestPipeline:
                 callable=lambda frame: None if frame.data is None else frame.data + 10,
                 output_name="H1",
             ),
-            snk
-            ,
+            snk,
             link_map={
                 "t1:sink:H1": "src1:src:H1",
                 "snk1:sink:H1": "t1:src:H1",
@@ -130,4 +129,4 @@ class TestPipeline:
 
         with mock.patch.dict("sys.modules", {"graphviz": None}):
             with pytest.raises(ImportError):
-                p.visualize('test.svg')
+                p.visualize("test.svg")

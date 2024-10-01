@@ -10,21 +10,22 @@ class TestExamples:
 
     def test_example_trivial(self):
         """Test a zeroth example"""
-        from sgn import Pipeline, NullSource, NullSink
+        from sgn import NullSink, NullSource, Pipeline
 
         # Create pipeline in one go
         p = Pipeline()
-        p.insert(NullSource(name='src1',
-                            source_pad_names=["H1"]),
-                 NullSink(name='snk1',
-                          sink_pad_names=["H1"]),
-                 link_map={"snk1:sink:H1": "src1:src:H1"})
+        p.insert(
+            NullSource(name="src1", source_pad_names=["H1"]),
+            NullSink(name="snk1", sink_pad_names=["H1"]),
+            link_map={"snk1:sink:H1": "src1:src:H1"},
+        )
         p.run()
 
     def test_example_simple(self):
         """Test the simple example."""
         import functools
-        from sgn import Pipeline, CollectSink, IterSource, CallableTransform
+
+        from sgn import CallableTransform, CollectSink, IterSource, Pipeline
 
         # Define a function to use in the pipeline
         def scale(frame, factor: float):
@@ -55,10 +56,15 @@ class TestExamples:
         p = Pipeline()
 
         # Insert elements into pipeline and link them explicitly
-        p.insert(src, trn1, snk, link_map={
-            "t1:sink:H1": "src1:src:H1",
-            "snk1:sink:H1": "t1:src:H1",
-        })
+        p.insert(
+            src,
+            trn1,
+            snk,
+            link_map={
+                "t1:sink:H1": "src1:src:H1",
+                "snk1:sink:H1": "t1:src:H1",
+            },
+        )
 
         # Run the pipeline
         p.run()
@@ -68,7 +74,7 @@ class TestExamples:
 
     def test_example_scalars(self):
         """Test the first example."""
-        from sgn import Pipeline, DequeSink, DequeSource, CallableTransform
+        from sgn import CallableTransform, DequeSink, DequeSource, Pipeline
 
         # Define a function to use in the pipeline
         def add_ten(frame):
@@ -99,10 +105,15 @@ class TestExamples:
         p = Pipeline()
 
         # Insert elements into pipeline and link them explicitly
-        p.insert(src, trn1, snk, link_map={
-            "t1:sink:H1": "src1:src:H1",
-            "snk1:sink:H1": "t1:src:H1",
-        })
+        p.insert(
+            src,
+            trn1,
+            snk,
+            link_map={
+                "t1:sink:H1": "src1:src:H1",
+                "snk1:sink:H1": "t1:src:H1",
+            },
+        )
 
         # Run the pipeline
         p.run()
@@ -120,28 +131,46 @@ class TestExamples:
         }
         """
         import datetime
+
         import numpy
-        from sgn import Pipeline, IterSource, CollectSink, CallableTransform, IterFrame
+
+        from sgn import CallableTransform, CollectSink, IterFrame, IterSource, Pipeline
 
         # Define the payloads
         payloads = [
             # Payload 1, one trusted one not
             [
-                {"time": datetime.datetime.strptime("2021-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S"),
-                 "buffer": numpy.array([1., 2., 3.]),
-                 "trusted": True},
-                {"time": datetime.datetime.strptime("2021-01-01T00:00:01", "%Y-%m-%dT%H:%M:%S"),
-                 "buffer": numpy.array([1., numpy.nan, 3.]),
-                 "trusted": False},
+                {
+                    "time": datetime.datetime.strptime(
+                        "2021-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S"
+                    ),
+                    "buffer": numpy.array([1.0, 2.0, 3.0]),
+                    "trusted": True,
+                },
+                {
+                    "time": datetime.datetime.strptime(
+                        "2021-01-01T00:00:01", "%Y-%m-%dT%H:%M:%S"
+                    ),
+                    "buffer": numpy.array([1.0, numpy.nan, 3.0]),
+                    "trusted": False,
+                },
             ],
             # Payload 2, both trusted
             [
-                {"time": datetime.datetime.strptime("2021-01-01T00:00:02", "%Y-%m-%dT%H:%M:%S"),
-                 "buffer": numpy.array([4., 5., 6.]),
-                 "trusted": True},
-                {"time": datetime.datetime.strptime("2021-01-01T00:00:03", "%Y-%m-%dT%H:%M:%S"),
-                 "buffer": numpy.array([7., 8., 9.]),
-                 "trusted": True},
+                {
+                    "time": datetime.datetime.strptime(
+                        "2021-01-01T00:00:02", "%Y-%m-%dT%H:%M:%S"
+                    ),
+                    "buffer": numpy.array([4.0, 5.0, 6.0]),
+                    "trusted": True,
+                },
+                {
+                    "time": datetime.datetime.strptime(
+                        "2021-01-01T00:00:03", "%Y-%m-%dT%H:%M:%S"
+                    ),
+                    "buffer": numpy.array([7.0, 8.0, 9.0]),
+                    "trusted": True,
+                },
             ],
         ]
 
@@ -184,10 +213,15 @@ class TestExamples:
         p = Pipeline()
 
         # Insert elements into pipeline and link them explicitly
-        p.insert(src, trn1, snk, link_map={
-            "t1:sink:H1": "src1:src:H1",
-            "snk1:sink:H1": "t1:src:H1",
-        })
+        p.insert(
+            src,
+            trn1,
+            snk,
+            link_map={
+                "t1:sink:H1": "src1:src:H1",
+                "snk1:sink:H1": "t1:src:H1",
+            },
+        )
 
         # Run the pipeline
         p.run()
@@ -197,21 +231,29 @@ class TestExamples:
         result = list(snk.collects["snk1:sink:H1"])
         expected = [
             [
-                {"time": datetime.datetime(2021, 1, 1, 0, 0, 0),
-                 "buffer": numpy.array([-1., 0., 1.]),
-                 "trusted": True},
-                {"time": datetime.datetime(2021, 1, 1, 0, 0, 1),
-                 "buffer": numpy.array([1., numpy.nan, 3.]),
-                 "trusted": False},
+                {
+                    "time": datetime.datetime(2021, 1, 1, 0, 0, 0),
+                    "buffer": numpy.array([-1.0, 0.0, 1.0]),
+                    "trusted": True,
+                },
+                {
+                    "time": datetime.datetime(2021, 1, 1, 0, 0, 1),
+                    "buffer": numpy.array([1.0, numpy.nan, 3.0]),
+                    "trusted": False,
+                },
             ],
             [
-                {"time": datetime.datetime(2021, 1, 1, 0, 0, 2),
-                 "buffer": numpy.array([-1., 0., 1.]),
-                 "trusted": True},
-                {"time": datetime.datetime(2021, 1, 1, 0, 0, 3),
-                 "buffer": numpy.array([-1., 0., 1.]),
-                 "trusted": True},
-            ]
+                {
+                    "time": datetime.datetime(2021, 1, 1, 0, 0, 2),
+                    "buffer": numpy.array([-1.0, 0.0, 1.0]),
+                    "trusted": True,
+                },
+                {
+                    "time": datetime.datetime(2021, 1, 1, 0, 0, 3),
+                    "buffer": numpy.array([-1.0, 0.0, 1.0]),
+                    "trusted": True,
+                },
+            ],
         ]
         for res, exp in zip(result, expected):
             for r_pack, e_pack in zip(res, exp):
