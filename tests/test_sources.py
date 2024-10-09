@@ -1,5 +1,4 @@
-"""Tests for sources module
-"""
+"""Tests for sources module."""
 
 from collections import deque
 from collections.abc import Iterator
@@ -11,16 +10,16 @@ from sgn.sources import DequeSource, IterSource, NullSource
 
 
 class TestNullSource:
-    """Tests for Null Source class"""
+    """Tests for Null Source class."""
 
     def test_init(self):
-        """Test the NullSource class constructor"""
+        """Test the NullSource class constructor."""
         src = NullSource(name="src1", source_pad_names=("O1", "O2"))
         assert src.name == "src1"
         assert [p.name for p in src.source_pads] == ["src1:src:O1", "src1:src:O2"]
 
     def test_new(self):
-        """Test the new method"""
+        """Test the new method."""
         src = NullSource(name="src1", source_pad_names=("O1", "O2"))
         frame = src.new(src.source_pads[0])
         assert isinstance(frame, Frame)
@@ -29,10 +28,10 @@ class TestNullSource:
 
 
 class TestIterSource:
-    """Test group for IterSource class"""
+    """Test group for IterSource class."""
 
     def test_init(self):
-        """Test the DeqSource class constructor"""
+        """Test the DeqSource class constructor."""
         src = IterSource(name="src1", source_pad_names=("O1", "O2"))
         assert isinstance(src, IterSource)
         assert [p.name for p in src.source_pads] == ["src1:src:O1", "src1:src:O2"]
@@ -41,7 +40,7 @@ class TestIterSource:
         assert isinstance(src.iters["src1:src:O2"], Iterator)
 
     def test_init_with_iter(self):
-        """Test the DeqSource class constructor"""
+        """Test the DeqSource class constructor."""
         src = IterSource(
             name="src1",
             source_pad_names=("O1", "O2"),
@@ -54,7 +53,7 @@ class TestIterSource:
         assert isinstance(src.iters["src1:src:O1"], Iterator)
 
     def test_init_err_deques_wrong_number(self):
-        """Test init with wrong number of deques"""
+        """Test init with wrong number of deques."""
         with pytest.raises(ValueError):
             IterSource(
                 name="src1",
@@ -67,7 +66,7 @@ class TestIterSource:
             )
 
     def test_init_err_deques_wrong_name(self):
-        """Test init with wrong pad name"""
+        """Test init with wrong pad name."""
         with pytest.raises(ValueError):
             IterSource(
                 name="src1",
@@ -76,7 +75,7 @@ class TestIterSource:
             )
 
     def test_init_err_eosoe_wrong_number(self):
-        """Test init with wrong number of limits"""
+        """Test init with wrong number of limits."""
         with pytest.raises(ValueError):
             IterSource(
                 name="src1",
@@ -89,7 +88,7 @@ class TestIterSource:
             )
 
     def test_init_err_eosoe_wrong_name(self):
-        """Test init with wrong pad name"""
+        """Test init with wrong pad name."""
         with pytest.raises(ValueError):
             IterSource(
                 name="src1",
@@ -98,7 +97,7 @@ class TestIterSource:
             )
 
     def test_new_empty(self):
-        """Test new data method with empty queue"""
+        """Test new data method with empty queue."""
         src = IterSource(name="src1", source_pad_names=("O1", "O2"), eos_on_empty=True)
 
         # First frame
@@ -109,10 +108,10 @@ class TestIterSource:
 
 
 class TestDeqSource:
-    """Test group for DeqSource class"""
+    """Test group for DeqSource class."""
 
     def test_init(self):
-        """Test the DeqSource class constructor"""
+        """Test the DeqSource class constructor."""
         src = DequeSource(name="src1", source_pad_names=("O1", "O2"))
         assert isinstance(src, DequeSource)
         assert [p.name for p in src.source_pads] == ["src1:src:O1", "src1:src:O2"]
@@ -120,7 +119,7 @@ class TestDeqSource:
         assert src.deques == {"src1:src:O1": deque(), "src1:src:O2": deque()}
 
     def test_new_simple(self):
-        """Test new with single item in queue"""
+        """Test new with single item in queue."""
         src = DequeSource(name="src1", source_pad_names=("O1", "O2"))
 
         # Add item to queue as data payload
@@ -134,8 +133,8 @@ class TestDeqSource:
         assert frame.data is None
 
     def test_dynamic_queue(self):
-        """Test new with the contents of queue changing between successive
-        iterations of the stream loop"""
+        """Test new with the contents of queue changing between successive iterations of
+        the stream loop."""
         src = DequeSource(
             name="src1", source_pad_names=("O1", "O2"), eos_on_empty=False
         )

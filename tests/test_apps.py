@@ -1,5 +1,4 @@
-"""Unit tests for the apps module
-"""
+"""Unit tests for the apps module."""
 
 import pathlib
 import tempfile
@@ -8,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from sgn import NullSink, NullSource
 from sgn.apps import Pipeline
 from sgn.sinks import DequeSink
 from sgn.sources import DequeSource
@@ -21,7 +21,7 @@ except ImportError:
 
 
 class TestPipeline:
-    """Test group for Pipeline class"""
+    """Test group for Pipeline class."""
 
     def test_init(self):
         """Test Pipeline.__init__"""
@@ -32,7 +32,7 @@ class TestPipeline:
         assert p.sinks == {}
 
     def test_element_validation(self):
-        """Test element validation"""
+        """Test element validation."""
         p = Pipeline()
         e1 = DequeSource(name="src1", source_pad_names=("H1",))
         e2 = DequeSource(name="src2", source_pad_names=("H1",))
@@ -53,7 +53,7 @@ class TestPipeline:
             p.insert(e2)
 
     def test_run(self):
-        """Test execute graphs"""
+        """Test execute graphs."""
         p = Pipeline()
         snk = DequeSink(
             name="snk1",
@@ -82,8 +82,115 @@ class TestPipeline:
         p.run()
         assert snk.deques["snk1:sink:H1"] == deque([13, 12, 11])
 
+
+class TestPipelineGraphviz:
+    """Test group for Pipeline class with graphviz."""
+
+    @pytest.fixture(autouse=True, scope="class")
+    def pipeline(self) -> Pipeline:
+        """Create sample pipeline for tests."""
+        p = Pipeline()
+        p.insert(
+            NullSource(
+                name="src1",
+                source_pad_names=("H1",),
+            ),
+            CallableTransform.from_callable(
+                name="t1",
+                sink_pad_names=["H1"],
+                callable=lambda frame: None,
+                output_name="H1",
+            ),
+            NullSink(
+                name="snk1",
+                sink_pad_names=("H1",),
+            ),
+            link_map={
+                "t1:sink:H1": "src1:src:H1",
+                "snk1:sink:H1": "t1:src:H1",
+            },
+        )
+        return p
+
+    def test_to_graph(self, pipeline):
+        """Test to graph."""
+        graph = pipeline.to_graph()
+        assert isinstance(graph, graphviz.Digraph)
+
+    def test_to_dot(self, pipeline):
+        """Test to dot."""
+        dot = pipeline.to_dot()
+        assert isinstance(dot, str)
+        assert dot.split("\n") == [
+            "digraph {",
+            '\t"snk1:sink:H1"',
+            '\t"src1:src:H1"',
+            '\t"t1:sink:H1"',
+            '\t"t1:src:H1"',
+            "\tsrc1:src:H1 -> t1:sink:H1",
+            "\tt1:src:H1 -> snk1:sink:H1",
+            "}",
+            "",
+        ]
+
+    def test_to_dot_intra(self, pipeline):
+        """Test to dot."""
+        dot = pipeline.to_dot(intra=True)
+        assert isinstance(dot, str)
+        assert dot.split("\n") == [
+            "digraph {",
+            '\t"snk1:inl:inl"',
+            '\t"snk1:sink:H1"',
+            '\t"src1:inl:inl"',
+            '\t"src1:src:H1"',
+            '\t"t1:inl:inl"',
+            '\t"t1:sink:H1"',
+            '\t"t1:src:H1"',
+            "\tsnk1:sink:H1 -> snk1:inl:inl",
+            "\tsrc1:inl:inl -> src1:src:H1",
+            "\tsrc1:src:H1 -> t1:sink:H1",
+            "\tt1:inl:inl -> t1:src:H1",
+            "\tt1:sink:H1 -> t1:inl:inl",
+            "\tt1:src:H1 -> snk1:sink:H1",
+            "}",
+            "",
+        ]
+
+    def test_to_dot_elements(self, pipeline):
+        """Test to dot."""
+        dot = pipeline.to_dot(pads=False)
+        assert isinstance(dot, str)
+        assert dot.split("\n") == [
+            "digraph {",
+            "\tsnk1",
+            "\tsrc1",
+            "\tt1",
+            "\tsrc1 -> t1",
+            "\tt1 -> snk1",
+            "}",
+            "",
+        ]
+
+    def test_to_dot_elements_intra(self, pipeline):
+        """Test to dot."""
+        dot = pipeline.to_dot(pads=False, intra=True)
+        assert isinstance(dot, str)
+        assert dot.split("\n") == [
+            "digraph {",
+            "\tsnk1",
+            "\tsrc1",
+            "\tt1",
+            "\tsnk1 -> snk1",
+            "\tsrc1 -> src1",
+            "\tsrc1 -> t1",
+            "\tt1 -> snk1",
+            "\tt1 -> t1",
+            "}",
+            "",
+        ]
+
     def test_vizualize(self):
-        """Test to graph and output"""
+        """Test to graph and output."""
         p = Pipeline()
         snk = DequeSink(
             name="snk1",
@@ -116,9 +223,8 @@ class TestPipeline:
             assert path.exists()
 
     def test_vizualize_err_no_graphviz(self):
-        """Test to graph and output
-        Mock the graphviz import to raise ModuleNotFoundError by patching sys.modules
-        """
+        """Test to graph and output Mock the graphviz import to raise
+        ModuleNotFoundError by patching sys.modules."""
         p = Pipeline()
         p.insert(
             DequeSource(

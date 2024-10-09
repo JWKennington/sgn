@@ -1,7 +1,7 @@
 """Source elements for generating data streams.
 
-New classes need not be subclassed from DequeSource, but should at least be
-ultimately a subclass of SourceElement.
+New classes need not be subclassed from DequeSource, but should at least be ultimately a
+subclass of SourceElement.
 """
 
 from __future__ import annotations
@@ -10,13 +10,14 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable, Generator, Iterable, Iterator, Optional, Union
 
-from .base import Frame, SourceElement, SourcePad
+from sgn.base import Frame, SourceElement, SourcePad
 
 
 @dataclass
 class NullSource(SourceElement):
-    """A source that does precisely nothing. It is useful for testing and
-    debugging, and will always produce empty frames
+    """A source that does precisely nothing.
+
+    It is useful for testing and debugging, and will always produce empty frames
     """
 
     frame_factory: Callable = Frame
@@ -25,9 +26,9 @@ class NullSource(SourceElement):
         super().__post_init__()
 
     def new(self, pad: SourcePad) -> Frame:
-        """New Frames are created on "pad" with an instance specific count and a
-        name derived from the pad name. EOS is set if we have surpassed the
-        requested number of Frames.
+        """New Frames are created on "pad" with an instance specific count and a name
+        derived from the pad name. EOS is set if we have surpassed the requested number
+        of Frames.
 
         Args:
             pad:
@@ -41,9 +42,9 @@ class NullSource(SourceElement):
 
 @dataclass
 class IterSource(SourceElement):
-    """A source element that has one iterable per source pad. The end of stream
-    is controlled by setting an optional limit on the number of times a deque
-    can be empty before EOS is signaled.
+    """A source element that has one iterable per source pad. The end of stream is
+    controlled by setting an optional limit on the number of times a deque can be empty
+    before EOS is signaled.
 
     Args:
         iters:
@@ -147,9 +148,9 @@ class IterSource(SourceElement):
             return None
 
     def update(self, pad: SourcePad):
-        """Update the iterator for the pad. This is a no-op for IterSource.
-        For subclasses that need to update the iterator, this method should be
-        overridden. Examples include reading from a file or network stream.
+        """Update the iterator for the pad. This is a no-op for IterSource. For
+        subclasses that need to update the iterator, this method should be overridden.
+        Examples include reading from a file or network stream.
 
         Args:
             pad:
@@ -158,9 +159,9 @@ class IterSource(SourceElement):
         pass
 
     def new(self, pad: SourcePad) -> Frame:
-        """New Frames are created on "pad" with an instance specific count and a
-        name derived from the pad name. EOS is set if we have surpassed the
-        requested number of Frames.
+        """New Frames are created on "pad" with an instance specific count and a name
+        derived from the pad name. EOS is set if we have surpassed the requested number
+        of Frames.
 
         Args:
             pad:
@@ -187,9 +188,9 @@ class IterSource(SourceElement):
 
 @dataclass
 class DequeSource(IterSource):
-    """A source element that has one double-ended-queue (deque ) per source
-    pad. The end of stream is controlled by setting an optional limit on the
-    number of times a deque can be empty before EOS is signaled.
+    """A source element that has one double-ended-queue (deque ) per source pad. The end
+    of stream is controlled by setting an optional limit on the number of times a deque
+    can be empty before EOS is signaled.
 
     Args:
         iters:
@@ -231,6 +232,6 @@ class DequeSource(IterSource):
 
     @property
     def deques(self) -> dict[str, Iterable]:
-        """Get the iters property with more explicit alias"""
+        """Get the iters property with more explicit alias."""
         assert isinstance(self.iters, dict)
         return self.iters

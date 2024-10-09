@@ -1,5 +1,4 @@
-"""Transforms elements and related utilities for the SGN framework
-"""
+"""Transforms elements and related utilities for the SGN framework."""
 
 from __future__ import annotations
 
@@ -11,9 +10,10 @@ from sgn.base import Frame, SourcePad, TransformElement
 
 @dataclass
 class InputPull(TransformElement):
-    """Input Pull mixin class for Transforms creates a dictionary of inputs
-    and a pull method to populate the dictionary. The transform method remains
-    abstract and must be implemented in the subclass.
+    """Input Pull mixin class for Transforms creates a dictionary of inputs and a pull
+    method to populate the dictionary.
+
+    The transform method remains abstract and must be implemented in the subclass.
     """
 
     def __post_init__(self):
@@ -34,8 +34,8 @@ class InputPull(TransformElement):
 
 @dataclass
 class CallableTransform(InputPull):
-    """A transform element that takes a mapping of {(input, combinations) ->
-    callable}, each of which is mapped to a unique output pad.
+    """A transform element that takes a mapping of {(input, combinations) -> callable},
+    each of which is mapped to a unique output pad.
 
     Args:
         callmap:
@@ -112,7 +112,7 @@ class CallableTransform(InputPull):
         super().__post_init__()
 
     def transform(self, pad: SourcePad) -> Frame:
-        """Apply the callable associated to the pad to the corresponding inputs
+        """Apply the callable associated to the pad to the corresponding inputs.
 
         Args:
             pad:
@@ -148,8 +148,8 @@ class CallableTransform(InputPull):
         sink_pad_names: list[str],
         combos: Iterable[tuple[tuple[str, ...], Callable, str]],
     ):
-        """Create a CallableTransform from a list of combinations where each
-        combination is
+        """Create a CallableTransform from a list of combinations where each combination
+        is.
 
             (input_keys, func, output_name)
 
@@ -180,8 +180,8 @@ class CallableTransform(InputPull):
         callable: Callable,
         output_name: Optional[str] = None,
     ):
-        """Create a CallableTransform from a single callable that will be
-        applied to all inputs
+        """Create a CallableTransform from a single callable that will be applied to all
+        inputs.
 
         Args:
             name:
