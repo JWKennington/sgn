@@ -1,7 +1,7 @@
 """Tests for end-to-end examples used in the docs.
 
-Each test here should be fully self contained, including imports,
-to ensure that the examples in the docs are correct and up-to-date.
+Each test here should be fully self contained, including imports, to ensure that the
+examples in the docs are correct and up-to-date.
 """
 
 
@@ -9,7 +9,7 @@ class TestExamples:
     """Test the examples in the docs."""
 
     def test_example_trivial(self):
-        """Test a zeroth example"""
+        """Test a zeroth example."""
         from sgn import NullSink, NullSource, Pipeline
 
         # Create pipeline in one go

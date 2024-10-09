@@ -36,8 +36,10 @@ def linkcode_resolve(domain, info) -> str:
 
     References:
         [1] LinkCode Extension: https://www.sphinx-doc.org/en/master/usage/extensions/linkcode.html
-        [2] scikit-learn linkcode_resolve: https://github.com/scikit-learn/scikit-learn/blob/f7026e575a494b47b50557932b5c3ce0688fdc72/doc/sphinxext/github_link.py
-        [3] Issue with DataClass attrs: https://stackoverflow.com/questions/77848299/operator-attrgetter-cannot-read-attributes-in-a-dataclass
+        [2] scikit-learn linkcode_resolve: https://github.com/scikit-learn/scikit-learn/blob/f7026e575a494b
+                                           47b50557932b5c3ce0688fdc72/doc/sphinxext/github_link.py
+        [3] Issue with DataClass attrs: https://stackoverflow.com/questions/77848299/operator-attrgetter-
+                                        cannot-read-attributes-in-a-dataclass
 
     Returns:
         str: URL to source code

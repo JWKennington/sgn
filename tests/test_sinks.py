@@ -1,5 +1,4 @@
-"""Test sinks module
-"""
+"""Test sinks module."""
 
 from collections import deque
 
@@ -10,10 +9,10 @@ from sgn.sinks import DequeSink
 
 
 class TestDeqSink:
-    """Test group for DeqSink class"""
+    """Test group for DeqSink class."""
 
     def test_init(self):
-        """Test the FakeSink class constructor"""
+        """Test the FakeSink class constructor."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"))
         assert isinstance(sink, DequeSink)
         assert [p.name for p in sink.sink_pads] == ["snk1:sink:I1", "snk1:sink:I2"]
@@ -21,7 +20,7 @@ class TestDeqSink:
         assert sink.extract_data
 
     def test_init_err_deques_wrong_number(self):
-        """Test init with wrong number of deques"""
+        """Test init with wrong number of deques."""
         with pytest.raises(ValueError):
             DequeSink(
                 name="snk1",
@@ -34,7 +33,7 @@ class TestDeqSink:
             )
 
     def test_init_err_deques_wrong_name(self):
-        """Test init with wrong pad name"""
+        """Test init with wrong pad name."""
         with pytest.raises(ValueError):
             DequeSink(
                 name="snk1",
@@ -43,35 +42,39 @@ class TestDeqSink:
             )
 
     def test_pull_simple(self):
-        """Test pull"""
+        """Test pull."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"))
         frame = Frame(data="data")
         sink.pull(sink.sink_pads[0], frame)
+        sink.internal(sink.internal_pad)
         assert sink.deques["snk1:sink:I1"][0] == "data"
 
     def test_pull_frame(self):
-        """Test pull"""
+        """Test pull."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"), extract_data=False)
         frame = Frame(data="data")
         sink.pull(sink.sink_pads[0], frame)
+        sink.internal(sink.internal_pad)
         assert sink.deques["snk1:sink:I1"][0] == frame
 
     def test_pull_frame_empty_preserves_deq(self):
-        """Test pull"""
+        """Test pull."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"), extract_data=False)
         assert len(sink.deques["snk1:sink:I1"]) == 0
 
         frame = Frame(data="data")
         sink.pull(sink.sink_pads[0], frame)
+        sink.internal(sink.internal_pad)
         assert len(sink.deques["snk1:sink:I1"]) == 1
         assert sink.deques["snk1:sink:I1"][0] == frame
 
         frame = Frame()
         sink.pull(sink.sink_pads[0], frame)
+        sink.internal(sink.internal_pad)
         assert len(sink.deques["snk1:sink:I1"]) == 1
 
     def test_pull_eos(self):
-        """Test pull"""
+        """Test pull."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"))
         frame = Frame(EOS=True)
         sink.pull(sink.sink_pads[0], frame)

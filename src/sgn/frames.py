@@ -1,5 +1,4 @@
-"""Frame classes for the SGN framework.
-"""
+"""Frame classes for the SGN framework."""
 
 from dataclasses import dataclass, field
 from typing import Any, Iterable

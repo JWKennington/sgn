@@ -20,6 +20,14 @@ omit = ["_version.py", "tests/*", "examples/*", "setup.py", "*/__init__.py"]
 
 [tool.isort]
 profile = "black"
+skip_glob = [
+    "docs/*",
+    "build/*",
+    "dist/*",
+    "examples/*",
+    "tests/*",
+    "*/__init__.py",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -27,3 +35,12 @@ exclude = [
     "build",
     "docs",
 ]
+
+[tool.docformatter]
+recursive = true
+in-place = true
+pre-summary-space = false
+wrap-summaries = 88
+wrap-descriptions = 88
+close-quotes-on-new-line = true
+force-wrap = false
