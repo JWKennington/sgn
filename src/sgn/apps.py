@@ -11,6 +11,7 @@ from typing import Optional, Union
 
 from sgn import SourceElement, TransformElement
 from sgn.base import (
+    SGNLOGLEVELS,
     Element,
     ElementLike,
     InternalPad,
@@ -18,7 +19,10 @@ from sgn.base import (
     SinkElement,
     SinkPad,
     SourcePad,
+    get_sgn_logger,
 )
+
+SGNLOGGER = get_sgn_logger(__name__, SGNLOGLEVELS)
 
 
 class Pipeline:
@@ -39,6 +43,7 @@ class Pipeline:
         self._registry: dict[str, Union[Pad, Element]] = {}
         self.graph: dict[Pad, set[Pad]] = {}
         self.loop = asyncio.get_event_loop()
+        self.__loop_counter = 0
         self.sinks: dict[str, SinkElement] = {}
 
     def insert(
@@ -247,6 +252,8 @@ class Pipeline:
     async def _execute_graphs(self) -> None:
         """Async graph execution function."""
         while not all(sink.at_eos for sink in self.sinks.values()):
+            self.__loop_counter += 1
+            SGNLOGGER.info("Executing graph loop %s:", self.__loop_counter)
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
             while ts.is_active():
