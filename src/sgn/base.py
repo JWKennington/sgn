@@ -2,9 +2,34 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Optional, Sequence, Union
+
+SGNLOGLEVELS = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+
+
+def get_sgn_logger(name, loglevels):
+    sgnlogger = logging.getLogger(name)
+    sgnlogger.addHandler(logging.StreamHandler())
+    if "SGNLOGLEVEL" in os.environ:
+        if os.environ["SGNLOGLEVEL"] not in SGNLOGLEVELS:
+            raise ValueError(
+                f"Invalid log level: {os.environ['SGNLOGLEVEL']}, choose {list(SGNLOGLEVELS)}"
+            )
+        sgnlogger.setLevel(SGNLOGLEVELS[os.environ["SGNLOGLEVEL"]])
+    return sgnlogger
+
+
+SGNLOGGER = get_sgn_logger(__name__, SGNLOGLEVELS)
 
 
 @dataclass
@@ -213,6 +238,7 @@ class SourcePad(UniqueID, _SourcePadLike):
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
         self.output.metadata["__graph__"] += "-> %s " % self.name
+        SGNLOGGER.info("\t%s : %s", self, self.output)
 
 
 @dataclass(eq=False, repr=False)
@@ -272,6 +298,7 @@ class SinkPad(UniqueID, _SinkPadLike):
         assert isinstance(self.input, Frame)
         self.input.metadata["__graph__"] += "-> %s " % self.name
         self.call(self, self.input)
+        SGNLOGGER.info("\t%s:%s", self, self.input)
 
 
 @dataclass(eq=False, repr=False)
