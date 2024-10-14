@@ -18,6 +18,17 @@ For more information on how to use SGN, see the following guides and tutorials:
    examples/simple-json
 
 
+
+User Guide
+----------
+
+.. toctree::
+    :caption: Developer Guide
+    :maxdepth: 1
+
+    contributing
+
+
 API Reference
 -------------
 
