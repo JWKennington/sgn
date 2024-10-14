@@ -25,6 +25,12 @@ extensions = [
 
 html_theme = "furo"
 html_title = "SGN Docs"
+html_static_path = ["_static"]
+
+myst_enable_extensions = [
+    "amsmath",
+    "colon_fence",
+]
 
 
 def linkcode_resolve(domain, info) -> str:
