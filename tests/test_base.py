@@ -1,23 +1,28 @@
 """Unit tests for the base module."""
 
 import asyncio
+import os
+from logging import Logger
+from unittest import mock
 
 import pytest
 
 from sgn.base import (
-    Frame,
-    _PostInitBase,
-    UniqueID,
-    PadLike,
-    _SourcePadLike,
-    _SinkPadLike,
-    SourcePad,
-    SinkPad,
+    SGN_LOG_LEVELS,
     ElementLike,
-    SourceElement,
-    TransformElement,
-    SinkElement,
+    Frame,
     InternalPad,
+    PadLike,
+    SinkElement,
+    SinkPad,
+    SourceElement,
+    SourcePad,
+    TransformElement,
+    UniqueID,
+    _PostInitBase,
+    _SinkPadLike,
+    _SourcePadLike,
+    get_sgn_logger,
 )
 
 
@@ -292,3 +297,23 @@ class TestSinkElement:
         se = SinkElement(name="elemsnk", sink_pad_names=["testsink"])
         with pytest.raises(NotImplementedError):
             se.pull(se.sink_pads[0], Frame())
+
+
+class TestLogging:
+    """Test group for logging functions."""
+
+    def test_set_default_level_via_env_var(self):
+        """Test setting the log level via an environment variable."""
+        with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "DEBUG"}):
+            assert os.environ["SGNLOGLEVEL"] == "DEBUG"
+
+            logger = get_sgn_logger("sample", SGN_LOG_LEVELS)
+            assert isinstance(logger, Logger)
+
+    def test_err_default_invalid_level(self):
+        """Test setting the log level via an environment variable."""
+        with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "INVALID"}):
+            assert os.environ["SGNLOGLEVEL"] == "INVALID"
+
+            with pytest.raises(ValueError):
+                get_sgn_logger("sample", SGN_LOG_LEVELS)

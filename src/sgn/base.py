@@ -6,30 +6,43 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Union
 
-SGNLOGLEVELS = {
+SGN_LOG_LEVELS = {
     "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,
     "WARNING": logging.WARNING,
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL,
 }
+SGN_LOG_LEVEL_VAR = "SGNLOGLEVEL"
 
 
-def get_sgn_logger(name, loglevels):
+def get_sgn_logger(name: str, levels: Dict[str, int]) -> logging.Logger:
+    """Utility function for constructing a logger with a given name and log level.
+
+    Args:
+        name:
+            str, The name of the logger
+        levels:
+            Dict[str, int], A dictionary of log levels to choose from
+
+    Returns:
+        logging.Logger, The logger with the specified name and log level
+    """
     sgnlogger = logging.getLogger(name)
     sgnlogger.addHandler(logging.StreamHandler())
-    if "SGNLOGLEVEL" in os.environ:
-        if os.environ["SGNLOGLEVEL"] not in SGNLOGLEVELS:
+    if SGN_LOG_LEVEL_VAR in os.environ:
+        if os.environ[SGN_LOG_LEVEL_VAR] not in levels:
             raise ValueError(
-                f"Invalid log level: {os.environ['SGNLOGLEVEL']}, choose {list(SGNLOGLEVELS)}"
+                f"Invalid log level: {os.environ[SGN_LOG_LEVEL_VAR]}, choose "
+                f"{list(levels)}"
             )
-        sgnlogger.setLevel(SGNLOGLEVELS[os.environ["SGNLOGLEVEL"]])
+        sgnlogger.setLevel(levels[os.environ[SGN_LOG_LEVEL_VAR]])
     return sgnlogger
 
 
-SGNLOGGER = get_sgn_logger(__name__, SGNLOGLEVELS)
+LOGGER = get_sgn_logger(__name__, SGN_LOG_LEVELS)
 
 
 @dataclass
@@ -238,7 +251,7 @@ class SourcePad(UniqueID, _SourcePadLike):
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
         self.output.metadata["__graph__"] += "-> %s " % self.name
-        SGNLOGGER.info("\t%s : %s", self, self.output)
+        LOGGER.info("\t%s : %s", self, self.output)
 
 
 @dataclass(eq=False, repr=False)
@@ -298,7 +311,7 @@ class SinkPad(UniqueID, _SinkPadLike):
         assert isinstance(self.input, Frame)
         self.input.metadata["__graph__"] += "-> %s " % self.name
         self.call(self, self.input)
-        SGNLOGGER.info("\t%s:%s", self, self.input)
+        LOGGER.info("\t%s:%s", self, self.input)
 
 
 @dataclass(eq=False, repr=False)

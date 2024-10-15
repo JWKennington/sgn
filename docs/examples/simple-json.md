@@ -74,7 +74,7 @@ trn1 = CallableTransform.from_callable(
     name="t1",
     sink_pad_names=["H1"],
     callable=demean_if_trusted,
-    output_name="H1",
+    output_pad_name="H1",
 )
 
 # Create the sink so we can access the data after running

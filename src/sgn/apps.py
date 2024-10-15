@@ -11,7 +11,7 @@ from typing import Optional, Union
 
 from sgn import SourceElement, TransformElement
 from sgn.base import (
-    SGNLOGLEVELS,
+    SGN_LOG_LEVELS,
     Element,
     ElementLike,
     InternalPad,
@@ -22,7 +22,7 @@ from sgn.base import (
     get_sgn_logger,
 )
 
-SGNLOGGER = get_sgn_logger(__name__, SGNLOGLEVELS)
+LOGGER = get_sgn_logger(__name__, SGN_LOG_LEVELS)
 
 
 class Pipeline:
@@ -205,15 +205,16 @@ class Pipeline:
 
         # add nodes
         for node in nodes:
-            graph.node(node)
+            graph.node(node.replace(":", "_"), node)
 
         # add edges
         for edge in edges:
-            graph.edge(*edge)
+            source, target = edge
+            graph.edge(source.replace(":", "_"), target.replace(":", "_"))
 
         return graph
 
-    def to_dot(self, pads: bool = True, intra: bool = False) -> str:
+    def to_dot(self, pads: bool = False, intra: bool = False) -> str:
         """Convert the pipeline to a graph using graphviz.
 
         Args:
@@ -229,7 +230,7 @@ class Pipeline:
         """
         return self.to_graph(pads=pads, intra=intra).source
 
-    def visualize(self, path: str) -> None:
+    def visualize(self, path: str, pads: bool = True, intra: bool = False) -> None:
         """Convert the pipeline to a graph using graphviz, then render into a visual
         file.
 
@@ -237,7 +238,7 @@ class Pipeline:
             path:
                 str, the relative or full path to the file to write the graph to
         """
-        dot = self.to_graph()
+        dot = self.to_graph(pads=pads, intra=intra)
 
         # write to disk
         directory, filename = os.path.split(path)
@@ -253,7 +254,7 @@ class Pipeline:
         """Async graph execution function."""
         while not all(sink.at_eos for sink in self.sinks.values()):
             self.__loop_counter += 1
-            SGNLOGGER.info("Executing graph loop %s:", self.__loop_counter)
+            LOGGER.info("Executing graph loop %s:", self.__loop_counter)
             ts = graphlib.TopologicalSorter(self.graph)
             ts.prepare()
             while ts.is_active():
