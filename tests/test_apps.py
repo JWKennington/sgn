@@ -70,7 +70,7 @@ class TestPipeline:
                 name="t1",
                 sink_pad_names=("H1",),
                 callable=lambda frame: None if frame.data is None else frame.data + 10,
-                output_name="H1",
+                output_pad_name="H1",
             ),
             snk,
             link_map={
@@ -99,7 +99,7 @@ class TestPipelineGraphviz:
                 name="t1",
                 sink_pad_names=["H1"],
                 callable=lambda frame: None,
-                output_name="H1",
+                output_pad_name="H1",
             ),
             NullSink(
                 name="snk1",
@@ -112,6 +112,23 @@ class TestPipelineGraphviz:
         )
         return p
 
+    def test_nodes_py_39(self, pipeline):
+        """Test nodes."""
+        assert pipeline.nodes() == (
+            "snk1:sink:H1",
+            "src1:src:H1",
+            "t1:sink:H1",
+            "t1:src:H1",
+        )
+
+        with mock.patch("sys.version_info", (3, 9)):
+            assert pipeline.nodes() == (
+                "snk1:sink:H1",
+                "src1:src:H1",
+                "t1:sink:H1",
+                "t1:src:H1",
+            )
+
     def test_to_graph(self, pipeline):
         """Test to graph."""
         graph = pipeline.to_graph()
@@ -123,12 +140,11 @@ class TestPipelineGraphviz:
         assert isinstance(dot, str)
         assert dot.split("\n") == [
             "digraph {",
-            '\t"snk1:sink:H1"',
-            '\t"src1:src:H1"',
-            '\t"t1:sink:H1"',
-            '\t"t1:src:H1"',
-            "\tsrc1:src:H1 -> t1:sink:H1",
-            "\tt1:src:H1 -> snk1:sink:H1",
+            "\tsnk1 [label=snk1]",
+            "\tsrc1 [label=src1]",
+            "\tt1 [label=t1]",
+            "\tsrc1 -> t1",
+            "\tt1 -> snk1",
             "}",
             "",
         ]
@@ -139,52 +155,53 @@ class TestPipelineGraphviz:
         assert isinstance(dot, str)
         assert dot.split("\n") == [
             "digraph {",
-            '\t"snk1:inl:inl"',
-            '\t"snk1:sink:H1"',
-            '\t"src1:inl:inl"',
-            '\t"src1:src:H1"',
-            '\t"t1:inl:inl"',
-            '\t"t1:sink:H1"',
-            '\t"t1:src:H1"',
-            "\tsnk1:sink:H1 -> snk1:inl:inl",
-            "\tsrc1:inl:inl -> src1:src:H1",
-            "\tsrc1:src:H1 -> t1:sink:H1",
-            "\tt1:inl:inl -> t1:src:H1",
-            "\tt1:sink:H1 -> t1:inl:inl",
-            "\tt1:src:H1 -> snk1:sink:H1",
-            "}",
-            "",
-        ]
-
-    def test_to_dot_elements(self, pipeline):
-        """Test to dot."""
-        dot = pipeline.to_dot(pads=False)
-        assert isinstance(dot, str)
-        assert dot.split("\n") == [
-            "digraph {",
-            "\tsnk1",
-            "\tsrc1",
-            "\tt1",
-            "\tsrc1 -> t1",
-            "\tt1 -> snk1",
-            "}",
-            "",
-        ]
-
-    def test_to_dot_elements_intra(self, pipeline):
-        """Test to dot."""
-        dot = pipeline.to_dot(pads=False, intra=True)
-        assert isinstance(dot, str)
-        assert dot.split("\n") == [
-            "digraph {",
-            "\tsnk1",
-            "\tsrc1",
-            "\tt1",
+            "\tsnk1 [label=snk1]",
+            "\tsrc1 [label=src1]",
+            "\tt1 [label=t1]",
             "\tsnk1 -> snk1",
             "\tsrc1 -> src1",
             "\tsrc1 -> t1",
             "\tt1 -> snk1",
             "\tt1 -> t1",
+            "}",
+            "",
+        ]
+
+    def test_to_dot_pads(self, pipeline):
+        """Test to dot."""
+        dot = pipeline.to_dot(pads=True)
+        assert isinstance(dot, str)
+        assert dot.split("\n") == [
+            "digraph {",
+            '\tsnk1_sink_H1 [label="snk1:sink:H1"]',
+            '\tsrc1_src_H1 [label="src1:src:H1"]',
+            '\tt1_sink_H1 [label="t1:sink:H1"]',
+            '\tt1_src_H1 [label="t1:src:H1"]',
+            "\tsrc1_src_H1 -> t1_sink_H1",
+            "\tt1_src_H1 -> snk1_sink_H1",
+            "}",
+            "",
+        ]
+
+    def test_to_dot_pads_intra(self, pipeline):
+        """Test to dot."""
+        dot = pipeline.to_dot(pads=True, intra=True)
+        assert isinstance(dot, str)
+        assert dot.split("\n") == [
+            "digraph {",
+            '\tsnk1_inl_inl [label="snk1:inl:inl"]',
+            '\tsnk1_sink_H1 [label="snk1:sink:H1"]',
+            '\tsrc1_inl_inl [label="src1:inl:inl"]',
+            '\tsrc1_src_H1 [label="src1:src:H1"]',
+            '\tt1_inl_inl [label="t1:inl:inl"]',
+            '\tt1_sink_H1 [label="t1:sink:H1"]',
+            '\tt1_src_H1 [label="t1:src:H1"]',
+            "\tsnk1_sink_H1 -> snk1_inl_inl",
+            "\tsrc1_inl_inl -> src1_src_H1",
+            "\tsrc1_src_H1 -> t1_sink_H1",
+            "\tt1_inl_inl -> t1_src_H1",
+            "\tt1_sink_H1 -> t1_inl_inl",
+            "\tt1_src_H1 -> snk1_sink_H1",
             "}",
             "",
         ]
@@ -207,7 +224,7 @@ class TestPipelineGraphviz:
                 name="t1",
                 sink_pad_names=("H1",),
                 callable=lambda frame: None if frame.data is None else frame.data + 10,
-                output_name="H1",
+                output_pad_name="H1",
             ),
             snk,
             link_map={

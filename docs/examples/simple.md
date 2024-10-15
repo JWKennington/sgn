@@ -18,9 +18,11 @@ The sink is a `CollectSink`, which consumes the `Frame` objects produced by the 
 import functools
 from sgn import Pipeline, CollectSink, IterSource, CallableTransform
 
+
 # Define a function to use in the pipeline
 def scale(frame, factor: float):
     return None if frame.data is None else frame.data * factor
+
 
 # Create source element
 src = IterSource(
@@ -34,7 +36,7 @@ trn1 = CallableTransform.from_callable(
     name="t1",
     sink_pad_names=["H1"],
     callable=functools.partial(scale, factor=10),
-    output_name="H1",
+    output_pad_name="H1",
 )
 
 # Create the sink so we can access the data after running

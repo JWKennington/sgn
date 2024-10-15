@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, Optional
 
 from sgn.base import Frame, SourcePad, TransformElement
@@ -39,15 +39,14 @@ class CallableTransform(InputPull):
 
     Args:
         callmap:
-            dict[tuple[str, ...], Callable], a mapping of input combinations to
-            callables
-        namemap:
-            dict[tuple[str, ...], str], a mapping of input combinations to
-            output pad names
+            dict[str, Callable], a mapping of output pad names to callables
+        depmap:
+            dict[str, tuple[str, ...]], mapping of output pad names to input
+            combinations
     """
 
-    callmap: Optional[dict[tuple[str, ...], Callable]] = None
-    namemap: Optional[dict[tuple[str, ...], str]] = None
+    callmap: dict[str, Callable] = field(default_factory=dict)
+    depmap: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def __post_init__(self):
         """Setup callable mappings and name associated source pads."""
@@ -58,55 +57,59 @@ class CallableTransform(InputPull):
             )
 
         # Setup callable maps
-        if self.callmap is None:
+        if not self.callmap:
             raise ValueError("CallableTransform requires a callmap")
 
         # Format callmap keys to ensure name:sink:pad format
         formatted_callmap = {}
         for k, v in self.callmap.items():
-            new_key = []
-            for token in k:
-                if token.startswith(f"{self.name}:sink:"):
-                    new_key.append(token)
-                else:
-                    new_key.append(f"{self.name}:sink:{token}")
-            new_key = tuple(new_key)
+            new_key = k
+            if not k.startswith(f"{self.name}:src:"):
+                new_key = f"{self.name}:src:{k}"
             formatted_callmap[new_key] = v
         self.callmap = formatted_callmap
 
         # Determine source pad names
-        if self.namemap is None:
-            self.namemap = {
-                k: "+".join(sorted(t.split(":")[-1] for t in k))
-                for k in sorted(self.callmap.keys())
-            }
+        if not self.depmap:
+            raise ValueError("CallableTransform requires a depmap")
 
         # Format namemap keys to ensure name:src:pad format
         formatted_namemap = {}
-        for k, v in self.namemap.items():
-            new_key = []
-            for token in k:
+        for k, v in self.depmap.items():
+            new_key = k
+            new_val = []
+            if not new_key.startswith(f"{self.name}:src:"):
+                new_key = f"{self.name}:src:{k}"
+
+            for token in v:
                 if token.startswith(f"{self.name}:sink:"):
-                    new_key.append(token)
+                    new_val.append(token)
                 else:
-                    new_key.append(f"{self.name}:sink:{token}")
-            new_key = tuple(new_key)
-            formatted_namemap[new_key] = v
-        self.namemap = formatted_namemap
+                    new_val.append(f"{self.name}:sink:{token}")
+            new_val = tuple(new_val)
+            formatted_namemap[new_key] = new_val
+
+        self.depmap = formatted_namemap
 
         # Check that callmap and namemap have same set of keys
-        if set(self.callmap.keys()) != set(self.namemap.keys()):
+        if set(self.callmap.keys()) != set(self.depmap.keys()):
             raise ValueError(
                 "callmap and namemap must have the same set of keys, "
-                f"got {set(self.callmap.keys())} and {set(self.namemap.keys())}"
+                f"got {set(self.callmap.keys())} and {set(self.depmap.keys())}"
             )
 
-        self._namemap_lookup = {
-            f"{self.name}:src:{v}": k for k, v in self.namemap.items()
-        }
+        # Setup source pad names if needed
+        if not self.source_pad_names:
+            self.source_pad_names = [
+                k.split(":")[-1] for k in sorted(self.depmap.keys())
+            ]
 
-        # Setup source pads
-        self.source_pad_names = list(self.namemap.values())
+        # Setup sink pad names if needed
+        if not self.sink_pad_names:
+            sink_names = set()
+            for v in self.depmap.values():
+                sink_names.update(v)
+            self.sink_pad_names = [v.split(":")[-1] for v in sorted(sink_names)]
 
         # Create source pads via parent class
         super().__post_init__()
@@ -122,11 +125,10 @@ class CallableTransform(InputPull):
             Frame, the output frame
         """
         # Determine input keys
-        input_keys = self._namemap_lookup[pad.name]
+        input_keys = self.depmap[pad.name]
 
         # Get callable
-        assert isinstance(self.callmap, dict)
-        func = self.callmap[input_keys]
+        func = self.callmap[pad.name]
 
         # Get inputs
         input_args = tuple(
@@ -145,8 +147,9 @@ class CallableTransform(InputPull):
     @staticmethod
     def from_combinations(
         name: str,
-        sink_pad_names: list[str],
         combos: Iterable[tuple[tuple[str, ...], Callable, str]],
+        sink_pad_names: Optional[Iterable[str]] = None,
+        source_pad_names: Optional[Iterable[str]] = None,
     ):
         """Create a CallableTransform from a list of combinations where each combination
         is.
@@ -156,29 +159,37 @@ class CallableTransform(InputPull):
         Args:
             name:
                 str, the name of the CallableTransform
-            sink_pad_names:
-                list[str], the names of the sink pads (input pads)
             combos:
                 Iterable[tuple[tuple[str, ...], Callable, str]], a list of
                 combinations to create the CallableTransform, where each
                 combination is a tuple of the input keys, the callable, and the
                 output name
+            sink_pad_names:
+                Optional[list[str]], the names of the sink pads (input pads). If not
+                specified, inferred from the combos
+            source_pad_names:
+                Optional[list[str]], the names of the source pads (output pads). If
+                not specified, inferred from the combos
 
         Returns:
             CallableTransform, the created CallableTransform
         """
-        callmap = {k: f for k, f, _ in combos}
-        namemap = {k: n for k, _, n in combos}
+        callmap = {out: func for _, func, out in combos}
+        namemap = {out: inp for inp, _, out in combos}
         return CallableTransform(
-            name=name, sink_pad_names=sink_pad_names, callmap=callmap, namemap=namemap
+            name=name,
+            callmap=callmap,
+            depmap=namemap,
+            sink_pad_names=[] if sink_pad_names is None else sink_pad_names,
+            source_pad_names=[] if source_pad_names is None else source_pad_names,
         )
 
     @staticmethod
     def from_callable(
         name: str,
-        sink_pad_names: list[str],
         callable: Callable,
-        output_name: Optional[str] = None,
+        output_pad_name: str,
+        sink_pad_names: list[str],
     ):
         """Create a CallableTransform from a single callable that will be applied to all
         inputs.
@@ -186,10 +197,12 @@ class CallableTransform(InputPull):
         Args:
             name:
                 str, the name of the CallableTransform
-            sink_pad_names:
-                list[str], the names of the sink pads (input pads)
             callable:
                 Callable, the callable to use for the transform
+            output_pad_name:
+                str, the name of the output pad
+            sink_pad_names:
+                list[str], the names of the sink pads (input pads)
 
         Returns:
             CallableTransform, the created CallableTransform
@@ -197,8 +210,6 @@ class CallableTransform(InputPull):
         return CallableTransform(
             name=name,
             sink_pad_names=sink_pad_names,
-            callmap={tuple(sink_pad_names): callable},
-            namemap=(
-                None if output_name is None else {tuple(sink_pad_names): output_name}
-            ),
+            callmap={output_pad_name: callable},
+            depmap={output_pad_name: tuple(sink_pad_names)},
         )

@@ -35,44 +35,65 @@ class TestCallableTransform:
         identity = lambda x: x
         trn = CallableTransform(
             name="t1",
-            sink_pad_names=("I1", "I2"),
-            callmap={("I1",): identity, ("I2",): identity},
-            namemap={("I1",): "O1", ("I2",): "O2"},
+            callmap={
+                "O1": identity,
+                "O2": identity,
+            },
+            depmap={
+                "O1": ("I1",),
+                "O2": ("I2",),
+            },
         )
         assert isinstance(trn, CallableTransform)
         assert [p.name for p in trn.sink_pads] == ["t1:sink:I1", "t1:sink:I2"]
         assert [p.name for p in trn.source_pads] == ["t1:src:O1", "t1:src:O2"]
-        assert trn.callmap == {("t1:sink:I1",): identity, ("t1:sink:I2",): identity}
-        assert trn.namemap == {("t1:sink:I1",): "O1", ("t1:sink:I2",): "O2"}
+        assert trn.callmap == {
+            "t1:src:O1": identity,
+            "t1:src:O2": identity,
+        }
+        assert trn.depmap == {
+            "t1:src:O1": ("t1:sink:I1",),
+            "t1:src:O2": ("t1:sink:I2",),
+        }
 
     def test_init_fully_formatted_keys(self):
         """Test the CallableTransform class constructor."""
         identity = lambda x: x
         trn = CallableTransform(
             name="t1",
-            sink_pad_names=("I1", "I2"),
-            callmap={("t1:sink:I1",): identity, ("t1:sink:I2",): identity},
-            namemap={("t1:sink:I1",): "O1", ("t1:sink:I2",): "O2"},
+            callmap={
+                "t1:src:O1": identity,
+                "t1:src:O2": identity,
+            },
+            depmap={
+                "t1:src:O1": ("t1:sink:I1",),
+                "t1:src:O2": ("t1:sink:I2",),
+            },
         )
         assert isinstance(trn, CallableTransform)
         assert [p.name for p in trn.sink_pads] == ["t1:sink:I1", "t1:sink:I2"]
         assert [p.name for p in trn.source_pads] == ["t1:src:O1", "t1:src:O2"]
-        assert trn.callmap == {("t1:sink:I1",): identity, ("t1:sink:I2",): identity}
-        assert trn.namemap == {("t1:sink:I1",): "O1", ("t1:sink:I2",): "O2"}
+        assert trn.callmap == {
+            "t1:src:O1": identity,
+            "t1:src:O2": identity,
+        }
+        assert trn.depmap == {
+            "t1:src:O1": ("t1:sink:I1",),
+            "t1:src:O2": ("t1:sink:I2",),
+        }
 
-    def test_init_no_namemap(self):
+    def test_init_err_no_depmap(self):
         """Test the CallableTransform class constructor."""
         identity = lambda x: x
-        trn = CallableTransform(
-            name="t1",
-            sink_pad_names=("I1", "I2"),
-            callmap={("I1",): identity, ("I2",): identity},
-        )
-        assert isinstance(trn, CallableTransform)
-        assert [p.name for p in trn.sink_pads] == ["t1:sink:I1", "t1:sink:I2"]
-        assert [p.name for p in trn.source_pads] == ["t1:src:I1", "t1:src:I2"]
-        assert trn.callmap == {("t1:sink:I1",): identity, ("t1:sink:I2",): identity}
-        assert trn.namemap == {("t1:sink:I1",): "I1", ("t1:sink:I2",): "I2"}
+        with pytest.raises(ValueError):
+            CallableTransform(
+                name="t1",
+                sink_pad_names=("I1", "I2"),
+                callmap={
+                    "O1": identity,
+                    "O2": identity,
+                },
+            )
 
     def test_init_err_src_info(self):
         """Test the CallableTransform class constructor error case."""
@@ -82,7 +103,7 @@ class TestCallableTransform:
                 source_pad_names=("I1", "I2"),
                 sink_pad_names=("O1", "O2"),
                 callmap={("I1",): lambda x: x, ("I2",): lambda x: x},
-                namemap={("I1",): "O1", ("I2",): "O2"},
+                depmap={("I1",): "O1", ("I2",): "O2"},
             )
 
         with pytest.raises(ValueError):
@@ -91,7 +112,7 @@ class TestCallableTransform:
                 source_pads=("I1", "I2"),
                 sink_pad_names=("O1", "O2"),
                 callmap={("I1",): lambda x: x, ("I2",): lambda x: x},
-                namemap={("I1",): "O1", ("I2",): "O2"},
+                depmap={("I1",): "O1", ("I2",): "O2"},
             )
 
     def test_init_err_no_callmap(self):
@@ -100,7 +121,7 @@ class TestCallableTransform:
             CallableTransform(
                 name="t1",
                 sink_pad_names=("I1", "I2"),
-                namemap={("I1",): "O1", ("I2",): "O2"},
+                depmap={("I1",): "O1", ("I2",): "O2"},
             )
 
     def test_init_err_mismatched_keys(self):
@@ -108,9 +129,14 @@ class TestCallableTransform:
         with pytest.raises(ValueError):
             CallableTransform(
                 name="t1",
-                sink_pad_names=("I1", "I2"),
-                callmap={("I1",): lambda x: x, ("I2",): lambda x: x},
-                namemap={("I3",): "O1"},
+                callmap={
+                    "O1": lambda x: x,
+                    "O2": lambda x: x,
+                },
+                depmap={
+                    "O1": ("I1",),
+                    "O3": ("I2",),
+                },
             )
 
     def test_transform(self):
@@ -119,10 +145,13 @@ class TestCallableTransform:
             name="t1",
             sink_pad_names=("I1", "I2"),
             callmap={
-                ("I1", "I2"): lambda f1, f2: f1.data + f2.data,
-                ("I2",): lambda f: f.data * 10,
+                "O1": lambda f1, f2: f1.data + f2.data,
+                "O2": lambda f: f.data * 10,
             },
-            namemap={("I1", "I2"): "O1", ("I2",): "O2"},
+            depmap={
+                "O1": ("I1", "I2"),
+                "O2": ("I2",),
+            },
         )
 
         # Setup data on sink pads (usually handled by pull method)
@@ -140,7 +169,6 @@ class TestCallableTransform:
         func2 = lambda f: f.data
         trn = CallableTransform.from_combinations(
             name="t1",
-            sink_pad_names=("I1", "I2"),
             combos=[
                 (("I1", "I2"), func, "O1"),
                 (("I2",), func2, "O2"),
@@ -148,20 +176,45 @@ class TestCallableTransform:
         )
         assert isinstance(trn, CallableTransform)
         assert trn.callmap == {
-            ("t1:sink:I1", "t1:sink:I2"): func,
-            ("t1:sink:I2",): func2,
+            "t1:src:O1": func,
+            "t1:src:O2": func2,
         }
-        assert trn.namemap == {
-            ("t1:sink:I1", "t1:sink:I2"): "O1",
-            ("t1:sink:I2",): "O2",
+        assert trn.depmap == {
+            "t1:src:O1": ("t1:sink:I1", "t1:sink:I2"),
+            "t1:src:O2": ("t1:sink:I2",),
+        }
+
+    def test_from_combinations_multiple(self):
+        """Test from_combinations."""
+        func = lambda f1, f2: f1.data + f2.data
+        trn = CallableTransform.from_combinations(
+            name="t1",
+            combos=[
+                (("I1", "I2"), func, "O1"),
+                (("I1", "I2"), func, "O2"),
+            ],
+        )
+        assert isinstance(trn, CallableTransform)
+        assert [p.name for p in trn.source_pads] == ["t1:src:O1", "t1:src:O2"]
+        assert trn.callmap == {
+            "t1:src:O1": func,
+            "t1:src:O2": func,
+        }
+        assert trn.depmap == {
+            "t1:src:O1": ("t1:sink:I1", "t1:sink:I2"),
+            "t1:src:O2": ("t1:sink:I1", "t1:sink:I2"),
         }
 
     def test_from_callable(self):
         """Test from_callable."""
         func = lambda f1, f2: f1.data + f2.data
         trn = CallableTransform.from_callable(
-            name="t1", sink_pad_names=("I1", "I2"), callable=func, output_name="O1"
+            name="t1", sink_pad_names=("I1", "I2"), callable=func, output_pad_name="O1"
         )
         assert isinstance(trn, CallableTransform)
-        assert trn.callmap == {("t1:sink:I1", "t1:sink:I2"): func}
-        assert trn.namemap == {("t1:sink:I1", "t1:sink:I2"): "O1"}
+        assert trn.callmap == {
+            "t1:src:O1": func,
+        }
+        assert trn.depmap == {
+            "t1:src:O1": ("t1:sink:I1", "t1:sink:I2"),
+        }
