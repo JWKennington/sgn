@@ -45,6 +45,7 @@ class Pipeline:
         self.loop = asyncio.get_event_loop()
         self.__loop_counter = 0
         self.sinks: dict[str, SinkElement] = {}
+        self.elements: list[Element] = []
 
     def insert(
         self, *elements: Element, link_map: Optional[dict[str, str]] = None
@@ -81,6 +82,7 @@ class Pipeline:
             if isinstance(element, SinkElement):
                 self.sinks[element.name] = element
             self.graph.update(element.graph)
+            self.elements.append(element)
         if link_map is not None:
             self.link(link_map)
         return self
@@ -266,4 +268,9 @@ class Pipeline:
 
     def run(self) -> None:
         """Run the pipeline until End Of Stream (EOS)"""
+        for element in self.elements:
+            for source_pad in element.source_pads:
+                assert source_pad.is_linked, "All pads not linked"
+            for sink_pad in element.sink_pads:
+                assert sink_pad.is_linked, "All pads not linked"
         self.loop.run_until_complete(self._execute_graphs())

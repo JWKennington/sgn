@@ -150,6 +150,7 @@ class PadLike:
 
     element: Element
     call: Callable
+    is_linked: bool = False
 
     async def __call__(self) -> None:
         """The call method for a pad must be implemented by the element that the pad
@@ -293,6 +294,8 @@ class SinkPad(UniqueID, _SinkPadLike):
         """
         assert isinstance(other, SourcePad), "other is not an instance of SourcePad"
         self.other = other
+        self.is_linked = True
+        other.is_linked = True
         return {self: {other}}
 
     async def __call__(self) -> None:
