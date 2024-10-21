@@ -26,7 +26,8 @@ class NullSink(SinkElement):
             frame:
                 Frame, the frame that is pulled into the sink
         """
-        pass
+        if frame.EOS:
+            self.mark_eos(pad)
 
     def internal(self, pad: InternalPad) -> None:
         """Do nothing on internal.
@@ -35,8 +36,6 @@ class NullSink(SinkElement):
             pad:
                 InternalPad, the pad that the frame is pulled into
         """
-        for p in self.sink_pads:
-            self.mark_eos(p)
 
 
 @dataclass
