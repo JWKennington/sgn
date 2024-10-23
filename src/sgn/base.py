@@ -505,13 +505,13 @@ class TransformElement(ElementLike):
         # Second, (internal -> all sources)
         self.graph.update({s: {self.internal_pad} for s in self.source_pads})
 
-    def pull(self, pad: SourcePad, frame: Frame) -> None:
+    def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Pull data from the input pads (source pads of upstream elements), must be
         implemented by subclasses.
 
         Args:
             pad:
-                SourcePad, The source pad from which the frame is pulled
+                SinkPad, The sink pad that is receiving the frame
             frame:
                 Frame, The frame that is pulled from the source pad
         """

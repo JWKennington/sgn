@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Optional
 
-from sgn.base import Frame, SourcePad, TransformElement
+from sgn.base import Frame, SinkPad, SourcePad, TransformElement
 
 
 @dataclass
@@ -20,12 +20,12 @@ class InputPull(TransformElement):
         self.inputs = {}
         super().__post_init__()
 
-    def pull(self, pad: SourcePad, frame: Frame) -> None:
+    def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Pull a frame into the transform element.
 
         Args:
             pad:
-                SourcePad, the pad to pull the frame into.
+                SinkPad, The sink pad that is receiving the frame
             frame:
                 Frame, the frame to pull into the pad.
         """
