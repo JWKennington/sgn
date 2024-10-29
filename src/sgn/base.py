@@ -241,9 +241,6 @@ class SourcePad(UniqueID, _SourcePadLike):
             this pad
         name:
             str, optional, The unique name for this object
-        output:
-            Frame, optional, This attribute is set to be the output Frame when the pad
-            is called.
     """
 
     async def __call__(self) -> None:
@@ -266,12 +263,6 @@ class SinkPad(UniqueID, _SinkPadLike):
         call:
             Callable, The function that will be called during graph execution for this
             pad, takes two arguments, the pad and the frame
-        other:
-            SourcePad, optional, This holds the source pad that is linked to this sink
-            pad, default None
-        input:
-            Frame, optional, This holds the Frame provided by the linked source pad.
-            Generally it gets set when this SinkPad is called, default None
         name:
             str, optional, The unique name for this object
     """
@@ -358,6 +349,8 @@ class ElementLike(UniqueID):
         sink_pads:
             list, optional, The list of SinkPad objects. This must be given for
             SinkElements or TransformElements
+        internal_pad:
+            InternalPad, optional, An InternalPad object.
     """
 
     source_pads: list[SourcePad] = field(default_factory=list)
@@ -409,14 +402,6 @@ class SourceElement(ElementLike):
     Args:
         name:
             str, optional, The unique name for this object
-        source_pads:
-            list, optional, Set the list of source pads. These need to be unique for an
-            element but not for an application. The resulting full names will be
-            made with "<self.name>:src:<source_pad_name>"
-        sink_pads:
-            list, optional, Set the list of sink pads. These need to be unique for an
-            element but not for an application. The resulting full names will be made
-            with "<self.name>:sink:<sink_pad_name>"
         source_pad_names:
             list, optional, Set the list of source pad names. These need to be unique
             for an element but not for an application. The resulting full names will be
@@ -461,10 +446,6 @@ class TransformElement(ElementLike):
     Args:
         name:
             str, optional, The unique name for this object
-        source_pads:
-            list, optional, Set the list of source pads.
-        sink_pads:
-            list, optional, Set the list of sink pads.
         source_pad_names:
             list, optional, Set the list of source pad names. These need to be unique
             for an element but not for an application. The resulting full names will
@@ -539,10 +520,6 @@ class SinkElement(ElementLike):
     Args:
         name:
             str, optional, The unique name for this object
-        sink_pads:
-            list, optional, Set the list of sink pads. These need to be unique for an
-            element but not for an application. The resulting full names will be made
-            with "<self.name>:sink:<sink_pad_name>"
         sink_pad_names:
             list, optional, Set the list of sink pad names. These need to be unique for
             an element but not for an application. The resulting full names will be
