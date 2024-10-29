@@ -64,8 +64,7 @@ class Frame:
     data: Any = None
 
     def __post_init__(self):
-        if "__graph__" not in self.metadata:
-            self.metadata["__graph__"] = ""
+        pass
 
 
 class _PostInitBase:
@@ -248,7 +247,6 @@ class SourcePad(UniqueID, _SourcePadLike):
         belongs to."""
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
-        self.output.metadata["__graph__"] += "-> %s " % self.name
         LOGGER.info("\t%s : %s", self, self.output)
 
 
@@ -303,7 +301,6 @@ class SinkPad(UniqueID, _SinkPadLike):
         assert isinstance(self.other, SourcePad), "Sink pad has not been linked"
         self.input = self.other.output
         assert isinstance(self.input, Frame)
-        self.input.metadata["__graph__"] += "-> %s " % self.name
         self.call(self, self.input)
         LOGGER.info("\t%s:%s", self, self.input)
 
