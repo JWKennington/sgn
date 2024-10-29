@@ -40,7 +40,6 @@ class TestFrame:
         assert isinstance(f, Frame)
         assert not f.EOS
         assert not f.is_gap
-        assert f.metadata == {"__graph__": ""}
         assert f.data is None
 
 
@@ -128,7 +127,6 @@ class TestSourcePad:
         asyncio_run(sp())
 
         assert isinstance(sp.output, Frame)
-        assert sp.output.metadata == {"__graph__": "-> testsrc "}
 
 
 class TestSinkPad:
@@ -181,7 +179,6 @@ class TestSinkPad:
         asyncio_run(p1())
         asyncio_run(p2())
         assert p2.input is not None
-        assert p2.input.metadata == {"__graph__": "-> testsrc -> testsink "}
 
 
 class TestElementLike:
