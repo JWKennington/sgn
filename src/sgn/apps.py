@@ -7,7 +7,7 @@ import asyncio
 import graphlib
 import os.path
 import sys
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from sgn import SourceElement, TransformElement
 from sgn.base import (
@@ -48,7 +48,9 @@ class Pipeline:
         self.elements: list[Element] = []
 
     def insert(
-        self, *elements: Element, link_map: Optional[dict[str, str]] = None
+        self,
+        *elements: Element,
+        link_map: Optional[dict[Union[str, SinkPad], Union[str, SourcePad]]] = None,
     ) -> Pipeline:
         """Insert element(s) into the pipeline.
 
@@ -56,7 +58,7 @@ class Pipeline:
             *elements:
                 Iterable[Element], the ordered elements to insert into the pipeline
             link_map:
-                Optional[dict[str, str]], a mapping of source pad to sink pad names to
+                Optional[dict[Union[str, SinkPad], Union[str, SourcePad]]], a mapping of source pad to sink pad names to
                 link
 
         Returns:
@@ -87,7 +89,9 @@ class Pipeline:
             self.link(link_map)
         return self
 
-    def link(self, link_map: dict[str, str]) -> Pipeline:
+    def link(
+        self, link_map: Dict[Union[str, SinkPad], Union[str, SourcePad]]
+    ) -> Pipeline:
         """Link pads in a pipeline.
 
         Args:
@@ -97,8 +101,15 @@ class Pipeline:
                 values are the sink pad names, so that: the data flows from value -> key
         """
         for sink_pad_name, source_pad_name in link_map.items():
-            sink_pad = self._registry[sink_pad_name]
-            source_pad = self._registry[source_pad_name]
+            if isinstance(sink_pad_name, str):
+                sink_pad = self._registry[sink_pad_name]
+            else:
+                sink_pad = sink_pad_name
+            if isinstance(source_pad_name, str):
+                source_pad = self._registry[source_pad_name]
+            else:
+                source_pad = source_pad_name
+
             assert isinstance(sink_pad, SinkPad)
             assert isinstance(source_pad, SourcePad)
 
