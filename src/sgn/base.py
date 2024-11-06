@@ -420,6 +420,7 @@ class SourceElement(ElementLike):
         ]
         # short names for easier recall
         self.srcs = {n: p for n, p in zip(self.source_pad_names, self.source_pads)}
+        self.rsrcs = {p: n for n, p in zip(self.source_pad_names, self.source_pads)}
         assert self.source_pads and not self.sink_pads
         self.graph.update({s: {self.internal_pad} for s in self.source_pads})
 
@@ -480,6 +481,8 @@ class TransformElement(ElementLike):
         # short names for easier recall
         self.srcs = {n: p for n, p in zip(self.source_pad_names, self.source_pads)}
         self.snks = {n: p for n, p in zip(self.sink_pad_names, self.sink_pads)}
+        self.rsrcs = {p: n for n, p in zip(self.source_pad_names, self.source_pads)}
+        self.rsnks = {p: n for n, p in zip(self.sink_pad_names, self.sink_pads)}
         assert self.source_pads and self.sink_pads
 
         # Make maximal bipartite graph in two pieces
@@ -543,6 +546,7 @@ class SinkElement(ElementLike):
         ]
         # short names for easier recall
         self.snks = {n: p for n, p in zip(self.sink_pad_names, self.sink_pads)}
+        self.rsnks = {p: n for n, p in zip(self.sink_pad_names, self.sink_pads)}
         self._at_eos = {p: False for p in self.sink_pads}
         assert self.sink_pads and not self.source_pads
         self.sink_pad_names_full = [p.name for p in self.sink_pads]

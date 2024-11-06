@@ -25,3 +25,7 @@ format :
 .PHONY: type-check
 type-check :
 	mypy .
+
+.PHONY: docs
+docs :
+	python -m sphinx -b "html" "docs" "sphinx"
