@@ -23,7 +23,7 @@ system.
 
 ## Developer's Guide
 
-SGN will excecute a fixed graph of "pads", which are asynchronous function calls bound to classes called "elements".
+SGN will execute a fixed graph of "pads", which are asynchronous function calls bound to classes called "elements".
 
 Data must have an origin and a end point in all graphs. These are called
 sources and sinks.  Elements that create data are called source elements and
@@ -88,7 +88,7 @@ hello
 ```
 
 
-You would need to send sig int or sig kill to stop the progam. Lets add a feature to end the stream after 10 Frames.
+You would need to send SIG INT or SIG kill to stop the program. Lets add a feature to end the stream after 10 Frames.
 
 ```python
 #!/usr/bin/env python3
@@ -127,7 +127,7 @@ EOS the pipeline stops running (in this case there is just one sink element
 with one sink pad).
 
 What if we want more than one pad?  It is possible to have many source and sink
-pads on an element. SGN provides basic bookeeping utilities for you, but
+pads on an element. SGN provides basic bookkeeping utilities for you, but
 generally what the "correct" behavior is is up to you. Lets try a more complicated
 example with multiple pads 
 
@@ -208,7 +208,7 @@ Note that the total number of outputs is 12.  We had the counter in the new()
 method which is a pad dependent method. It will be called once for each pad
 during each loop iteration.  What if we wanted 10 loop iterations before
 sending EOS? There is a convenient "internal" pad inside of every element that
-is gauranteed to be called before any source pads and after any sink pads.
+is guaranteed to be called before any source pads and after any sink pads.
 Lets modify the code to use that.
 
 ```python
@@ -468,7 +468,7 @@ which produces
 
 Pads are hashable and they also have string names (though that name is not used as the hash).  When developing you might get a bit turned around about how to access and reference pads by name.  Here are a few rules:
 
-- Elements have a notion of a short pad name.  These are verbative what get passed to `source_pad_names` and `sink_pad_names`. 
+- Elements have a notion of a short pad name.  These are verbatim what get passed to `source_pad_names` and `sink_pad_names`. 
 - The Element base classes will initialize pads with long pad names of the form `<element name>:["sink" | "source"]:<short name>`. 
 - These long names are almost never needed for anything programmatically but they can be handy to print out because they carry extra information encoded in the name.
 - Usually you will use helper attributes to reference pads by their short names or to look up a pad's short name.
@@ -489,7 +489,7 @@ Below is a bit of interactive python code that should be all you need to sort th
 >>> # The pad's long name
 >>> print (p.name)
 example:src:alice
->>> # A reverse dictinary mapping a pad to a short name
+>>> # A reverse dictionary mapping a pad to a short name
 >>> print (e.rsrcs[p])
 alice
 ```
