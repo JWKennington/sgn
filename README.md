@@ -9,7 +9,6 @@ including:
 
 - [`sgn-ts`](https://git.ligo.org/greg/sgn-ts): TimeSeries utilities for SGN
 - [`sgn-ligo`](https://git.ligo.org/greg/sgn-ligo): LSC specific utilities for SGN
-- [`sgn-try`](https://git.ligo.org/greg/sgn-try): Process monitoring and alerting utilities for SGN
 
 ## Installation
 
@@ -21,6 +20,487 @@ pip install sgn
 
 SGN has no dependencies outside of the Python standard library, so it should be easy to install on any
 system.
+
+## Developer's Guide
+
+SGN will excecute a fixed graph of "pads", which are asynchronous function calls bound to classes called "elements".
+
+Data must have an origin and a end point in all graphs. These are called
+sources and sinks.  Elements that create data are called source elements and
+elements that collect data are called sink elements.  Likewise, pads on elements
+are also called source and sink pads.  Data passed between pads are stored in a Frame.
+
+```
+    /       ----------------------      <
+   /       |   Source Element 1   |      \
+  /        |                      |       \
+ /          ---[source pad 'a']---         \
+|                     |                     \
+|                     | data flow            | The event loop runs this graph over and
+\                     V                      | over pulling data through the pads
+ \          ---[sink pad 'x'] ---           /
+  \        |                     |         /
+   \       |   Sink Element 1    |        /
+    >      |                     |       /
+           ---------------------       /
+```
+
+The whole graph execution is orchestrated by an event loop that will execute until end of stream.  Here is a simple example implementing the above graph
+
+```python
+#!/usr/bin/env python3
+
+from sgn.base import SourceElement, SinkElement, Frame
+from sgn.apps import Pipeline
+
+class MySourceClass(SourceElement):
+    def new(self, pad):
+        return Frame(data="hello")
+
+class MySinkClass(SinkElement):
+    def pull(self, pad, frame):
+        print (frame.data)
+
+source = MySourceClass(source_pad_names = ("a",))
+sink = MySinkClass(sink_pad_names = ("x",))
+
+pipeline = Pipeline()
+
+pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"]})
+
+pipeline.run()
+```
+
+If you run this, it will run forever and you will see
+
+```
+hello
+hello
+hello
+hello
+hello
+hello
+hello
+hello
+hello
+hello
+...
+```
+
+
+You would need to send sig int or sig kill to stop the progam. Lets add a feature to end the stream after 10 Frames.
+
+```python
+#!/usr/bin/env python3
+
+from sgn.base import SourceElement, SinkElement, Frame
+from sgn.apps import Pipeline
+
+class MySourceClass(SourceElement):
+    def __post_init__(self):
+        super().__post_init__()
+        self.cnt = 0
+    def new(self, pad):
+        self.cnt += 1
+        return Frame(data="hello", EOS=self.cnt > 10)
+
+class MySinkClass(SinkElement):
+    def pull(self, pad, frame):
+        if frame.EOS:
+            self.mark_eos(pad)
+        print (frame.data)
+
+source = MySourceClass(source_pad_names = ("a",))
+sink = MySinkClass(sink_pad_names = ("x",))
+
+pipeline = Pipeline()
+
+pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"]})
+
+pipeline.run()
+```
+
+Now you would see the word "hello" printed 11 times.  The 11th time the Frame
+is marked as EOS, which means end of stream.  The sink class checks the data it
+has gotten and marks the pad as EOS.  When all sink element sink pads are at
+EOS the pipeline stops running (in this case there is just one sink element
+with one sink pad).
+
+What if we want more than one pad?  It is possible to have many source and sink
+pads on an element. SGN provides basic bookeeping utilities for you, but
+generally what the "correct" behavior is is up to you. Lets try a more complicated
+example with multiple pads 
+
+```
+ ---------------------------------------------
+|                                             |
+|              Source Element 1               |
+|                                             |
+ --- [source pad 'a'] --- [source pad 'b'] --- 
+           |                 |
+           | data flow       |
+           V                 V
+ --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- 
+|                                             | 
+|               Sink Element 1                |
+|                                             | 
+----------------------------------------------
+```
+
+```
+#!/usr/bin/env python3
+
+from dataclasses import dataclass
+from sgn.base import SourceElement, SinkElement, Frame
+from sgn.apps import Pipeline
+
+@dataclass
+class MySourceClass(SourceElement):
+    # Of the form {"pad name": <data to put on the pad}
+    pad_str_map: dict=None
+    def __post_init__(self):
+        # We will just use pad_str_map to define the source pad names too
+        self.source_pad_names = tuple(self.pad_str_map)
+        super().__post_init__()
+        # save a pad map also hashed by pad not the string
+        # NOTE: this must be done after super() post init so that the source pads exist
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
+        self.cnt = 0
+    def new(self, pad):
+        self.cnt += 1
+        return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
+
+class MySinkClass(SinkElement):
+    def pull(self, pad, frame):
+        if frame.EOS:
+            self.mark_eos(pad)
+        print (frame.data)
+
+source = MySourceClass(pad_str_map = {"a": "Hello!", "b":"How are you?"})
+sink = MySinkClass(sink_pad_names = ("x","y"))
+
+pipeline = Pipeline()
+
+pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"], sink.snks["y"]: source.srcs["b"],})
+
+pipeline.run()
+```
+
+Running this produces the following output:
+
+```
+e1-056827:~ crh184$ ./sgn-readme 
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+```
+
+Note that the total number of outputs is 12.  We had the counter in the new()
+method which is a pad dependent method. It will be called once for each pad
+during each loop iteration.  What if we wanted 10 loop iterations before
+sending EOS? There is a convenient "internal" pad inside of every element that
+is gauranteed to be called before any source pads and after any sink pads.
+Lets modify the code to use that.
+
+```python
+#!/usr/bin/env python3
+
+from dataclasses import dataclass
+from sgn.base import SourceElement, SinkElement, Frame
+from sgn.apps import Pipeline
+
+@dataclass
+class MySourceClass(SourceElement):
+    # Of the form {"pad name": <data to put on the pad}
+    pad_str_map: dict=None
+    def __post_init__(self):
+        # We will just use pad_str_map to define the source pad names too
+        self.source_pad_names = tuple(self.pad_str_map)
+        super().__post_init__()
+        # save a pad map also hashed by pad not the string
+        # NOTE: this must be done after super() post init so that the source pads exist
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
+        self.cnt = 0
+    def internal(self, pad):
+        self.cnt += 1
+    def new(self, pad):
+        return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
+
+class MySinkClass(SinkElement):
+    def pull(self, pad, frame):
+        if frame.EOS:
+            self.mark_eos(pad)
+        print (frame.data)
+
+source = MySourceClass(pad_str_map = {"a": "Hello!", "b":"How are you?"})
+sink = MySinkClass(sink_pad_names = ("x","y"))
+
+pipeline = Pipeline()
+
+pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"], sink.snks["y"]: source.srcs["b"],})
+
+pipeline.run()
+```
+
+Now the output has the expected number of iterations
+```
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+Hello!
+How are you?
+```
+
+We can also use the internal method to make a more useful sink output, e.g.,
+
+```python
+#!/usr/bin/env python3
+
+from dataclasses import dataclass
+from sgn.base import SourceElement, SinkElement, Frame
+from sgn.apps import Pipeline
+
+@dataclass
+class MySourceClass(SourceElement):
+    # Of the form {"pad name": <data to put on the pad}
+    pad_str_map: dict=None
+    def __post_init__(self):
+        # We will just use pad_str_map to define the source pad names too
+        self.source_pad_names = tuple(self.pad_str_map)
+        super().__post_init__()
+        # save a pad map also hashed by pad not the string
+        # NOTE: this must be done after super() post init so that the source pads exist
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
+        self.cnt = 0
+    def internal(self, pad):
+        self.cnt += 1
+    def new(self, pad):
+        return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
+
+class MySinkClass(SinkElement):
+    def __post_init__(self):
+        super().__post_init__()
+        self.combined_string = ""
+    def internal(self, pad):
+        print (self.combined_string)
+        self.combined_string = ""
+    def pull(self, pad, frame):
+        if frame.EOS:
+            self.mark_eos(pad)
+        self.combined_string += " %s" % frame.data
+
+source = MySourceClass(pad_str_map = {"a": "Hello!", "b":"How are you?"})
+sink = MySinkClass(sink_pad_names = ("x","y"))
+
+pipeline = Pipeline()
+
+pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"], sink.snks["y"]: source.srcs["b"],})
+
+pipeline.run()
+``` 
+
+which now produces
+
+```
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+ Hello! How are you?
+```
+
+Graphs can have other elements called "transform elements." These have both source and sink pads.  Also, it is possible to connect a source pad to multiple sink pads (but not the other way around). Lets try to implement this graph
+
+```
+ ---------------------------------------------
+|                                             |
+|              Source Element 1               |
+|                                             |
+ --- [source pad 'a'] --- [source pad 'b'] --- 
+           |\                |\
+           | \               | \
+           |  \              |  \_________________________________________
+           |   \_____________|_________________________                   \
+           |                 |                         \                   \
+           |                 |                          V                   V
+           |                 |                 --- [sink pad 'l'  ] --- [sink pad 'm'  ] ---
+           |                 |                |                                             |
+           |                 |                |            Transform Element 1              |
+           |                 |                |                                             |
+           |                 |                 ------------- [source pad 'n'] --------------
+           |                 |                                   /
+           |                 |                                  /
+           |                 |                                 /
+           |                 |                                /
+           |                 |                               /
+           | data flow       |                              /
+           V                 V                             V
+ --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- [sink pad 'z'  ] --- 
+|                                                                  | 
+|               Sink Element 1                                     |
+|                                                                  | 
+-------------------------------------------------------------------
+```
+
+```
+#!/usr/bin/env python3
+
+from dataclasses import dataclass
+from sgn.base import SourceElement, SinkElement, TransformElement, Frame
+from sgn.apps import Pipeline
+
+@dataclass
+class MySourceClass(SourceElement):
+    # Of the form {"pad name": <data to put on the pad}
+    pad_str_map: dict=None
+    def __post_init__(self):
+        # We will just use pad_str_map to define the source pad names too
+        self.source_pad_names = tuple(self.pad_str_map)
+        super().__post_init__()
+        # save a pad map also hashed by pad not the string
+        # NOTE: this must be done after super() post init so that the source pads exist
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
+        self.cnt = 0
+    def internal(self, pad):
+        self.cnt += 1
+    def new(self, pad):
+        return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
+
+class MyTransformClass(TransformElement):
+    def __post_init__(self):
+        # written to assume a single source pad
+        assert len(self.source_pad_names) == 1
+        super().__post_init__()
+        self.out_string = ""
+        self.out_frame = None
+        self.EOS = False
+    def pull(self, pad, frame):
+        self.out_string += " %s" % frame.data
+        self.EOS |= frame.EOS
+    def internal(self, pad):
+        # Reverse the data for fun.
+        self.outframe = Frame(data=self.out_string[::-1], EOS=self.EOS)
+        self.out_string = ""
+    def transform(self, pad):
+        # This element just has one source pad
+        return self.outframe
+        
+        
+class MySinkClass(SinkElement):
+    def __post_init__(self):
+        super().__post_init__()
+        self.combined_string = ""
+    def internal(self, pad):
+        print (self.combined_string)
+        self.combined_string = ""
+    def pull(self, pad, frame):
+        if frame.EOS:
+            self.mark_eos(pad)
+        self.combined_string += " %s" % frame.data
+
+source = MySourceClass(pad_str_map = {"a": "Hello!", "b":"How are you?"})
+transform = MyTransformClass(sink_pad_names = ("l","m",), source_pad_names = ("n",))
+sink = MySinkClass(sink_pad_names = ("x","y","z"))
+
+pipeline = Pipeline()
+
+pipeline.insert(source,
+               transform, 
+               sink,
+               link_map = {sink.snks["x"]: source.srcs["a"], 
+                           sink.snks["y"]: source.srcs["b"],
+                           transform.snks["l"]: source.srcs["a"],
+                           transform.snks["m"]: source.srcs["b"],
+                           sink.snks["z"]: transform.srcs["n"]
+                          }
+               )
+
+pipeline.run()
+```
+which produces
+
+```
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH 
+```
+
+Below are some API docs for concepts that came up in this guide
+
+- [SourceElement](https://greg.docs.ligo.org/sgn/sgn.base.html#sgn.base.SourceElement)
+- [TransformElement](https://greg.docs.ligo.org/sgn/sgn.base.html#sgn.base.TransformElement)
+- [SinkElement](https://greg.docs.ligo.org/sgn/sgn.base.html#sgn.base.SinkElement)
+- [Frame](https://greg.docs.ligo.org/sgn/sgn.base.html#sgn.base.Frame)
+- [Pipeline](https://greg.docs.ligo.org/sgn/sgn.apps.html#sgn.apps.Pipeline)
+
+## General Concepts
+
+### Graph Construction
+
+- **Sources**: Sources are the starting point of a task graph. They produce data that can be consumed by
+  other tasks.
+
+- **Transforms**: Transforms are tasks that consume data from one or more sources, process it, and produce new data.
+
+- **Sinks**: Sinks are tasks that consume data from one or more sources and do something with it. This could be writing
+  the data to a file, sending it over the network, or anything else.
+
+### Control Flow
+
+Using these concepts, you can create complex task graphs using SGN that process and move data in a variety of ways.
+The SGN library provides a simple API for creating and executing task graphs, with a few key types:
+
+- **Frame**: A frame is a unit of data that is passed between tasks in a task graph. Frames can contain any type of
+  data, and can be passed between tasks in a task graph.
+
+- **Pad**: A pad is a connection point between two tasks in a task graph. Pads are used to pass frames between tasks,
+  and can be used to connect tasks in a task graph. An edge is a connection between two pads in a task graph.
+
+- **Element**: An element is a task in a task graph. Elements can be sources, transforms, or sinks, and can be connected
+  together to create a task graph.
+
+- **Pipeline**: A pipeline is a collection of elements that are connected together to form a task graph. Pipelines can
+  be executed to process data, and can be used to create complex data processing workflows.
 
 ## Quickstart
 
@@ -85,35 +565,3 @@ nested dictionaries, lists, and strings. The `CallableTransform` class can be us
 create a transform element using any arbitrary function. The `DeqSource` and `DeqSink` classes
 are used to create source and sink elements that use `collections.deque` to store data.
 
-## General Concepts
-
-SGN is designed to be simple and easy to use. Here we outline the key concepts, but for more detail see the
-key concepts page in the documentation with link: concepts.rst
-In SGN there are a few concepts to understand:
-
-### Graph Construction
-
-- **Sources**: Sources are the starting point of a task graph. They produce data that can be consumed by
-  other tasks.
-
-- **Transforms**: Transforms are tasks that consume data from one or more sources, process it, and produce new data.
-
-- **Sinks**: Sinks are tasks that consume data from one or more sources and do something with it. This could be writing
-  the data to a file, sending it over the network, or anything else.
-
-### Control Flow
-
-Using these concepts, you can create complex task graphs using SGN that process and move data in a variety of ways.
-The SGN library provides a simple API for creating and executing task graphs, with a few key types:
-
-- **Frame**: A frame is a unit of data that is passed between tasks in a task graph. Frames can contain any type of
-  data, and can be passed between tasks in a task graph.
-
-- **Pad**: A pad is a connection point between two tasks in a task graph. Pads are used to pass frames between tasks,
-  and can be used to connect tasks in a task graph. An edge is a connection between two pads in a task graph.
-
-- **Element**: An element is a task in a task graph. Elements can be sources, transforms, or sinks, and can be connected
-  together to create a task graph.
-
-- **Pipeline**: A pipeline is a collection of elements that are connected together to form a task graph. Pipelines can
-  be executed to process data, and can be used to create complex data processing workflows.
