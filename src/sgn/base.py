@@ -61,7 +61,6 @@ class Frame:
     EOS: bool = False
     is_gap: bool = False
     metadata: dict = field(default_factory=dict)
-    data: Any = None
 
     def __post_init__(self):
         pass
