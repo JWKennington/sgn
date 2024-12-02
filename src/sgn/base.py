@@ -32,17 +32,27 @@ def get_sgn_logger(name: str, levels: Dict[str, int]) -> logging.Logger:
     """
     sgnlogger = logging.getLogger(name)
     sgnlogger.addHandler(logging.StreamHandler())
+
+    def parse_elem_level(x, default=name):
+        y = x.split(":")
+        name, level = (default, y[0]) if len(y) == 1 else (y[0], y[1])
+        if level not in levels:
+            raise ValueError(f"Invalid log level: {level}, choose " f"{list(levels)}")
+        return name, level
+
     if SGN_LOG_LEVEL_VAR in os.environ:
-        if os.environ[SGN_LOG_LEVEL_VAR] not in levels:
-            raise ValueError(
-                f"Invalid log level: {os.environ[SGN_LOG_LEVEL_VAR]}, choose "
-                f"{list(levels)}"
-            )
-        sgnlogger.setLevel(levels[os.environ[SGN_LOG_LEVEL_VAR]])
+        levels = dict(
+            [parse_elem_level(x) for x in os.environ[SGN_LOG_LEVEL_VAR].split()]
+        )
+        for n in levels:
+            if n == name:
+                sgnlogger.setLevel(levels[n])
+            else:
+                sgnlogger.getChild(n).setLevel(levels[n])
     return sgnlogger
 
 
-LOGGER = get_sgn_logger(__name__, SGN_LOG_LEVELS)
+LOGGER = get_sgn_logger("sgn", SGN_LOG_LEVELS)
 
 
 @dataclass
@@ -247,7 +257,8 @@ class SourcePad(UniqueID, _SourcePadLike):
         belongs to."""
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
-        LOGGER.info("\t%s : %s", self, self.output)
+        if self.element is not None:
+            LOGGER.getChild(self.element.name).info("\t%s : %s", self, self.output)
 
 
 @dataclass(eq=False, repr=False)
@@ -302,7 +313,8 @@ class SinkPad(UniqueID, _SinkPadLike):
         self.input = self.other.output
         assert isinstance(self.input, Frame)
         self.call(self, self.input)
-        LOGGER.info("\t%s:%s", self, self.input)
+        if self.element is not None:
+            LOGGER.getChild(self.element.name).info("\t%s:%s", self, self.input)
 
 
 @dataclass(eq=False, repr=False)
@@ -359,7 +371,6 @@ class ElementLike(UniqueID):
         """Establish the graph attribute as an empty dictionary."""
         super().__post_init__()
         self.graph = {}
-
         # Set internal pad
         if not self.internal_pad:
             self.internal_pad = InternalPad(
