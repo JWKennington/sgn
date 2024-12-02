@@ -22,7 +22,7 @@ from sgn.base import (
     get_sgn_logger,
 )
 
-LOGGER = get_sgn_logger(__name__, SGN_LOG_LEVELS)
+LOGGER = get_sgn_logger("pipeline", SGN_LOG_LEVELS)
 
 
 class Pipeline:
