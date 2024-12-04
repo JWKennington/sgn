@@ -58,8 +58,8 @@ class Pipeline:
             *elements:
                 Iterable[Element], the ordered elements to insert into the pipeline
             link_map:
-                Optional[dict[Union[str, SinkPad], Union[str, SourcePad]]], a mapping of source pad to sink pad names to
-                link
+                Optional[dict[Union[str, SinkPad], Union[str, SourcePad]]],
+                a mapping of source pad to sink pad names to link
 
         Returns:
             Pipeline, the pipeline with the elements inserted

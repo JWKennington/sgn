@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+from time import sleep
 from typing import Any, Callable, Generator, Iterable, Iterator, Optional, Union
 
 from sgn.base import Frame, SourceElement, SourcePad
@@ -18,9 +19,16 @@ class NullSource(SourceElement):
     """A source that does precisely nothing.
 
     It is useful for testing and debugging, and will always produce empty frames
+
+        frame_factory: Callable = Frame
+        wait: float = None
+
+    If wait is not None the source will block for wait seconds before each new
+    buffer, which is useful for slowing down debugging pipelines.
     """
 
     frame_factory: Callable = Frame
+    wait: Optional[float] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -37,6 +45,8 @@ class NullSource(SourceElement):
         Returns:
             Frame, the Frame with optional data payload
         """
+        if self.wait is not None:
+            sleep(self.wait)
         return self.frame_factory(EOS=True, data=None)
 
 
