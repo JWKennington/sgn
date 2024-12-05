@@ -229,12 +229,6 @@ class _InternalPadLike(PadLike):
         call:
             Callable, The function that will be called during graph execution for
             this pad
-        other:
-            SourcePad, optional, This holds the source pad that is linked to this sink
-            pad, default None
-        input:
-            Frame, optional, This holds the Frame provided by the linked source pad.
-            Generally it gets set when this SinkPad is called, default None
     """
 
 
@@ -342,7 +336,7 @@ class InternalPad(UniqueID, _InternalPadLike):
     async def __call__(self) -> None:
         """When called, an internal pad receives a Frame from the element that the pad
         belongs to."""
-        self.call(self)
+        self.call()
 
 
 @dataclass(repr=False)
@@ -358,24 +352,20 @@ class ElementLike(UniqueID):
         sink_pads:
             list, optional, The list of SinkPad objects. This must be given for
             SinkElements or TransformElements
-        internal_pad:
-            InternalPad, optional, An InternalPad object.
     """
 
     source_pads: list[SourcePad] = field(default_factory=list)
     sink_pads: list[SinkPad] = field(default_factory=list)
-    internal_pad: Optional[InternalPad] = field(default=None)
+    internal_pad: InternalPad = field(init=False)
     graph: dict[Pad, set[Pad]] = field(init=False)
 
     def __post_init__(self):
         """Establish the graph attribute as an empty dictionary."""
         super().__post_init__()
         self.graph = {}
-        # Set internal pad
-        if not self.internal_pad:
-            self.internal_pad = InternalPad(
-                name=f"{self.name}:inl:inl", element=self, call=self.internal
-            )
+        self.internal_pad = InternalPad(
+            name=f"{self.name}:inl:inl", element=self, call=self.internal
+        )
 
     @property
     def source_pad_dict(self) -> dict[str, SourcePad]:
@@ -396,7 +386,7 @@ class ElementLike(UniqueID):
         all_pads.append(self.internal_pad)
         return all_pads
 
-    def internal(self, pad: InternalPad) -> None:
+    def internal(self) -> None:
         """An optional method to call inbetween sink and source pads of an element, by
         default do nothing."""
         pass

@@ -46,7 +46,7 @@ class TestDeqSink:
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"))
         frame = Frame(data="data")
         sink.pull(sink.sink_pads[0], frame)
-        sink.internal(sink.internal_pad)
+        sink.internal()
         assert sink.deques["snk1:sink:I1"][0] == "data"
 
     def test_pull_frame(self):
@@ -54,7 +54,7 @@ class TestDeqSink:
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"), extract_data=False)
         frame = Frame(data="data")
         sink.pull(sink.sink_pads[0], frame)
-        sink.internal(sink.internal_pad)
+        sink.internal()
         assert sink.deques["snk1:sink:I1"][0] == frame
 
     def test_pull_frame_empty_preserves_deq(self):
@@ -64,13 +64,13 @@ class TestDeqSink:
 
         frame = Frame(data="data")
         sink.pull(sink.sink_pads[0], frame)
-        sink.internal(sink.internal_pad)
+        sink.internal()
         assert len(sink.deques["snk1:sink:I1"]) == 1
         assert sink.deques["snk1:sink:I1"][0] == frame
 
         frame = Frame()
         sink.pull(sink.sink_pads[0], frame)
-        sink.internal(sink.internal_pad)
+        sink.internal()
         assert len(sink.deques["snk1:sink:I1"]) == 1
 
     def test_pull_eos(self):

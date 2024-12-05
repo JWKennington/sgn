@@ -29,7 +29,7 @@ class NullSink(SinkElement):
         if frame.EOS:
             self.mark_eos(pad)
 
-    def internal(self, pad: InternalPad) -> None:
+    def internal(self) -> None:
         """Do nothing on internal.
 
         Args:
@@ -109,7 +109,7 @@ class CollectSink(SinkElement):
 
         self.inputs[pad.name] = frame
 
-    def internal(self, pad: InternalPad) -> None:
+    def internal(self) -> None:
         """Internal action is to append all most recent frames to the associated
         collections, then empty the inputs dict.
 

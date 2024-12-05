@@ -208,9 +208,10 @@ class TestElementLike:
         """Test the pad_list method."""
         src = SourcePad(name="testsrc", element=None, call=None, output=None)
         snk = SinkPad(name="testsink", element=None, call=None, input=None)
-        inl = InternalPad(name="testint", element=None, call=None)
-        el = ElementLike(source_pads=[src], sink_pads=[snk], internal_pad=inl)
-        assert el.pad_list == [src, snk, inl]
+        el = ElementLike(source_pads=[src], sink_pads=[snk])
+        # Pad list will have an automatically generated internal pad as the
+        # last entry
+        assert len(el.pad_list) == 3 and el.pad_list[:2] == [src, snk]
 
 
 class TestSourceElement:
