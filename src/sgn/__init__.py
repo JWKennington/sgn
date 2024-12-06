@@ -12,6 +12,6 @@ except ImportError:
 from sgn.base import SourcePad, SinkPad, TransformElement, SourceElement, SinkElement
 from sgn.frames import Frame, IterFrame
 from sgn.sinks import CollectSink, DequeSink, NullSink
-from sgn.sources import DequeSource, IterSource, NullSource
+from sgn.sources import DequeSource, IterSource, NullSource, SignalEOS
 from sgn.transforms import CallableTransform
 from sgn.apps import Pipeline

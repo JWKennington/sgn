@@ -6,6 +6,7 @@ subclass of SourceElement.
 
 from __future__ import annotations
 
+import signal
 from collections import deque
 from dataclasses import dataclass
 from time import sleep
@@ -14,24 +15,71 @@ from typing import Any, Callable, Generator, Iterable, Iterator, Optional, Union
 from sgn.base import Frame, SourceElement, SourcePad
 
 
+def _handler(signum, frame):
+    SignalEOS.rcvd_signals.add(signum)
+
+
+class SignalEOS:
+    """
+    This class provides global signal handling for an SGN pipeline.  If you
+    inherit it for a source element then it will capture SIGINT and provide a
+    method to mark that eos should be flagged.  See NullSource as an example.
+
+    Additionally this could/should be used as a context manager for executing
+    a pipeline and disabling the signal hander after the pipeline is done, e.g.,
+
+        with SignalEOS() as signal_eos:
+            p.run()
+
+    """
+
+    handled_signals = {signal.SIGINT}
+    rcvd_signals: set[int] = set([])
+    previous_handlers = {}
+
+    handler = _handler
+    for sig in handled_signals:
+        previous_handlers[sig] = signal.getsignal(sig)
+        signal.signal(sig, handler)
+
+    @classmethod
+    def signaled_eos(cls):
+        return bool(cls.rcvd_signals & cls.handled_signals)
+
+    def raise_signal(self, sig):
+        if sig in self.rcvd_signals:
+            signal.raise_signal(sig)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for sig in self.handled_signals:
+            signal.signal(sig, self.previous_handlers[sig])
+
+
 @dataclass
-class NullSource(SourceElement):
+class NullSource(SourceElement, SignalEOS):
     """A source that does precisely nothing.
 
     It is useful for testing and debugging, and will always produce empty frames
 
         frame_factory: Callable = Frame
         wait: float = None
+        num_frames: int = None
 
     If wait is not None the source will block for wait seconds before each new
-    buffer, which is useful for slowing down debugging pipelines.
+    buffer, which is useful for slowing down debugging pipelines.  By default
+    this source element handles SIGINT and uses that to set EOS. See SignalEOS.
     """
 
     frame_factory: Callable = Frame
     wait: Optional[float] = None
+    num_frames: Optional[int] = None
 
     def __post_init__(self):
         super().__post_init__()
+        self.frame_count = 0
 
     def new(self, pad: SourcePad) -> Frame:
         """New Frames are created on "pad" with an instance specific count and a name
@@ -47,7 +95,12 @@ class NullSource(SourceElement):
         """
         if self.wait is not None:
             sleep(self.wait)
-        return self.frame_factory(EOS=True, data=None)
+        self.frame_count += 1
+        return self.frame_factory(
+            EOS=self.signaled_eos()
+            or (self.num_frames is not None and self.frame_count > self.num_frames),
+            data=None,
+        )
 
 
 @dataclass
