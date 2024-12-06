@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable, Dict, MutableSequence
 
-from sgn.base import Frame, InternalPad, SinkElement, SinkPad
+from sgn.base import Frame, SinkElement, SinkPad
 
 
 @dataclass

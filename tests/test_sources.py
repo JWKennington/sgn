@@ -20,7 +20,7 @@ class TestNullSource:
 
     def test_new(self):
         """Test the new method."""
-        src = NullSource(name="src1", source_pad_names=("O1", "O2"))
+        src = NullSource(name="src1", source_pad_names=("O1", "O2"), num_frames=0)
         frame = src.new(src.source_pads[0])
         assert isinstance(frame, Frame)
         assert frame.data is None

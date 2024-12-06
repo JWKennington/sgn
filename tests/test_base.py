@@ -11,7 +11,6 @@ from sgn.base import (
     SGN_LOG_LEVELS,
     ElementLike,
     Frame,
-    InternalPad,
     PadLike,
     SinkElement,
     SinkPad,
