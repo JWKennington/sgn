@@ -2,11 +2,22 @@
 
 from collections import deque
 from collections.abc import Iterator
-
+import signal
 import pytest
 
 from sgn.base import Frame
-from sgn.sources import DequeSource, IterSource, NullSource
+from sgn.sources import DequeSource, IterSource, NullSource, SignalEOS
+
+
+class TestSignalEOS:
+    """Tests for SignalEOS class."""
+
+    def test_context_manager(self):
+        SignalEOS.handled_signals.add(signal.SIGUSR2)
+        with SignalEOS() as f:
+            signal.raise_signal(signal.SIGUSR2)
+        signal.signal(signal.SIGUSR2, lambda x, y: None)
+        f.raise_signal(signal.SIGUSR2)
 
 
 class TestNullSource:
@@ -20,7 +31,9 @@ class TestNullSource:
 
     def test_new(self):
         """Test the new method."""
-        src = NullSource(name="src1", source_pad_names=("O1", "O2"), num_frames=0)
+        src = NullSource(
+            name="src1", source_pad_names=("O1", "O2"), num_frames=0, wait=1e-10
+        )
         frame = src.new(src.source_pads[0])
         assert isinstance(frame, Frame)
         assert frame.data is None

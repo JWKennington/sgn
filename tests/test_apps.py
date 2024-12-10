@@ -59,13 +59,14 @@ class TestPipeline:
             name="snk1",
             sink_pad_names=("H1",),
         )
+        src = DequeSource(
+            name="src1",
+            source_pad_names=("H1",),
+            # TODO add key formatting helper
+            iters={"src1:src:H1": deque([1, 2, 3])},
+        )
         p.insert(
-            DequeSource(
-                name="src1",
-                source_pad_names=("H1",),
-                # TODO add key formatting helper
-                iters={"src1:src:H1": deque([1, 2, 3])},
-            ),
+            src,
             CallableTransform.from_callable(
                 name="t1",
                 sink_pad_names=("H1",),
@@ -74,8 +75,8 @@ class TestPipeline:
             ),
             snk,
             link_map={
-                "t1:sink:H1": "src1:src:H1",
-                "snk1:sink:H1": "t1:src:H1",
+                "t1:sink:H1": src.srcs["H1"],
+                snk.sink_pads[0]: "t1:src:H1",
             },
         )
 

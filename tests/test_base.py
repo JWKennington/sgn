@@ -307,6 +307,14 @@ class TestLogging:
             logger = get_sgn_logger("sample", SGN_LOG_LEVELS)
             assert isinstance(logger, Logger)
 
+    def test_set_scoped_level_via_env_var(self):
+        """Test setting the element scoped log level via an environment variable."""
+        with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "myelement:DEBUG"}):
+            assert os.environ["SGNLOGLEVEL"] == "myelement:DEBUG"
+
+            logger = get_sgn_logger("sample", SGN_LOG_LEVELS).getChild("myelement")
+            assert isinstance(logger, Logger)
+
     def test_err_default_invalid_level(self):
         """Test setting the log level via an environment variable."""
         with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "INVALID"}):
