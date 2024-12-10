@@ -25,7 +25,7 @@ class SignalEOS:
     inherit it for a source element then it will capture SIGINT and provide a
     method to mark that eos should be flagged.  See NullSource as an example.
 
-    Additionally this could/should be used as a context manager for executing
+    Additionally this must be used as a context manager for executing
     a pipeline and disabling the signal hander after the pipeline is done, e.g.,
 
         with SignalEOS() as signal_eos:
@@ -35,27 +35,35 @@ class SignalEOS:
 
     handled_signals = {signal.SIGINT}
     rcvd_signals: set[int] = set([])
-    previous_handlers = {}
-
-    handler = _handler
-    for sig in handled_signals:
-        previous_handlers[sig] = signal.getsignal(sig)
-        signal.signal(sig, handler)
+    previous_handlers: dict[int, Callable] = {}
 
     @classmethod
     def signaled_eos(cls):
+        """Returns true of the intersection of received signals and handled
+        signals is nonzero.  This can be used by developers to decide if EOS should be
+        set"""
         return bool(cls.rcvd_signals & cls.handled_signals)
 
     def raise_signal(self, sig):
-        if sig in self.rcvd_signals:
+        """Intended to be used after a statment executed as a context manager if
+        the application needs to re-raise one of the signals with the previous signal
+        handler.  NOTE - this will only raise the signal if it had been previously
+        raised"""
+        if sig in SignalEOS.rcvd_signals:
             signal.raise_signal(sig)
 
     def __enter__(self):
+        """Store the previous signal handlers and setup new ones for the
+        handled signals"""
+        for sig in SignalEOS.handled_signals:
+            SignalEOS.previous_handlers[sig] = signal.getsignal(sig)
+            signal.signal(sig, _handler)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for sig in self.handled_signals:
-            signal.signal(sig, self.previous_handlers[sig])
+        """Restore the original signal handlers"""
+        for sig in SignalEOS.handled_signals:
+            signal.signal(sig, SignalEOS.previous_handlers[sig])
 
 
 @dataclass
@@ -71,6 +79,11 @@ class NullSource(SourceElement, SignalEOS):
     If wait is not None the source will block for wait seconds before each new
     buffer, which is useful for slowing down debugging pipelines.  By default
     this source element handles SIGINT and uses that to set EOS. See SignalEOS.
+    In order to use this feature, the pipeline must be run within the SignalEOS
+    context manager, e.g.,
+
+        with SignalEOS() as signal_eos:
+            p.run()
     """
 
     frame_factory: Callable = Frame
