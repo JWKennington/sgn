@@ -13,7 +13,7 @@ class InputPull(TransformElement):
     """Input Pull mixin class for Transforms creates a dictionary of inputs and a pull
     method to populate the dictionary.
 
-    The transform method remains abstract and must be implemented in the subclass.
+    The new method remains abstract and must be implemented in the subclass.
     """
 
     def __post_init__(self):
@@ -114,12 +114,12 @@ class CallableTransform(InputPull):
         # Create source pads via parent class
         super().__post_init__()
 
-    def transform(self, pad: SourcePad) -> Frame:
+    def new(self, pad: SourcePad) -> Frame:
         """Apply the callable associated to the pad to the corresponding inputs.
 
         Args:
             pad:
-                SourcePad, the pad to transform
+                SourcePad, The source pad through which the frame is passed
 
         Returns:
             Frame, the output frame

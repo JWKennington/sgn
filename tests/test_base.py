@@ -260,13 +260,13 @@ class TestTransformElement:
         with pytest.raises(NotImplementedError):
             te.pull(te.source_pads[0], Frame())
 
-    def test_transform(self):
-        """Test the transform method."""
+    def test_new(self):
+        """Test the new method."""
         te = TransformElement(
             name="t1", source_pad_names=["testsrc"], sink_pad_names=["testsink"]
         )
         with pytest.raises(NotImplementedError):
-            te.transform(te.source_pads[0])
+            te.new(te.source_pads[0])
 
 
 class TestSinkElement:
