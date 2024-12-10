@@ -157,8 +157,8 @@ class TestCallableTransform:
         # Setup data on sink pads (usually handled by pull method)
         trn.inputs[trn.sink_pads[0].name] = Frame(data=2)
         trn.inputs[trn.sink_pads[1].name] = Frame(data=3)
-        f0 = trn.transform(trn.source_pads[0])
-        f1 = trn.transform(trn.source_pads[1])
+        f0 = trn.new(trn.source_pads[0])
+        f1 = trn.new(trn.source_pads[1])
         assert not f0.EOS
         assert f0.data == 5
         assert f1.data == 30

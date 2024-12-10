@@ -477,7 +477,7 @@ class TransformElement(ElementLike):
             SourcePad(
                 name=f"{self.name}:src:{n}",
                 element=self,
-                call=self.transform,
+                call=self.new,
             )
             for n in self.source_pad_names
         ]
@@ -514,16 +514,15 @@ class TransformElement(ElementLike):
         """
         raise NotImplementedError
 
-    def transform(self, pad: SourcePad) -> Frame:
-        """The transform function must be provided by the subclass. It should take the
-        source pad as an argument and return a new frame.
+    def new(self, pad: SourcePad) -> Frame:
+        """New frames are created on "pad". Must be provided by subclass.
 
         Args:
             pad:
-                SourcePad, The source pad that is providing the frame to be transformed
+                SourcePad, The source pad through which the frame is passed
 
         Returns:
-            Frame, The transformed frame
+            Frame, The new frame to be passed through the source pad
         """
         raise NotImplementedError
 
