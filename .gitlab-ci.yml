@@ -26,6 +26,10 @@ include:
   - component: git.ligo.org/computing/gitlab/components/sphinx/pages@1
     inputs:
       pages_when: "default"
+  - component: git.ligo.org/computing/gitlab/components/mkdocs/build@1
+    inputs:
+      project_dir: "./docs2/sgndocs"
+      requirements: ".[mkdocs]"
 
 python_test:
   before_script:

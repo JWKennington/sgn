@@ -1,0 +1,40 @@
+site_name: SGN Docs
+
+nav:
+  - Home: index.md
+  - Examples:
+    - Trivial: examples/trivial.md
+    - Simple: examples/simple.md
+    - Simple JSON: examples/simple-json.md
+  - User Guide:
+    - Key Concepts: user-guide/concepts.md
+  - Developer Guide:
+    - Contributing: dev-guide/contributing.md
+  - API Reference:
+    - Apps: api/apps.md
+    - Base: api/base.md
+    - Frames: api/frames.md
+    - Sources: api/sources.md
+    - Transforms: api/transforms.md
+    - Sinks: api/sinks.md
+    - Control: api/control.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_inheritance_diagram: true
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_symbol_type_heading: true
+            heading_level: 1
+
+
+markdown_extensions:
+  toc:
+    permalink: true
+    toc_depth: 4
+  admonition: {}
+
