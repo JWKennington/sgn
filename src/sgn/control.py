@@ -97,6 +97,24 @@ class HTTPControl(SignalEOS):
         HTTPControl.http_thread.join(3.0)  # Wait for the subthread to clean up
         super().__exit__(exc_type, exc_value, exc_traceback)
 
+    @classmethod
+    def exchange_state(cls, name, state_dict):
+        """Automate the common task of reading and writing state to an element.
+        name is the name of an element (which is the key of both get and post queues)
+        and state_dict is a dictionary of state variables with **correct** types that
+        can be coerced out of json.  This will mostly work out of the box for simple
+        data types like ints and floats and strings, but complicated data will probably
+        not work.  FIXME consider supporting more complex types if it comes up."""
+        while not cls.post_queues[name].empty():
+            postdata = cls.post_queues[name].get()
+            for k in state_dict:
+                if k in postdata:
+                    state_dict[k] = type(state_dict[k])(postdata[k])
+        # drain the get queue and put data into it
+        while not cls.get_queues[name].empty():
+            cls.get_queues[name].get()
+        cls.get_queues[name].put(state_dict)
+
 
 @dataclass
 class HTTPControlSourceElement(SourceElement, HTTPControl):
