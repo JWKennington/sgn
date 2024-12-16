@@ -38,11 +38,12 @@ plugins:
 
 theme:
   name: material
-  logo: assets/sgn.png
+  logo: assets/img/sgn.png
 
 
 extra_css:
-  - /assets/sgn.css
+  - assets/css/sgn.css
+  - assets/css/mkdocstrings-custom.css
 
 
 markdown_extensions:
