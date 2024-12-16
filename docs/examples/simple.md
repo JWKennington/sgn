@@ -10,7 +10,7 @@ For the transform, we define a function `scale` that multiplies the input by a g
 in the pipeline, we create a `CallableTransform` element that wraps the function, by using the helper method
 `CallableTransform.from_callable`. Note that we use `functools.partial` to set the `factor` argument to 10.
 
-The sink is a `CollectSink`, which consumes the `Frame` objects produced by the source, appending them to a list.
+The sink is a [`CollectSink`][sgn.sinks.CollectSink], which consumes the `Frame` objects produced by the source, appending them to a list.
 
 ## Code
 
