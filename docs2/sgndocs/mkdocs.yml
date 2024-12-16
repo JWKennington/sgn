@@ -1,11 +1,15 @@
-site_name: SGN Docs
+site_name: Streaming Graph Navigator (SGN) Documentation
 
 nav:
   - Home: index.md
-  - Examples:
-    - Trivial: examples/trivial.md
-    - Simple: examples/simple.md
-    - Simple JSON: examples/simple-json.md
+  - Tutorials:
+    - tutorials/hello_world.md
+    - tutorials/end_of_stream.md
+    - tutorials/multiple_pads.md
+    - tutorials/internal_pad.md
+    - tutorials/transforms.md
+  - FAQs:
+    - faqs/pads.md
   - User Guide:
     - Key Concepts: user-guide/concepts.md
   - Developer Guide:
@@ -19,6 +23,7 @@ nav:
     - Sinks: api/sinks.md
     - Control: api/control.md
 
+
 plugins:
   - search
   - mkdocstrings:
@@ -30,6 +35,14 @@ plugins:
             show_root_toc_entry: true
             show_symbol_type_heading: true
             heading_level: 1
+
+theme:
+  name: material
+  logo: assets/sgn.png
+
+
+extra_css:
+  - /assets/sgn.css
 
 
 markdown_extensions:

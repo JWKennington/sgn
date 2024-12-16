@@ -190,7 +190,7 @@ class _SourcePadLike(PadLike):
 
 @dataclass(eq=False, repr=False)
 class _SinkPadLike(PadLike):
-    """A pad that receives a data Frame when called.  When linked, it returns a
+    """<pre>A pad that receives a data Frame when called.  When linked, it returns a
     dictionary suitable for building a graph in graphlib.
 
     Args:
@@ -205,7 +205,7 @@ class _SinkPadLike(PadLike):
         input:
             Frame, optional, This holds the Frame provided by the linked source pad.
             Generally it gets set when this SinkPad is called, default None
-    """
+    </pre>"""
 
     other: Optional[SourcePad] = None
     input: Optional[Frame] = None
@@ -213,7 +213,7 @@ class _SinkPadLike(PadLike):
 
 @dataclass(eq=False, repr=False)
 class _InternalPadLike(PadLike):
-    """A pad that sits inside an element and is called between sink and source pads.
+    r"""A pad that sits inside an element and is called between sink and source pads.
     Internal pads are connected in the elements internal graph according to the below
     (data flows top to bottom)
 

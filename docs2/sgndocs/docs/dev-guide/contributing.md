@@ -11,7 +11,7 @@ process, and then the merging of the new changes into the main branch.
 !!! info "Examples Images from GstLAL repo"
     The example images are from the `gstlal` repo, but the process is the same for all repos.
 
-![git-flow](_static/img/git-flow.png)
+![git-flow](/assets/git-flow.png)
 
 ### Git Workflow
 
@@ -30,7 +30,7 @@ In general the steps for working with feature branches are:
 Once you push feature branch, GitLab will prompt on gstlal repo [home page](). Click “Create Merge Request”, or you can
 also go to the branches page (Repository > Branches) and select “Merge Request” next to your branch.
 
-![mr-create](_static/img/mr-create.png)
+![mr-create](/assets/mr-create.png)
 
 When creating a merge request:
 
@@ -41,7 +41,7 @@ When creating a merge request:
     - Describe any tests run (other than CI)
 1. Click “Create Merge Request”
 
-![mr-create](_static/img/mr-create-steps.png)
+![mr-create](/assets/mr-create-steps.png)
 
 ### Collaborating on merge requests
 
@@ -53,7 +53,7 @@ The Overview page give a general summary of the merge request, including:
 1. Discussion History
 1. Commenting
 
-![mr-overview](_static/img/mr-overview.png)
+![mr-overview](/assets/mr-overview.png)
 
 #### Leaving a Review
 
@@ -66,24 +66,24 @@ The View Changes page gives a detailed look at the changes made on the feature b
 1. Click to leave comment on line
 1. Choose “Start a review”
 
-![mr-changes](_static/img/mr-changes.png)
+![mr-changes](/assets/mr-changes.png)
 
 After review started:
 
 1. comment pending
 1. Submit review
 
-![mr-changes](_static/img/mr-change-submit.png)
+![mr-changes](/assets/mr-change-submit.png)
 
 #### Responding to Reviews
 
 Reply to code review comments as needed Use “Start a review” to submit all replies at once
 
-![mr-changes](_static/img/mr-respond.png)
+![mr-changes](/assets/mr-respond.png)
 
 Resolve threads when discussion on a particular piece of code is complete
 
-![mr-changes](_static/img/mr-resolve.png)
+![mr-changes](/assets/mr-resolve.png)
 
 ### Merging the Merge Request
 
@@ -98,4 +98,4 @@ Merging:
 1. Click “Merge”
 1. Celebrate
 
-![mr-merge](_static/img/mr-merge.png)
+![mr-merge](/assets/mr-merge.png)
