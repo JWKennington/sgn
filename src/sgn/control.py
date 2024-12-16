@@ -31,6 +31,12 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
         def post(postqueue=postqueue):
             data = request.json  # Get JSON payload
             if data:
+                # Drain the post queue
+                while not postqueue.empty():
+                    postqueue.get()
+                    postqueue.task_done()
+                # Then put in the data we have
+                postqueue.join()
                 postqueue.put(data)  # Put JSON payload into the queue
                 return {"status": "success", "message": "Data received"}
             else:
@@ -41,9 +47,14 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
     for getroute, getqueue in get_queues.items():
 
         def get(getqueue=getqueue):
-            data = []
+            data = {}
+            # Get the last data in the queue
             while not getqueue.empty():
-                data.append(getqueue.get())
+                data = getqueue.get()
+                getqueue.task_done()
+            # Put a copy back in
+            getqueue.join()
+            getqueue.put(data)
             response.content_type = "application/json"
             return json.dumps(data)
 
@@ -110,9 +121,13 @@ class HTTPControl(SignalEOS):
             for k in state_dict:
                 if k in postdata:
                     state_dict[k] = type(state_dict[k])(postdata[k])
+            cls.post_queues[name].task_done()
+        cls.post_queues[name].join()
         # drain the get queue and put data into it
         while not cls.get_queues[name].empty():
             cls.get_queues[name].get()
+            cls.get_queues[name].task_done()
+        cls.get_queues[name].join()
         cls.get_queues[name].put(state_dict)
 
 
@@ -120,39 +135,38 @@ class HTTPControl(SignalEOS):
 class HTTPControlSourceElement(SourceElement, HTTPControl):
     """A lightweight subclass of SourceElement that defaults to setting up post
     and get routes based on the provided element name.  HTTP Queues are limited
-    to a size of queuesize to prevent huge data pile ups (default = 10)"""
-
-    queuesize: int = 10
+    to a size of queuesize of 1"""
 
     def __post_init__(self):
         SourceElement.__post_init__(self)
-        HTTPControl.post_queues[self.name] = Queue(self.queuesize)
-        HTTPControl.get_queues[self.name] = Queue(self.queuesize)
+        queuesize = 1
+        HTTPControl.post_queues[self.name] = Queue(queuesize)
+        HTTPControl.get_queues[self.name] = Queue(queuesize)
 
 
 @dataclass
 class HTTPControlTransformElement(TransformElement, HTTPControl):
     """A lightweight subclass of TransformElement that defaults to setting up post
     and get routes based on the provided element name.  HTTP Queues are limited
-    to a size of queuesize to prevent huge data pile ups (default = 10)"""
-
-    queuesize: int = 10
+    to a size of queuesize of 1"""
 
     def __post_init__(self):
         TransformElement.__post_init__(self)
-        HTTPControl.post_queues[self.name] = Queue(self.queuesize)
-        HTTPControl.get_queues[self.name] = Queue(self.queuesize)
+        queuesize = 1
+        HTTPControl.post_queues[self.name] = Queue(queuesize)
+        HTTPControl.get_queues[self.name] = Queue(queuesize)
 
 
 @dataclass
 class HTTPControlSinkElement(SinkElement, HTTPControl):
     """A lightweight subclass of SinkElement that defaults to setting up post
     and get routes based on the provided element name.  HTTP Queues are limited
-    to a size of queuesize to prevent huge data pile ups (default = 10)"""
+    to a size of queuesize of 1"""
 
-    queuesize: int = 10
+    queuesize: int = 1
 
     def __post_init__(self):
         SinkElement.__post_init__(self)
-        HTTPControl.post_queues[self.name] = Queue(self.queuesize)
-        HTTPControl.get_queues[self.name] = Queue(self.queuesize)
+        queuesize = 1
+        HTTPControl.post_queues[self.name] = Queue(queuesize)
+        HTTPControl.get_queues[self.name] = Queue(queuesize)
