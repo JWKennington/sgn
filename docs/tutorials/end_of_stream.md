@@ -4,7 +4,7 @@ A program executes normally when all of its source elements mark frames as end
 of stream (EOS) and all the sink elements receive EOS frames.  Here is a program
 that sends EOS after 10 frames.
 
-```python
+```
 #!/usr/bin/env python3
 
 from sgn.base import SourceElement, SinkElement, Frame

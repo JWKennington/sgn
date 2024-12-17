@@ -3,8 +3,87 @@ requires = [
     "setuptools>=42",
     "setuptools_scm[toml]>=3.4.3",
     "wheel",
+    "pyproject-flake8",
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "sgn"
+dynamic = ["version"]
+dependencies = [
+    "sgn",
+]
+requires-python = ">=3.9"
+authors = [
+    { name = "Chad Hanna", email = "crh184@psu.edu" },
+    { name = "Yun-Jing Huang", email = "yzh5436@psu.edu" },
+    { name = "Jameson Rollins", email = "jameson.rollins@ligo.org" },
+    { name = "Patrick Godwin", email = "partick.godwin@ligo.org" },
+    { name = "James Kennington", email = "jwkennington@psu.edu" },
+]
+description = "A framework to help navigate buffers through a graph. The buffers must flow."
+readme = "README.md"
+license = { text = "MPL-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://git.ligo.org/greg/sgn"
+Documentation = "https://greg.docs.ligo.org/sgn"
+Issues = "https://git.ligo.org/greg/sgn/issues"
+
+[project.optional-dependencies]
+bottle = [
+    "bottle",
+]
+visualize = [
+    "graphviz",
+]
+test = [
+    "sgn[bottle]",
+    "sgn[visualize]",
+    "numpy",
+    "pytest",
+    "pytest-cov",
+    "pytest-markdown-docs",
+]
+docs = [
+    "mkdocs",
+    "mkdocstrings",
+    "mkdocstrings-python",
+    "mkdocs-material",
+    "pymdown-extensions",
+]
+lint = [
+    "black",
+    "flake8",
+    "flake8-bandit",
+    "flake8-black",
+    "flake8-bugbear",
+    "flake8-future-annotations",
+    "flake8-isort",
+    "flake8-logging-format",
+    "flake8-pyproject",
+    "isort",
+    "mypy",
+    "mypy-extensions",
+]
+dev = [
+    "sgn[docs]",
+    "sgn[lint]",
+    "sgn[test]",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sgnl = [
+    "py.typed",
+]
 
 [tool.setuptools_scm]
 write_to = "src/sgn/_version.py"
@@ -35,6 +114,28 @@ ignore_missing_imports = true
 exclude = [
     "build",
     "docs",
+    "src/sgn/bottle.py",
+]
+
+[tool.pytest.ini_options]
+addopts = "-p no:warnings --cov=sgn --markdown-docs --markdown-docs-syntax=superfences"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = [
+    "E203",
+    "S101",
+]
+per-file-ignores = [
+    "__init__.py:F401",
+    "_version.py:BLK100",
+    "docs/conf.py:E501",
+    "tests/*.py:E731",
+]
+exclude = [
+    "build",
+    "docs",
+    "_version.py",
     "src/sgn/bottle.py",
 ]
 

@@ -9,7 +9,7 @@ Pads are hashable and they also have string names (though that name is not used 
 
 Below is a bit of interactive python code that should be all you need to sort this out.
 
-```python
+```{.python notest}
 >>> from sgn.base import SourceElement
 >>> e = SourceElement(name="example", source_pad_names=("alice","bob"))
 >>> # Here are some relevant ways to access pad information

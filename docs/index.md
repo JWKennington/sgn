@@ -86,7 +86,8 @@ a end point (Sink) in all graphs.
 
 Here is a simple example that passes the string "hello" as data for every execution of the event loop
 
-```python
+
+```{.python notest}
 #!/usr/bin/env python3
 
 from sgn.base import SourceElement, SinkElement, Frame

@@ -2,7 +2,7 @@
 
 Here is a simple example implementing the above graph
 
-```python
+```{.python notest}
 #!/usr/bin/env python3
 
 from sgn.base import SourceElement, SinkElement, Frame

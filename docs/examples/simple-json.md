@@ -98,7 +98,7 @@ p.run()
 # Check the result of the sink queue to see outputs
 # We check each packet individually to avoid numpy array comparison issues
 result = list(snk.collects["snk1:sink:H1"])
-assert result == [
+expected = [
     [
         {"time": datetime.datetime(2021, 1, 1, 0, 0, 0),
          "buffer": numpy.array([-1., 0., 1.]),
@@ -116,4 +116,9 @@ assert result == [
          "trusted": True},
     ]
 ]
+for r, e in zip(result, expected):
+    for rp, ep in zip(r, e):
+        assert rp["time"] == ep["time"]
+        assert numpy.allclose(rp["buffer"], ep["buffer"], equal_nan=True), f"{rp['buffer']} != {ep['buffer']}"
+        assert rp["trusted"] == ep["trusted"]
 ```

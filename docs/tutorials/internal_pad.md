@@ -25,7 +25,7 @@ class MySourceClass(SourceElement):
         # NOTE: this must be done after super() post init so that the source pads exist
         self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
         self.cnt = 0
-    def internal(self, pad):
+    def internal(self):
         self.cnt += 1
     def new(self, pad):
         return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
@@ -93,7 +93,7 @@ class MySourceClass(SourceElement):
         # NOTE: this must be done after super() post init so that the source pads exist
         self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
         self.cnt = 0
-    def internal(self, pad):
+    def internal(self):
         self.cnt += 1
     def new(self, pad):
         return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
@@ -102,7 +102,7 @@ class MySinkClass(SinkElement):
     def __post_init__(self):
         super().__post_init__()
         self.combined_string = ""
-    def internal(self, pad):
+    def internal(self):
         print (self.combined_string)
         self.combined_string = ""
     def pull(self, pad, frame):
