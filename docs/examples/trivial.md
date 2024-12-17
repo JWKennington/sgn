@@ -13,7 +13,8 @@ from sgn import Pipeline, NullSource, NullSink
 # Create pipeline in one go
 p = Pipeline()
 p.insert(NullSource(name='src1',
-                    source_pad_names=["H1"]),
+                    source_pad_names=["H1"],
+                    num_frames=1),
          NullSink(name='snk1',
                   sink_pad_names=["H1"]),
          link_map={"snk1:sink:H1": "src1:src:H1"})

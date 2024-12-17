@@ -33,7 +33,7 @@ Graphs can have other elements called "transform elements." These have both sour
 -------------------------------------------------------------------
 ```
 
-```
+```python
 #!/usr/bin/env python3
 
 from dataclasses import dataclass
@@ -52,7 +52,7 @@ class MySourceClass(SourceElement):
         # NOTE: this must be done after super() post init so that the source pads exist
         self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
         self.cnt = 0
-    def internal(self, pad):
+    def internal(self):
         self.cnt += 1
     def new(self, pad):
         return Frame(data=self.pad_map[pad], EOS=self.cnt > 10)
@@ -68,11 +68,11 @@ class MyTransformClass(TransformElement):
     def pull(self, pad, frame):
         self.out_string += " %s" % frame.data
         self.EOS |= frame.EOS
-    def internal(self, pad):
+    def internal(self):
         # Reverse the data for fun.
         self.outframe = Frame(data=self.out_string[::-1], EOS=self.EOS)
         self.out_string = ""
-    def transform(self, pad):
+    def new(self, pad):
         # This element just has one source pad
         return self.outframe
         
@@ -81,7 +81,7 @@ class MySinkClass(SinkElement):
     def __post_init__(self):
         super().__post_init__()
         self.combined_string = ""
-    def internal(self, pad):
+    def internal(self):
         print (self.combined_string)
         self.combined_string = ""
     def pull(self, pad, frame):

@@ -47,8 +47,10 @@ extra_css:
 
 
 markdown_extensions:
-  toc:
-    permalink: true
-    toc_depth: 4
-  admonition: {}
+  - pymdownx.superfences:
+  - toc:
+      permalink: true
+      toc_depth: 4
+  - admonition: {}
+
 

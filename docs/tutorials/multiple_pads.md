@@ -21,7 +21,7 @@ example with multiple pads
 ----------------------------------------------
 ```
 
-```
+```python
 #!/usr/bin/env python3
 
 from dataclasses import dataclass
