@@ -18,7 +18,9 @@ SGN_LOG_LEVELS = {
 SGN_LOG_LEVEL_VAR = "SGNLOGLEVEL"
 
 
-def get_sgn_logger(name: str, levels: Dict[str, int]) -> logging.Logger:
+def get_sgn_logger(
+    name: str, levels: Dict[str, int] = SGN_LOG_LEVELS
+) -> logging.Logger:
     """Utility function for constructing a logger with a given name and log level.
 
     Args:
