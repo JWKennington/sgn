@@ -54,3 +54,8 @@ markdown_extensions:
   - admonition: {}
 
 
+extra:
+  analytics:
+    provider: google
+    property: G-DXH9JDCKT5
+
