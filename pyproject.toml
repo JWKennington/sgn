@@ -109,6 +109,9 @@ skip_glob = [
     "src/sgn/bottle.py",
 ]
 
+[tool.black]
+force-exclude = "(src/sgn/bottle\\.py|src/sgn/_version\\.py)"
+
 [tool.mypy]
 ignore_missing_imports = true
 exclude = [

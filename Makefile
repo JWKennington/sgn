@@ -1,3 +1,6 @@
+.PHONE: all
+all: format lint type-check test
+
 .PHONY: help
 help :
 	@echo
@@ -8,6 +11,7 @@ help :
 	@echo '  make format                run code formatter'
 	@echo '  make type-check            run static type checker'
 	@echo
+
 
 .PHONY: test
 test :

@@ -99,7 +99,7 @@ class HTTPControl(SignalEOS):
         )
         HTTPControl.http_thread.start()  # Start the Bottle app as a subthread
         LOGGER.info(
-            f"Bottle app running on http://{HTTPControl.host}:{HTTPControl.port}"
+            "Bottle app running on http://%s:%s", HTTPControl.host, HTTPControl.port
         )
         super().__enter__()
         return self
@@ -115,7 +115,13 @@ class HTTPControl(SignalEOS):
         and state_dict is a dictionary of state variables with **correct** types that
         can be coerced out of json.  This will mostly work out of the box for simple
         data types like ints and floats and strings, but complicated data will probably
-        not work.  FIXME consider supporting more complex types if it comes up."""
+        not work.  FIXME consider supporting more complex types if it comes up.
+
+        HTTPControl.exchange_state(<elem name>, state_dict) will drain the post
+        queue and update matching keys in statdict with the contents of the postqueue.
+        The postqueue is not preserved so if you call it again immediately the
+        postqueue is likely to be empty resulting in no change to state_dict.
+        """
         while not cls.post_queues[name].empty():
             postdata = cls.post_queues[name].get()
             for k in state_dict:
@@ -135,7 +141,8 @@ class HTTPControl(SignalEOS):
 class HTTPControlSourceElement(SourceElement, HTTPControl):
     """A lightweight subclass of SourceElement that defaults to setting up post
     and get routes based on the provided element name.  HTTP Queues are limited
-    to a size of queuesize of 1"""
+    to a size of queuesize of 1. Posts will always succeed by draining the queue
+    first.  Gets will preserve the data in the queue"""
 
     def __post_init__(self):
         SourceElement.__post_init__(self)
@@ -148,7 +155,8 @@ class HTTPControlSourceElement(SourceElement, HTTPControl):
 class HTTPControlTransformElement(TransformElement, HTTPControl):
     """A lightweight subclass of TransformElement that defaults to setting up post
     and get routes based on the provided element name.  HTTP Queues are limited
-    to a size of queuesize of 1"""
+    to a size of queuesize of 1. Posts will always succeed by draining the queue
+    first.  Gets will preserve the data in the queue"""
 
     def __post_init__(self):
         TransformElement.__post_init__(self)
@@ -161,7 +169,8 @@ class HTTPControlTransformElement(TransformElement, HTTPControl):
 class HTTPControlSinkElement(SinkElement, HTTPControl):
     """A lightweight subclass of SinkElement that defaults to setting up post
     and get routes based on the provided element name.  HTTP Queues are limited
-    to a size of queuesize of 1"""
+    to a size of queuesize of 1. Posts will always succeed by draining the queue
+    first.  Gets will preserve the data in the queue"""
 
     queuesize: int = 1
 

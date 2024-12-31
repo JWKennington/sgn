@@ -122,14 +122,13 @@ class TestHTTPControlElements:
     HTTPControlSinkElement classes."""
 
     def test_init_and_context_manager(self):
-        src = HTTPControlSourceElement(
+        HTTPControlSourceElement(
             name="testsrc",
             source_pad_names=[
                 "blah",
             ],
         )
-        src.get_queues["testsrc"].put({"test": "test"})
-        trans = HTTPControlTransformElement(
+        HTTPControlTransformElement(
             name="testtrans",
             source_pad_names=[
                 "blah",
@@ -138,14 +137,12 @@ class TestHTTPControlElements:
                 "blah",
             ],
         )
-        trans.get_queues["testtrans"].put({"test": "test"})
-        sink = HTTPControlSinkElement(
+        HTTPControlSinkElement(
             name="testsink",
             sink_pad_names=[
                 "blah",
             ],
         )
-        sink.get_queues["testsink"].put({"test": "test"})
         with HTTPControl() as control:
             # UGH this is super annoying but if you don't wait a while then the
             # bottle server might not be ready.
@@ -153,15 +150,41 @@ class TestHTTPControlElements:
 
             time.sleep(3)
             if control.http_thread.is_alive():
-                for elem in ("testsrc", "testtrans", "testink"):
-                    standard_library_post(
-                        f"http://{control.host}:{control.port}/post/{elem}",
-                        json_data=json.dumps({"a": "b"}),
-                    )
+                for elem in ("testsrc", "testtrans", "testsink"):
+                    # Test a failed POST
                     standard_library_post(
                         f"http://{control.host}:{control.port}/post/{elem}",
                         json_data=None,
                     )
-                    standard_library_get(
+
+                    # Test a successful POST
+                    standard_library_post(
+                        f"http://{control.host}:{control.port}/post/{elem}",
+                        json_data={"a": "b"},
+                    )
+
+                    # Test a successful POST where the post queue is already
+                    # full but gets drained and refilled with this post
+                    standard_library_post(
+                        f"http://{control.host}:{control.port}/post/{elem}",
+                        json_data={"a": "b"},
+                    )
+
+                    # Test exchanging state
+                    state_dict = {"a": ""}
+                    control.exchange_state(elem, state_dict)
+                    assert state_dict == {"a": "b"}
+
+                    # Test a successful GET which should have the information
+                    # in the post previously
+                    r = standard_library_get(
                         f"http://{control.host}:{control.port}/get/{elem}"
                     )
+                    assert json.loads(r["body"]) == state_dict
+                    assert state_dict == {"a": "b"}
+
+                    # Test exchanging state again this time with a full get
+                    # queue but the post queue is empty
+                    state_dict = {"a": ""}
+                    control.exchange_state(elem, state_dict)
+                    assert state_dict == {"a": ""}
