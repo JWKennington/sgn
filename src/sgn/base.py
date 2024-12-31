@@ -6,7 +6,7 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 SGN_LOG_LEVELS = {
     "DEBUG": logging.DEBUG,
@@ -406,7 +406,7 @@ class SourceElement(ElementLike):
             made with "<self.name>:src:<source_pad_name>"
     """
 
-    source_pad_names: Iterable[str] = field(default_factory=list)
+    source_pad_names: Sequence[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Establish the source pads and graph attributes."""
@@ -457,8 +457,8 @@ class TransformElement(ElementLike):
             be made with "<self.name>:sink:<sink_pad_name>"
     """
 
-    source_pad_names: Iterable[str] = field(default_factory=list)
-    sink_pad_names: Iterable[str] = field(default_factory=list)
+    source_pad_names: Sequence[str] = field(default_factory=list)
+    sink_pad_names: Sequence[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Establish the source pads and sink pads and graph attributes."""
@@ -531,7 +531,7 @@ class SinkElement(ElementLike):
             made with "<self.name>:sink:<sink_pad_name>"
     """
 
-    sink_pad_names: Iterable[str] = field(default_factory=list)
+    sink_pad_names: Sequence[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Establish the sink pads and graph attributes."""

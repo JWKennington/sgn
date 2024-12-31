@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable, Optional, Sequence
 
 from sgn.base import Frame, SinkPad, SourcePad, TransformElement
 
@@ -148,8 +148,8 @@ class CallableTransform(InputPull):
     def from_combinations(
         name: str,
         combos: Iterable[tuple[tuple[str, ...], Callable, str]],
-        sink_pad_names: Optional[Iterable[str]] = None,
-        source_pad_names: Optional[Iterable[str]] = None,
+        sink_pad_names: Optional[Sequence[str]] = None,
+        source_pad_names: Optional[Sequence[str]] = None,
     ):
         """Create a CallableTransform from a list of combinations where each combination
         is.
@@ -160,7 +160,7 @@ class CallableTransform(InputPull):
             name:
                 str, the name of the CallableTransform
             combos:
-                Iterable[tuple[tuple[str, ...], Callable, str]], a list of
+                Sequence[tuple[tuple[str, ...], Callable, str]], a list of
                 combinations to create the CallableTransform, where each
                 combination is a tuple of the input keys, the callable, and the
                 output name
