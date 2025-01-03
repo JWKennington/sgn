@@ -110,8 +110,8 @@ class Pipeline:
             else:
                 source_pad = source_pad_name
 
-            assert isinstance(sink_pad, SinkPad)
-            assert isinstance(source_pad, SourcePad)
+            assert isinstance(sink_pad, SinkPad), f"not a sink pad: {sink_pad}"
+            assert isinstance(source_pad, SourcePad), f"not a source pad: {source_pad}"
 
             graph = sink_pad.link(source_pad)
             self.graph.update(graph)
@@ -279,9 +279,10 @@ class Pipeline:
 
     def run(self) -> None:
         """Run the pipeline until End Of Stream (EOS)"""
+        assert self.sinks, "Pipeline contains no sink elements."
         for element in self.elements:
             for source_pad in element.source_pads:
-                assert source_pad.is_linked, "All pads not linked"
+                assert source_pad.is_linked, f"Source pad not linked: {source_pad}"
             for sink_pad in element.sink_pads:
-                assert sink_pad.is_linked, "All pads not linked"
+                assert sink_pad.is_linked, f"Sink pad not linked: {sink_pad}"
         self.loop.run_until_complete(self._execute_graphs())
