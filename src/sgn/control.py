@@ -46,7 +46,7 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
 
     for getroute, getqueue in get_queues.items():
 
-        def get(getqueue=getqueue):
+        def get(getqueue=getqueue, key=None):
             data = {}
             # Get the last data in the queue
             while not getqueue.empty():
@@ -56,9 +56,15 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
             getqueue.join()
             getqueue.put(data)
             response.content_type = "application/json"
-            return json.dumps(data)
+            if key is None:
+                return json.dumps(data)
+            elif key in data:
+                return json.dumps(data[key])
+            else:
+                return {"status": "error", "message": f"{key} not in data"}
 
         app.route("/get/%s" % getroute, method="GET", callback=get)
+        app.route("/get/%s/<key>" % getroute, method="GET", callback=get)
 
     run(app, host=host, port=port, debug=True)
 
@@ -83,6 +89,7 @@ class HTTPControl(SignalEOS):
     post_queues: dict[str, Queue] = {}
     get_queues: dict[str, Queue] = {}
     http_thread = None
+    registry_file = "registry.txt"
 
     def __enter__(self):
         # The bottle thread doesn't want to die without daemon mode (which
@@ -101,6 +108,8 @@ class HTTPControl(SignalEOS):
         LOGGER.info(
             "Bottle app running on http://%s:%s", HTTPControl.host, HTTPControl.port
         )
+        with open(HTTPControl.registry_file, "w") as f:
+            f.write("http://%s:%s" % (HTTPControl.host, HTTPControl.port))
         super().__enter__()
         return self
 
