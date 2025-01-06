@@ -46,7 +46,13 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
 
     for getroute, getqueue in get_queues.items():
 
-        def get(getqueue=getqueue, key=None, key2=None):
+        def get(
+            getqueue=getqueue,
+            key=None,
+            key2=None,
+            content_type="application",
+            content_subtype="json",
+        ):
             data = {}
             # Get the last data in the queue
             while not getqueue.empty():
@@ -55,14 +61,20 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
             # Put a copy back in
             getqueue.join()
             getqueue.put(data)
-            response.content_type = "application/json"
+            response.content_type = "%s/%s" % (content_type, content_subtype)
             if key is None:
                 return json.dumps(data)
             elif key in data:
                 if key2 is None:
-                    return json.dumps(data[key])
+                    if content_subtype == "json":
+                        return json.dumps(data[key])
+                    else:
+                        return data[key]
                 elif key2 in data[key]:
-                    return json.dumps(data[key][key2])
+                    if content_subtype == "json":
+                        return json.dumps(data[key][key2])
+                    else:
+                        return data[key][key2]
                 else:
                     return {"status": "error", "message": f"{key2} not in data[{key}]"}
             else:
@@ -71,6 +83,16 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
         app.route("/get/%s" % getroute, method="GET", callback=get)
         app.route("/get/%s/<key>" % getroute, method="GET", callback=get)
         app.route("/get/%s/<key>/<key2>" % getroute, method="GET", callback=get)
+        app.route(
+            "/get/<content_type>/<content_subtype>/%s/<key>" % getroute,
+            method="GET",
+            callback=get,
+        )
+        app.route(
+            "/get/<content_type>/<content_subtype>/%s/<key>/<key2>" % getroute,
+            method="GET",
+            callback=get,
+        )
 
     run(app, host=host, port=port, debug=True)
 

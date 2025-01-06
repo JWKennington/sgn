@@ -153,55 +153,55 @@ class TestHTTPControlElements:
 
             time.sleep(3)
             if control.http_thread.is_alive():
-                for elem in ("testsrc", "testtrans", "testsink"):
+                for el in ("testsrc", "testtrans", "testsink"):
                     # Test a successful GET for the full json
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/{elem}"
+                        f"http://{control.host}:{control.port}/get/{el}"
                     )
                     # Test a successful GET for the "a" key
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/{elem}/a"
+                        f"http://{control.host}:{control.port}/get/text/plain/{el}/a"
                     )
                     # Test a failed GET for the "b" key, which doesn't exist
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/{elem}/b"
+                        f"http://{control.host}:{control.port}/get/text/plain/{el}/b"
                     )
                     # Test a successful GET for the "a" then "b" key
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/{elem}/a/b"
+                        f"http://{control.host}:{control.port}/get/text/plain/{el}/a/b"
                     )
                     # Test an unsuccessful GET for the "a" then "c" key
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/{elem}/a/c"
+                        f"http://{control.host}:{control.port}/get/text/plain/{el}/a/c"
                     )
                     # Test a failed POST
                     standard_library_post(
-                        f"http://{control.host}:{control.port}/post/{elem}",
+                        f"http://{control.host}:{control.port}/post/{el}",
                         json_data=None,
                     )
 
                     # Test a successful POST
                     standard_library_post(
-                        f"http://{control.host}:{control.port}/post/{elem}",
+                        f"http://{control.host}:{control.port}/post/{el}",
                         json_data={"a": "b"},
                     )
 
                     # Test a successful POST where the post queue is already
                     # full but gets drained and refilled with this post
                     standard_library_post(
-                        f"http://{control.host}:{control.port}/post/{elem}",
+                        f"http://{control.host}:{control.port}/post/{el}",
                         json_data={"a": "b"},
                     )
 
                     # Test exchanging state
                     state_dict = {"a": ""}
-                    control.exchange_state(elem, state_dict)
+                    control.exchange_state(el, state_dict)
                     assert state_dict == {"a": "b"}
 
                     # Test a successful GET which should have the information
                     # in the post previously
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/{elem}"
+                        f"http://{control.host}:{control.port}/get/{el}"
                     )
                     assert json.loads(r["body"]) == state_dict
                     assert state_dict == {"a": "b"}
@@ -209,5 +209,5 @@ class TestHTTPControlElements:
                     # Test exchanging state again this time with a full get
                     # queue but the post queue is empty
                     state_dict = {"a": ""}
-                    control.exchange_state(elem, state_dict)
+                    control.exchange_state(el, state_dict)
                     assert state_dict == {"a": ""}
