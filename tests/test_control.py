@@ -160,19 +160,25 @@ class TestHTTPControlElements:
                     )
                     # Test a successful GET for the "a" key
                     r = standard_library_get(
+                        f"http://{control.host}:{control.port}/get/{el}/a"
+                    )
+                    r = standard_library_get(
                         f"http://{control.host}:{control.port}/get/text/plain/{el}/a"
                     )
                     # Test a failed GET for the "b" key, which doesn't exist
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/text/plain/{el}/b"
+                        f"http://{control.host}:{control.port}/get/{el}/b"
                     )
                     # Test a successful GET for the "a" then "b" key
+                    r = standard_library_get(
+                        f"http://{control.host}:{control.port}/get/{el}/a/b"
+                    )
                     r = standard_library_get(
                         f"http://{control.host}:{control.port}/get/text/plain/{el}/a/b"
                     )
                     # Test an unsuccessful GET for the "a" then "c" key
                     r = standard_library_get(
-                        f"http://{control.host}:{control.port}/get/text/plain/{el}/a/c"
+                        f"http://{control.host}:{control.port}/get/{el}/a/c"
                     )
                     # Test a failed POST
                     standard_library_post(

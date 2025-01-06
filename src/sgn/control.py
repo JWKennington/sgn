@@ -113,7 +113,10 @@ class HTTPControl(SignalEOS):
     """
 
     port = 8080
-    host = socket.gethostbyname("localhost")
+    try:
+        host = socket.gethostbyname(socket.gethostname())
+    except socket.gaierror:
+        host = socket.gethostbyname("localhost")
     post_queues: dict[str, Queue] = {}
     get_queues: dict[str, Queue] = {}
     http_thread = None
