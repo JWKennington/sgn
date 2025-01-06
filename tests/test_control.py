@@ -143,9 +143,9 @@ class TestHTTPControlElements:
                 "blah",
             ],
         )
-        HTTPControlSourceElement.get_queues["testsrc"].put({"a": "b"})
-        HTTPControlSourceElement.get_queues["testtrans"].put({"a": "b"})
-        HTTPControlSourceElement.get_queues["testsink"].put({"a": "b"})
+        HTTPControlSourceElement.get_queues["testsrc"].put({"a": {"b": "c"}})
+        HTTPControlSourceElement.get_queues["testtrans"].put({"a": {"b": "c"}})
+        HTTPControlSourceElement.get_queues["testsink"].put({"a": {"b": "c"}})
         with HTTPControl() as control:
             # UGH this is super annoying but if you don't wait a while then the
             # bottle server might not be ready.
@@ -165,6 +165,14 @@ class TestHTTPControlElements:
                     # Test a failed GET for the "b" key, which doesn't exist
                     r = standard_library_get(
                         f"http://{control.host}:{control.port}/get/{elem}/b"
+                    )
+                    # Test a successful GET for the "a" then "b" key
+                    r = standard_library_get(
+                        f"http://{control.host}:{control.port}/get/{elem}/a/b"
+                    )
+                    # Test an unsuccessful GET for the "a" then "c" key
+                    r = standard_library_get(
+                        f"http://{control.host}:{control.port}/get/{elem}/a/c"
                     )
                     # Test a failed POST
                     standard_library_post(

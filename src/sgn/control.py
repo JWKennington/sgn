@@ -46,7 +46,7 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
 
     for getroute, getqueue in get_queues.items():
 
-        def get(getqueue=getqueue, key=None):
+        def get(getqueue=getqueue, key=None, key2=None):
             data = {}
             # Get the last data in the queue
             while not getqueue.empty():
@@ -59,12 +59,18 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
             if key is None:
                 return json.dumps(data)
             elif key in data:
-                return json.dumps(data[key])
+                if key2 is None:
+                    return json.dumps(data[key])
+                elif key2 in data[key]:
+                    return json.dumps(data[key][key2])
+                else:
+                    return {"status": "error", "message": f"{key2} not in data[{key}]"}
             else:
                 return {"status": "error", "message": f"{key} not in data"}
 
         app.route("/get/%s" % getroute, method="GET", callback=get)
         app.route("/get/%s/<key>" % getroute, method="GET", callback=get)
+        app.route("/get/%s/<key>/<key2>" % getroute, method="GET", callback=get)
 
     run(app, host=host, port=port, debug=True)
 
