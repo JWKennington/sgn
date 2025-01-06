@@ -13,7 +13,9 @@ LOGGER = get_sgn_logger("control", SGN_LOG_LEVELS)
 
 
 # Define a function to run the Bottle app in a separate thread
-def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=8080):
+def run_bottle_app(
+    post_queues=None, get_queues=None, host="localhost", port=8080, tag=None
+):
     """A function that sets up post and get queues for a bottle server running
     on host:port.
 
@@ -42,7 +44,11 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
             else:
                 return {"status": "error", "message": "Invalid JSON"}
 
-        app.route("/post/%s" % postroute, method="POST", callback=post)
+        app.route(
+            "%s/post/%s" % ("" if tag is None else f"/{tag}", postroute),
+            method="POST",
+            callback=post,
+        )
 
     for getroute, getqueue in get_queues.items():
 
@@ -80,16 +86,30 @@ def run_bottle_app(post_queues=None, get_queues=None, host="localhost", port=808
             else:
                 return {"status": "error", "message": f"{key} not in data"}
 
-        app.route("/get/%s" % getroute, method="GET", callback=get)
-        app.route("/get/%s/<key>" % getroute, method="GET", callback=get)
-        app.route("/get/%s/<key>/<key2>" % getroute, method="GET", callback=get)
         app.route(
-            "/get/<content_type>/<content_subtype>/%s/<key>" % getroute,
+            "%s/get/%s" % ("" if tag is None else f"/{tag}", getroute),
             method="GET",
             callback=get,
         )
         app.route(
-            "/get/<content_type>/<content_subtype>/%s/<key>/<key2>" % getroute,
+            "%s/get/%s/<key>" % ("" if tag is None else f"/{tag}", getroute),
+            method="GET",
+            callback=get,
+        )
+        app.route(
+            "%s/get/%s/<key>/<key2>" % ("" if tag is None else f"/{tag}", getroute),
+            method="GET",
+            callback=get,
+        )
+        app.route(
+            "%s/get/<content_type>/<content_subtype>/%s/<key>"
+            % ("" if tag is None else f"/{tag}", getroute),
+            method="GET",
+            callback=get,
+        )
+        app.route(
+            "%s/get/<content_type>/<content_subtype>/%s/<key>/<key2>"
+            % ("" if tag is None else f"/{tag}", getroute),
             method="GET",
             callback=get,
         )
@@ -121,6 +141,7 @@ class HTTPControl(SignalEOS):
     get_queues: dict[str, Queue] = {}
     http_thread = None
     registry_file = "registry.txt"
+    tag = None
 
     def __enter__(self):
         # The bottle thread doesn't want to die without daemon mode (which
