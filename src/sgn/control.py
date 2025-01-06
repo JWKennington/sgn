@@ -153,6 +153,7 @@ class HTTPControl(SignalEOS):
                 "get_queues": HTTPControl.get_queues,
                 "port": HTTPControl.port,
                 "host": HTTPControl.host,
+                "tag": HTTPControl.tag,
             },
             daemon=True,
         )
