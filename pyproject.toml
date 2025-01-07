@@ -121,7 +121,7 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-p no:warnings --cov=sgn --markdown-docs --markdown-docs-syntax=superfences"
+addopts = "-p no:warnings --cov=sgn --cov-report=term-missing"
 
 [tool.flake8]
 max-line-length = 88
