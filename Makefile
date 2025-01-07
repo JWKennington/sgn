@@ -13,9 +13,11 @@ help :
 	@echo
 
 
-.PHONY: test
+.PHONY: test test-base
 test :
-	PYTHONPATH=src pytest -v --cov=sgn --cov-report=term-missing .
+	PYTHONPATH=src pytest -v --markdown-docs --markdown-docs-syntax=superfences .
+test-base :
+	PYTHONPATH=src pytest -v .
 
 .PHONY: lint
 lint :
