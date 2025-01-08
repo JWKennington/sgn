@@ -88,8 +88,8 @@ p = Pipeline()
 
 # Insert elements into pipeline and link them explicitly
 p.insert(src, trn1, snk, link_map={
-    "t1:sink:H1": "src1:src:H1",
-    "snk1:sink:H1": "t1:src:H1",
+    "t1:snk:H1": "src1:src:H1",
+    "snk1:snk:H1": "t1:src:H1",
 })
 
 # Run the pipeline
@@ -97,7 +97,7 @@ p.run()
 
 # Check the result of the sink queue to see outputs
 # We check each packet individually to avoid numpy array comparison issues
-result = list(snk.collects["snk1:sink:H1"])
+result = list(snk.collects["snk1:snk:H1"])
 expected = [
     [
         {"time": datetime.datetime(2021, 1, 1, 0, 0, 0),

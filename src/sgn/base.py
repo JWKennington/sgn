@@ -219,7 +219,7 @@ class _InternalPadLike(PadLike):
     Internal pads are connected in the elements internal graph according to the below
     (data flows top to bottom)
 
-    sink1  ...  sinkN     (if exist)
+    snk1   ...  snkN     (if exist)
       \\   ...   //
          internal      (always exists)
       //   ...   \\
@@ -319,7 +319,7 @@ class InternalPad(UniqueID, _InternalPadLike):
     Internal pads are connected in the elements internal graph according to the below
     (data flows top to bottom)
 
-    sink1  ...  sinkN     (if exist)
+    snk1   ...  snkN     (if exist)
       \\   ...   //
          internal      (always exists)
       //   ...   \\
@@ -456,7 +456,7 @@ class TransformElement(ElementLike):
         sink_pad_names:
             list, optional, Set the list of sink pad names. These need to be unique
             for an element but not for an application. The resulting full names will
-            be made with "<self.name>:sink:<sink_pad_name>"
+            be made with "<self.name>:snk:<sink_pad_name>"
     """
 
     source_pad_names: Sequence[str] = field(default_factory=list)
@@ -475,7 +475,7 @@ class TransformElement(ElementLike):
         ]
         self.sink_pads = [
             SinkPad(
-                name=f"{self.name}:sink:{n}",
+                name=f"{self.name}:snk:{n}",
                 element=self,
                 call=self.pull,
             )
@@ -540,7 +540,7 @@ class SinkElement(ElementLike):
         super().__post_init__()
         self.sink_pads = [
             SinkPad(
-                name=f"{self.name}:sink:{n}",
+                name=f"{self.name}:snk:{n}",
                 element=self,
                 call=self.pull,
             )

@@ -45,15 +45,15 @@ class TestCallableTransform:
             },
         )
         assert isinstance(trn, CallableTransform)
-        assert [p.name for p in trn.sink_pads] == ["t1:sink:I1", "t1:sink:I2"]
+        assert [p.name for p in trn.sink_pads] == ["t1:snk:I1", "t1:snk:I2"]
         assert [p.name for p in trn.source_pads] == ["t1:src:O1", "t1:src:O2"]
         assert trn.callmap == {
             "t1:src:O1": identity,
             "t1:src:O2": identity,
         }
         assert trn.depmap == {
-            "t1:src:O1": ("t1:sink:I1",),
-            "t1:src:O2": ("t1:sink:I2",),
+            "t1:src:O1": ("t1:snk:I1",),
+            "t1:src:O2": ("t1:snk:I2",),
         }
 
     def test_init_fully_formatted_keys(self):
@@ -66,20 +66,20 @@ class TestCallableTransform:
                 "t1:src:O2": identity,
             },
             depmap={
-                "t1:src:O1": ("t1:sink:I1",),
-                "t1:src:O2": ("t1:sink:I2",),
+                "t1:src:O1": ("t1:snk:I1",),
+                "t1:src:O2": ("t1:snk:I2",),
             },
         )
         assert isinstance(trn, CallableTransform)
-        assert [p.name for p in trn.sink_pads] == ["t1:sink:I1", "t1:sink:I2"]
+        assert [p.name for p in trn.sink_pads] == ["t1:snk:I1", "t1:snk:I2"]
         assert [p.name for p in trn.source_pads] == ["t1:src:O1", "t1:src:O2"]
         assert trn.callmap == {
             "t1:src:O1": identity,
             "t1:src:O2": identity,
         }
         assert trn.depmap == {
-            "t1:src:O1": ("t1:sink:I1",),
-            "t1:src:O2": ("t1:sink:I2",),
+            "t1:src:O1": ("t1:snk:I1",),
+            "t1:src:O2": ("t1:snk:I2",),
         }
 
     def test_init_err_no_depmap(self):
@@ -180,8 +180,8 @@ class TestCallableTransform:
             "t1:src:O2": func2,
         }
         assert trn.depmap == {
-            "t1:src:O1": ("t1:sink:I1", "t1:sink:I2"),
-            "t1:src:O2": ("t1:sink:I2",),
+            "t1:src:O1": ("t1:snk:I1", "t1:snk:I2"),
+            "t1:src:O2": ("t1:snk:I2",),
         }
 
     def test_from_combinations_multiple(self):
@@ -201,8 +201,8 @@ class TestCallableTransform:
             "t1:src:O2": func,
         }
         assert trn.depmap == {
-            "t1:src:O1": ("t1:sink:I1", "t1:sink:I2"),
-            "t1:src:O2": ("t1:sink:I1", "t1:sink:I2"),
+            "t1:src:O1": ("t1:snk:I1", "t1:snk:I2"),
+            "t1:src:O2": ("t1:snk:I1", "t1:snk:I2"),
         }
 
     def test_from_callable(self):
@@ -216,5 +216,5 @@ class TestCallableTransform:
             "t1:src:O1": func,
         }
         assert trn.depmap == {
-            "t1:src:O1": ("t1:sink:I1", "t1:sink:I2"),
+            "t1:src:O1": ("t1:snk:I1", "t1:snk:I2"),
         }

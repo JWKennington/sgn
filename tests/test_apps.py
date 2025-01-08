@@ -75,13 +75,13 @@ class TestPipeline:
             ),
             snk,
             link_map={
-                "t1:sink:H1": src.srcs["H1"],
+                "t1:snk:H1": src.srcs["H1"],
                 snk.sink_pads[0]: "t1:src:H1",
             },
         )
 
         p.run()
-        assert snk.deques["snk1:sink:H1"] == deque([13, 12, 11])
+        assert snk.deques["snk1:snk:H1"] == deque([13, 12, 11])
 
 
 class TestPipelineGraphviz:
@@ -107,8 +107,8 @@ class TestPipelineGraphviz:
                 sink_pad_names=("H1",),
             ),
             link_map={
-                "t1:sink:H1": "src1:src:H1",
-                "snk1:sink:H1": "t1:src:H1",
+                "t1:snk:H1": "src1:src:H1",
+                "snk1:snk:H1": "t1:src:H1",
             },
         )
         return p
@@ -116,17 +116,17 @@ class TestPipelineGraphviz:
     def test_nodes_py_39(self, pipeline):
         """Test nodes."""
         assert pipeline.nodes() == (
-            "snk1:sink:H1",
+            "snk1:snk:H1",
             "src1:src:H1",
-            "t1:sink:H1",
+            "t1:snk:H1",
             "t1:src:H1",
         )
 
         with mock.patch("sys.version_info", (3, 9)):
             assert pipeline.nodes() == (
-                "snk1:sink:H1",
+                "snk1:snk:H1",
                 "src1:src:H1",
-                "t1:sink:H1",
+                "t1:snk:H1",
                 "t1:src:H1",
             )
 
@@ -174,12 +174,12 @@ class TestPipelineGraphviz:
         assert isinstance(dot, str)
         assert dot.split("\n") == [
             "digraph {",
-            '\tsnk1_sink_H1 [label="snk1:sink:H1"]',
+            '\tsnk1_snk_H1 [label="snk1:snk:H1"]',
             '\tsrc1_src_H1 [label="src1:src:H1"]',
-            '\tt1_sink_H1 [label="t1:sink:H1"]',
+            '\tt1_snk_H1 [label="t1:snk:H1"]',
             '\tt1_src_H1 [label="t1:src:H1"]',
-            "\tsrc1_src_H1 -> t1_sink_H1",
-            "\tt1_src_H1 -> snk1_sink_H1",
+            "\tsrc1_src_H1 -> t1_snk_H1",
+            "\tt1_src_H1 -> snk1_snk_H1",
             "}",
             "",
         ]
@@ -191,18 +191,18 @@ class TestPipelineGraphviz:
         assert dot.split("\n") == [
             "digraph {",
             '\tsnk1_inl_inl [label="snk1:inl:inl"]',
-            '\tsnk1_sink_H1 [label="snk1:sink:H1"]',
+            '\tsnk1_snk_H1 [label="snk1:snk:H1"]',
             '\tsrc1_inl_inl [label="src1:inl:inl"]',
             '\tsrc1_src_H1 [label="src1:src:H1"]',
             '\tt1_inl_inl [label="t1:inl:inl"]',
-            '\tt1_sink_H1 [label="t1:sink:H1"]',
+            '\tt1_snk_H1 [label="t1:snk:H1"]',
             '\tt1_src_H1 [label="t1:src:H1"]',
-            "\tsnk1_sink_H1 -> snk1_inl_inl",
+            "\tsnk1_snk_H1 -> snk1_inl_inl",
             "\tsrc1_inl_inl -> src1_src_H1",
-            "\tsrc1_src_H1 -> t1_sink_H1",
+            "\tsrc1_src_H1 -> t1_snk_H1",
             "\tt1_inl_inl -> t1_src_H1",
-            "\tt1_sink_H1 -> t1_inl_inl",
-            "\tt1_src_H1 -> snk1_sink_H1",
+            "\tt1_snk_H1 -> t1_inl_inl",
+            "\tt1_src_H1 -> snk1_snk_H1",
             "}",
             "",
         ]
@@ -229,8 +229,8 @@ class TestPipelineGraphviz:
             ),
             snk,
             link_map={
-                "t1:sink:H1": "src1:src:H1",
-                "snk1:sink:H1": "t1:src:H1",
+                "t1:snk:H1": "src1:src:H1",
+                "snk1:snk:H1": "t1:src:H1",
             },
         )
 

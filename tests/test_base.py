@@ -244,7 +244,7 @@ class TestTransformElement:
         )
         assert isinstance(te, TransformElement)
         assert [p.name for p in te.source_pads] == ["t1:src:testsrc"]
-        assert [p.name for p in te.sink_pads] == ["t1:sink:testsink"]
+        assert [p.name for p in te.sink_pads] == ["t1:snk:testsink"]
         exp_graph = {te.internal_pad: {te.sink_pads[0]}}
         exp_graph.update({te.source_pads[0]: {te.internal_pad}})
         assert te.graph == exp_graph
@@ -276,7 +276,7 @@ class TestSinkElement:
         """Test the SinkElement class constructor."""
         se = SinkElement(name="elemsnk", sink_pad_names=["testsink"])
         assert isinstance(se, SinkElement)
-        assert [p.name for p in se.sink_pads] == ["elemsnk:sink:testsink"]
+        assert [p.name for p in se.sink_pads] == ["elemsnk:snk:testsink"]
         assert se.graph == {se.internal_pad: {se.sink_pads[0]}}
 
         with pytest.raises(AssertionError):

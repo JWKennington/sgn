@@ -60,7 +60,7 @@ class CallableTransform(InputPull):
         if not self.callmap:
             raise ValueError("CallableTransform requires a callmap")
 
-        # Format callmap keys to ensure name:sink:pad format
+        # Format callmap keys to ensure name:snk:pad format
         formatted_callmap = {}
         for k, v in self.callmap.items():
             new_key = k
@@ -82,10 +82,10 @@ class CallableTransform(InputPull):
                 new_key = f"{self.name}:src:{k}"
 
             for token in v:
-                if token.startswith(f"{self.name}:sink:"):
+                if token.startswith(f"{self.name}:snk:"):
                     new_val.append(token)
                 else:
-                    new_val.append(f"{self.name}:sink:{token}")
+                    new_val.append(f"{self.name}:snk:{token}")
             new_val = tuple(new_val)
             formatted_namemap[new_key] = new_val
 

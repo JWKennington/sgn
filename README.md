@@ -469,7 +469,7 @@ which produces
 Pads are hashable and they also have string names (though that name is not used as the hash).  When developing you might get a bit turned around about how to access and reference pads by name.  Here are a few rules:
 
 - Elements have a notion of a short pad name.  These are verbatim what get passed to `source_pad_names` and `sink_pad_names`. 
-- The Element base classes will initialize pads with long pad names of the form `<element name>:["sink" | "source"]:<short name>`. 
+- The Element base classes will initialize pads with long pad names of the form `<element name>:["snk" | "source"]:<short name>`.
 - These long names are almost never needed for anything programmatically but they can be handy to print out because they carry extra information encoded in the name.
 - Usually you will use helper attributes to reference pads by their short names or to look up a pad's short name.
 
@@ -577,8 +577,8 @@ p.insert(
     trn1,
     snk,
     link_map={
-        "t1:sink:H1": "src1:src:H1",
-        "snk1:sink:H1": "t1:src:H1",
+        "t1:snk:H1": "src1:src:H1",
+        "snk1:snk:H1": "t1:src:H1",
     },
 )
 
@@ -586,7 +586,7 @@ p.insert(
 p.run()
 
 # Check the result of the sink queue to see outputs
-assert list(snk.collects["snk1:sink:H1"]) == [10, 20, 30]
+assert list(snk.collects["snk1:snk:H1"]) == [10, 20, 30]
 
 ```
 
