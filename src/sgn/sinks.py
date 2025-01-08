@@ -13,9 +13,16 @@ from sgn.base import Frame, SinkElement, SinkPad
 class NullSink(SinkElement):
     """A sink that does precisely nothing.
 
-    It is useful for testing and debugging, or for pipelines that do not need a sink,
-    but require one to be present in the pipeline.
+    It is useful for testing and debugging, or for pipelines that do
+    not need a sink, but require one to be present in the pipeline.
+
+    Args:
+        verbose:
+            bool, print frames as they pass through the internal pad
+
     """
+
+    verbose: bool = False
 
     def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Do nothing on pull.
@@ -28,14 +35,8 @@ class NullSink(SinkElement):
         """
         if frame.EOS:
             self.mark_eos(pad)
-
-    def internal(self) -> None:
-        """Do nothing on internal.
-
-        Args:
-            pad:
-                InternalPad, the pad that the frame is pulled into
-        """
+        if self.verbose is True:
+            print(frame)
 
 
 @dataclass
