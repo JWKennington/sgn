@@ -33,7 +33,7 @@ class SignalEOS:
 
     """
 
-    handled_signals = {signal.SIGINT}
+    handled_signals = {signal.SIGINT, signal.SIGTERM}
     rcvd_signals: set[int] = set([])
     previous_handlers: dict[int, Callable] = {}
 
