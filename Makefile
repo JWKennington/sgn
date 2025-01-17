@@ -34,4 +34,4 @@ type-check :
 
 .PHONY: docs
 docs :
-	python -m sphinx -b "html" "docs" "sphinx"
+	mkdocs build

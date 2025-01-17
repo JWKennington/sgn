@@ -26,3 +26,13 @@ python_test:
   before_script:
     - apt-get update
     - apt-get install -yqq graphviz
+
+check_makefile:
+  image: python:3.9
+  stage: test
+  script:
+    - apt-get update
+    - apt-get install make
+    - apt-get install -yqq graphviz
+    - pip3 install ".[dev]"
+    - make all
