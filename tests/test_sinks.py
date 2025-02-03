@@ -5,7 +5,13 @@ from collections import deque
 import pytest
 
 from sgn.base import Frame
-from sgn.sinks import DequeSink
+from sgn.sinks import DequeSink, NullSink
+
+
+def test_null():
+    sink = NullSink(sink_pad_names=("blah",), verbose=True)
+    frame = Frame(data="data")
+    sink.pull(sink.sink_pads[0], frame)
 
 
 class TestDeqSink:
