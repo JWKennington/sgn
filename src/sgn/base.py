@@ -442,9 +442,11 @@ class SourceElement(ElementLike):
 
 @dataclass(repr=False)
 class TransformElement(ElementLike):
-    """Both "source_pads" and "sink_pads" must exist.  All sink pads depend on all
-    source pads in a transform element. If you don't want that to be true, write more
-    than one transform element.
+    """Both "source_pads" and "sink_pads" must exist. The execution scheduling
+    flow of the logic within a TransformElement is as follows: 1.) all sink
+    pads, 2.) the internal pad, 3.) all source pads. The execution of all
+    downstream logic will be blocked until logic in all upstream pads within
+    the same TransformElement has exited.
 
     Args:
         name:
