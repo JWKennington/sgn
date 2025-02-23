@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+import asyncio
 from collections import deque
 from unittest import mock
 
@@ -82,6 +83,15 @@ class TestPipeline:
 
         p.run()
         assert snk.deques["snk1:snk:H1"] == deque([13, 12, 11])
+
+    def test_run_while_a_running_event_loop_exist(self):
+        """Test execute graphs while a running event loop exist."""
+        loop = asyncio.get_event_loop()
+
+        async def async_test_run():
+            self.test_run()
+
+        loop.run_until_complete(async_test_run())
 
 
 class TestPipelineGraphviz:
