@@ -285,4 +285,20 @@ class Pipeline:
                 assert source_pad.is_linked, f"Source pad not linked: {source_pad}"
             for sink_pad in element.sink_pads:
                 assert sink_pad.is_linked, f"Sink pad not linked: {sink_pad}"
-        self.loop.run_until_complete(self._execute_graphs())
+        if not self.loop.is_running():
+            self.loop.run_until_complete(self._execute_graphs())
+        else:
+            """If the event loop is running, e.g., running in a Jupyter
+            Notebook, run the pipeline in a forked thread.
+            """
+            import threading
+
+            def _run_in_fork(pipeline):
+                pipeline.loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(pipeline.loop)
+                pipeline.loop.run_until_complete(pipeline._execute_graphs())
+                pipeline.loop.close()
+
+            thread = threading.Thread(target=_run_in_fork, args=(self,))
+            thread.start()
+            thread.join()
