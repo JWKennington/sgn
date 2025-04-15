@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import asyncio
 import graphlib
-import os.path
 import sys
+from pathlib import Path
 from typing import Dict, Optional, Union
 
 from sgn import SourceElement, TransformElement
@@ -21,6 +21,7 @@ from sgn.base import (
     SourcePad,
     get_sgn_logger,
 )
+from sgn.visualize import visualize
 
 LOGGER = get_sgn_logger("pipeline", SGN_LOG_LEVELS)
 
@@ -46,6 +47,10 @@ class Pipeline:
         self.__loop_counter = 0
         self.sinks: dict[str, SinkElement] = {}
         self.elements: list[Element] = []
+
+    def __getitem__(self, name):
+        """return a pipeline element or pad by name"""
+        return self._registry[name]
 
     def insert(
         self,
@@ -191,77 +196,41 @@ class Pipeline:
                     edges.add((source_element.name, target_element.name))
         return tuple(sorted(edges))
 
-    def to_graph(self, pads: bool = True, intra: bool = False):
-        """Get an empty graph object, and check if graphviz is installed.
+    def to_graph(self, label: str | None = None):
+        """graphviz.DiGraph representation of pipeline
 
         Args:
-            pads:
-                bool, whether to include pads in the graph. If True, the graph will only
-                consist of pads. If False, the graph will consist only of elements.
-            intra:
-                bool, default False, whether or not to include intra-element edges, e.g.
-                from an element's sink pads to its source pads
+            label:
+                str, label for the graph
 
         Returns:
             DiGraph, the graph object
         """
-        try:
-            import graphviz
-        except ImportError:
-            raise ImportError("graphviz needs to be installed to visualize pipelines")
+        return visualize(self, label=label)
 
-        # create the graph
-        graph = graphviz.Digraph()
-
-        nodes = self.nodes(pads=pads, intra=intra)
-        edges = self.edges(pads=pads, intra=intra)
-
-        # add nodes
-        for node in nodes:
-            graph.node(node.replace(":", "_"), node)
-
-        # add edges
-        for edge in edges:
-            source, target = edge
-            graph.edge(source.replace(":", "_"), target.replace(":", "_"))
-
-        return graph
-
-    def to_dot(self, pads: bool = False, intra: bool = False) -> str:
+    def to_dot(self, label: str | None = None) -> str:
         """Convert the pipeline to a graph using graphviz.
 
         Args:
-            pads:
-                bool, whether to include pads in the graph. If True, the graph will only
-                consist of pads. If False, the graph will consist only of elements.
-            intra:
-                bool, default False, whether or not to include intra-element edges, e.g.
-                from an element's sink pads to its source pads
+            label:
+                str, label for the graph
 
         Returns:
             str, the graph representation of the pipeline
         """
-        return self.to_graph(pads=pads, intra=intra).source
+        return visualize(self, label=label).source
 
-    def visualize(self, path: str, pads: bool = True, intra: bool = False) -> None:
+    def visualize(self, path: str, label: str | None = None) -> None:
         """Convert the pipeline to a graph using graphviz, then render into a visual
         file.
 
         Args:
             path:
                 str, the relative or full path to the file to write the graph to
+            label:
+                str, label for the graph
         """
-        dot = self.to_graph(pads=pads, intra=intra)
-
-        # write to disk
-        directory, filename = os.path.split(path)
-        name, extension = os.path.splitext(filename)
-        dot.render(
-            filename=name,
-            directory=directory,
-            format=extension.strip("."),
-            cleanup=True,
-        )
+        visualize(self, label=label, path=Path(path))
 
     async def _execute_graphs(self) -> None:
         """Async graph execution function."""
@@ -277,14 +246,29 @@ class Pipeline:
                 await asyncio.gather(*tasks)
                 ts.done(*nodes)
 
-    def run(self) -> None:
-        """Run the pipeline until End Of Stream (EOS)"""
-        assert self.sinks, "Pipeline contains no sink elements."
+    def check(self) -> None:
+        """Check that pipeline elements are connected.
+
+        Throws an RuntimeError exception if unconnected pads are
+        encountered.
+
+        """
+        if not self.sinks:
+            msg = "Pipeline contains no sink elements."
+            raise RuntimeError(msg)
         for element in self.elements:
             for source_pad in element.source_pads:
-                assert source_pad.is_linked, f"Source pad not linked: {source_pad}"
+                if not source_pad.is_linked:
+                    msg = f"Source pad not linked: {source_pad}"
+                    raise RuntimeError(msg)
             for sink_pad in element.sink_pads:
-                assert sink_pad.is_linked, f"Sink pad not linked: {sink_pad}"
+                if not sink_pad.is_linked:
+                    msg = f"Sink pad not linked: {sink_pad}"
+                    raise RuntimeError(msg)
+
+    def run(self) -> None:
+        """Run the pipeline until End Of Stream (EOS)"""
+        self.check()
         if not self.loop.is_running():
             self.loop.run_until_complete(self._execute_graphs())
         else:

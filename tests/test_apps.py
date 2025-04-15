@@ -123,7 +123,7 @@ class TestPipelineGraphviz:
         )
         return p
 
-    def test_nodes_py_39(self, pipeline):
+    def test_nodes(self, pipeline):
         """Test nodes."""
         assert pipeline.nodes() == (
             "snk1:snk:H1",
@@ -131,7 +131,15 @@ class TestPipelineGraphviz:
             "t1:snk:H1",
             "t1:src:H1",
         )
-
+        assert pipeline.nodes(intra=True) == (
+            "snk1:inl:inl",
+            "snk1:snk:H1",
+            "src1:inl:inl",
+            "src1:src:H1",
+            "t1:inl:inl",
+            "t1:snk:H1",
+            "t1:src:H1",
+        )
         with mock.patch("sys.version_info", (3, 9)):
             assert pipeline.nodes() == (
                 "snk1:snk:H1",
@@ -139,6 +147,17 @@ class TestPipelineGraphviz:
                 "t1:snk:H1",
                 "t1:src:H1",
             )
+
+    def test_edges(self, pipeline):
+        """Test edges."""
+        assert pipeline.edges() == (
+            ("src1:src:H1", "t1:snk:H1"),
+            ("t1:src:H1", "snk1:snk:H1"),
+        )
+        assert pipeline.edges(pads=False) == (
+            ("src1", "t1"),
+            ("t1", "snk1"),
+        )
 
     def test_to_graph(self, pipeline):
         """Test to graph."""
@@ -150,69 +169,134 @@ class TestPipelineGraphviz:
         dot = pipeline.to_dot()
         assert isinstance(dot, str)
         assert dot.split("\n") == [
-            "digraph {",
-            "\tsnk1 [label=snk1]",
-            "\tsrc1 [label=src1]",
-            "\tt1 [label=t1]",
-            "\tsrc1 -> t1",
-            "\tt1 -> snk1",
+            "digraph pipeline {",
+            "\tgraph [labelloc=t rankdir=LR ranksep=2]",
+            '\tnode [fontname="times mono" shape=plaintext]',
+            "\tsnk1 [label=<",
+            '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            'bgcolor="DodgerBlue">',
+            '  <TR><TD COLSPAN="3"><b>snk1</b></TD></TR>',
+            '  <TR><TD COLSPAN="3">NullSink</TD></TR>',
+            "  <TR>",
+            "    <TD>",
+            '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            '<TR><TD PORT="snk1__snk__H1" fixedsize="true" width="18" height="30" '
+            'align="left" bgcolor="lightblue">H1</TD></TR>',
+            "</TABLE>",
+            "",
+            "    </TD>",
+            "    <TD>-</TD>",
+            "    <TD>",
+            "    </TD>",
+            "  </TR>",
+            "</TABLE>",
+            ">]",
+            "\tsrc1 [label=<",
+            '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            'bgcolor="DodgerBlue">',
+            '  <TR><TD COLSPAN="3"><b>src1</b></TD></TR>',
+            '  <TR><TD COLSPAN="3">NullSource</TD></TR>',
+            "  <TR>",
+            "    <TD>",
+            "    </TD>",
+            "    <TD>-</TD>",
+            "    <TD>",
+            '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            '<TR><TD PORT="src1__src__H1" fixedsize="true" width="18" height="30" '
+            'align="right" bgcolor="MediumAquaMarine">H1</TD></TR>',
+            "</TABLE>",
+            "",
+            "    </TD>",
+            "  </TR>",
+            "</TABLE>",
+            ">]",
+            "\tt1 [label=<",
+            '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            'bgcolor="DodgerBlue">',
+            '  <TR><TD COLSPAN="3"><b>t1</b></TD></TR>',
+            '  <TR><TD COLSPAN="3">CallableTransform</TD></TR>',
+            "  <TR>",
+            "    <TD>",
+            '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            '<TR><TD PORT="t1__snk__H1" fixedsize="true" width="18" height="30" '
+            'align="left" bgcolor="lightblue">H1</TD></TR>',
+            "</TABLE>",
+            "",
+            "    </TD>",
+            "    <TD>-</TD>",
+            "    <TD>",
+            '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            '<TR><TD PORT="t1__src__H1" fixedsize="true" width="18" height="30" '
+            'align="right" bgcolor="MediumAquaMarine">H1</TD></TR>',
+            "</TABLE>",
+            "",
+            "    </TD>",
+            "  </TR>",
+            "</TABLE>",
+            ">]",
+            "\tsrc1:src1__src__H1 -> t1:t1__snk__H1",
+            "\tt1:t1__src__H1 -> snk1:snk1__snk__H1",
             "}",
             "",
         ]
 
-    def test_to_dot_intra(self, pipeline):
-        """Test to dot."""
-        dot = pipeline.to_dot(intra=True)
+    def test_to_dot_unlinked(self):
+        """Test to graph and output."""
+        p = Pipeline()
+        p.insert(
+            NullSource(
+                name="src",
+                source_pad_names=("H1",),
+            ),
+            NullSink(
+                name="snk",
+                sink_pad_names=("H1",),
+            ),
+        )
+        dot = p.to_dot(label="test")
         assert isinstance(dot, str)
         assert dot.split("\n") == [
-            "digraph {",
-            "\tsnk1 [label=snk1]",
-            "\tsrc1 [label=src1]",
-            "\tt1 [label=t1]",
-            "\tsnk1 -> snk1",
-            "\tsrc1 -> src1",
-            "\tsrc1 -> t1",
-            "\tt1 -> snk1",
-            "\tt1 -> t1",
-            "}",
+            "digraph pipeline {",
+            '\tgraph [label=<<font point-size="32"><b>test</b></font>> labelloc=t rankdir=LR ranksep=2]',  # noqa E501
+            '\tnode [fontname="times mono" shape=plaintext]',
+            "\tsnk [label=<",
+            '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            'bgcolor="DodgerBlue">',
+            '  <TR><TD COLSPAN="3"><b>snk</b></TD></TR>',
+            '  <TR><TD COLSPAN="3">NullSink</TD></TR>',
+            "  <TR>",
+            "    <TD>",
+            '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            '<TR><TD PORT="snk__snk__H1" fixedsize="true" width="18" height="30" '
+            'align="left" bgcolor="tomato">H1</TD></TR>',
+            "</TABLE>",
             "",
-        ]
-
-    def test_to_dot_pads(self, pipeline):
-        """Test to dot."""
-        dot = pipeline.to_dot(pads=True)
-        assert isinstance(dot, str)
-        assert dot.split("\n") == [
-            "digraph {",
-            '\tsnk1_snk_H1 [label="snk1:snk:H1"]',
-            '\tsrc1_src_H1 [label="src1:src:H1"]',
-            '\tt1_snk_H1 [label="t1:snk:H1"]',
-            '\tt1_src_H1 [label="t1:src:H1"]',
-            "\tsrc1_src_H1 -> t1_snk_H1",
-            "\tt1_src_H1 -> snk1_snk_H1",
-            "}",
+            "    </TD>",
+            "    <TD>-</TD>",
+            "    <TD>",
+            "    </TD>",
+            "  </TR>",
+            "</TABLE>",
+            ">]",
+            "\tsrc [label=<",
+            '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
+            'bgcolor="DodgerBlue">',
+            '  <TR><TD COLSPAN="3"><b>src</b></TD></TR>',
+            '  <TR><TD COLSPAN="3">NullSource</TD></TR>',
+            "  <TR>",
+            "    <TD>",
+            "    </TD>",
+            "    <TD>-</TD>",
+            "    <TD>",
+            '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            '<TR><TD PORT="src__src__H1" fixedsize="true" width="18" height="30" '
+            'align="right" bgcolor="tomato">H1</TD></TR>',
+            "</TABLE>",
             "",
-        ]
-
-    def test_to_dot_pads_intra(self, pipeline):
-        """Test to dot."""
-        dot = pipeline.to_dot(pads=True, intra=True)
-        assert isinstance(dot, str)
-        assert dot.split("\n") == [
-            "digraph {",
-            '\tsnk1_inl_inl [label="snk1:inl:inl"]',
-            '\tsnk1_snk_H1 [label="snk1:snk:H1"]',
-            '\tsrc1_inl_inl [label="src1:inl:inl"]',
-            '\tsrc1_src_H1 [label="src1:src:H1"]',
-            '\tt1_inl_inl [label="t1:inl:inl"]',
-            '\tt1_snk_H1 [label="t1:snk:H1"]',
-            '\tt1_src_H1 [label="t1:src:H1"]',
-            "\tsnk1_snk_H1 -> snk1_inl_inl",
-            "\tsrc1_inl_inl -> src1_src_H1",
-            "\tsrc1_src_H1 -> t1_snk_H1",
-            "\tt1_inl_inl -> t1_src_H1",
-            "\tt1_snk_H1 -> t1_inl_inl",
-            "\tt1_src_H1 -> snk1_snk_H1",
+            "    </TD>",
+            "  </TR>",
+            "</TABLE>",
+            ">]",
             "}",
             "",
         ]
