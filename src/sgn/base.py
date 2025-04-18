@@ -14,7 +14,21 @@ SGN_LOG_LEVELS = {
     "WARNING": logging.WARNING,
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL,
+    "MEMPROF": 51,
 }
+# Support a memory profiling level
+logging.addLevelName(SGN_LOG_LEVELS["MEMPROF"], "MEMPROF")
+# logging.basicConfig(level=SGN_LOG_LEVELS["MEMPROF"],
+#                    format='[MEMPROF] %(message)s',
+#                    )
+
+
+def __memprofile(self, message, *args, **kws):
+    if self.isEnabledFor(SGN_LOG_LEVELS["MEMPROF"]):
+        self._log(SGN_LOG_LEVELS["MEMPROF"], message, args, **kws)
+
+
+logging.Logger.memprofile = __memprofile  # type: ignore
 SGN_LOG_LEVEL_VAR = "SGNLOGLEVEL"
 
 

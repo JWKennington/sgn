@@ -1,7 +1,4 @@
-from sgn.base import (
-    SinkPad,
-    SourcePad,
-)
+from sgn.base import SinkPad, SourcePad
 
 
 def _id(name):
