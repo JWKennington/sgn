@@ -35,6 +35,10 @@ class TestPipeline:
     def test_element_validation(self):
         """Test element validation."""
         p = Pipeline()
+
+        with pytest.raises(RuntimeError):
+            p.check()
+
         e1 = DequeSource(name="src1", source_pad_names=("H1",))
         e2 = DequeSource(name="src2", source_pad_names=("H1",))
         # Bad don't do this only checking for state
@@ -52,6 +56,24 @@ class TestPipeline:
 
         with pytest.raises(AssertionError):
             p.insert(e2)
+
+        e3 = NullSink(sink_pad_names=("H1",))
+        p.insert(e3)
+        with pytest.raises(RuntimeError):
+            p.check()
+
+        e4 = NullSink(sink_pad_names=("H1",))
+        e5 = NullSink(sink_pad_names=("H1",))
+        p.insert(
+            e4,
+            e5,
+            link_map={
+                e3.snks["H1"]: e2.srcs["H1"],
+                e4.snks["H1"]: e1.srcs["H1"],
+            },
+        )
+        with pytest.raises(RuntimeError):
+            p.check()
 
     def test_run(self):
         """Test execute graphs."""

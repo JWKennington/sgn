@@ -21,6 +21,7 @@ from sgn.base import (
     SourcePad,
     get_sgn_logger,
 )
+from sgn.profile import async_sgn_mem_profile
 from sgn.visualize import visualize
 
 LOGGER = get_sgn_logger("pipeline", SGN_LOG_LEVELS)
@@ -232,19 +233,23 @@ class Pipeline:
         """
         visualize(self, label=label, path=Path(path))
 
+    @async_sgn_mem_profile(LOGGER)
+    async def __execute_graph_loop(self) -> None:
+        self.__loop_counter += 1
+        LOGGER.info("Executing graph loop %s:", self.__loop_counter)
+        ts = graphlib.TopologicalSorter(self.graph)
+        ts.prepare()
+        while ts.is_active():
+            # concurrently execute the next batch of ready nodes
+            nodes = ts.get_ready()
+            tasks = [self.loop.create_task(node()) for node in nodes]  # type: ignore # noqa: E501
+            await asyncio.gather(*tasks)
+            ts.done(*nodes)
+
     async def _execute_graphs(self) -> None:
         """Async graph execution function."""
         while not all(sink.at_eos for sink in self.sinks.values()):
-            self.__loop_counter += 1
-            LOGGER.info("Executing graph loop %s:", self.__loop_counter)
-            ts = graphlib.TopologicalSorter(self.graph)
-            ts.prepare()
-            while ts.is_active():
-                # concurrently execute the next batch of ready nodes
-                nodes = ts.get_ready()
-                tasks = [self.loop.create_task(node()) for node in nodes]  # type: ignore # noqa: E501
-                await asyncio.gather(*tasks)
-                ts.done(*nodes)
+            await self.__execute_graph_loop()
 
     def check(self) -> None:
         """Check that pipeline elements are connected.
