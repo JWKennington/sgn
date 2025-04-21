@@ -8,6 +8,7 @@ nav:
     - tutorials/multiple_pads.md
     - tutorials/internal_pad.md
     - tutorials/transforms.md
+    - tutorials/http_control.md
   - FAQs:
     - faqs/pads.md
   - User Guide:
