@@ -10,6 +10,7 @@ nav:
     - tutorials/transforms.md
     - tutorials/http_control.md
     - tutorials/memory_profiling.md
+    - tutorials/signal_handling.md
   - FAQs:
     - faqs/pads.md
   - User Guide:
