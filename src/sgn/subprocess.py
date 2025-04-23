@@ -26,16 +26,16 @@ class SubProcess(SignalEOS):
 
     shm_list: list = []
     instance_list: list = []
+    multiprocess_enabled: bool = False
 
     def __init__(self, pipeline=None):
         self.pipeline = pipeline
-        self.multiprocess_enabled = False
 
     def __enter__(self):
         super().__enter__()
         for e in SubProcess.instance_list:
             e.process.start()
-        self.multiprocess_enabled = True
+        SubProcess.multiprocess_enabled = True
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -48,7 +48,7 @@ class SubProcess(SignalEOS):
         for d in SubProcess.shm_list:
             multiprocessing.shared_memory.SharedMemory(name=d["name"]).unlink()
         SubProcess.shm_list = []
-        self.multiprocess_enabled = False
+        SubProcess.multiprocess_enabled = False
 
     @staticmethod
     def to_shm(name, bytez, **kwargs):
@@ -148,6 +148,7 @@ class SubProcessSinkElement(SinkElement, SubProcess):
             ),
         )
         SubProcess.instance_list.append(self)
+        self.multiprocess_enabled = SubProcess.multiprocess_enabled
 
     @staticmethod
     def sub_process_internal(shm_list, inq, outq, process_stop, process_argdict):
