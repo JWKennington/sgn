@@ -5,7 +5,7 @@ import multiprocessing.shared_memory
 from dataclasses import dataclass
 from typing import Optional
 
-from sgn import TransformElement
+from sgn import SinkElement, TransformElement
 from sgn.base import SGN_LOG_LEVELS, get_sgn_logger
 from sgn.sources import SignalEOS
 
@@ -29,11 +29,13 @@ class SubProcess(SignalEOS):
 
     def __init__(self, pipeline=None):
         self.pipeline = pipeline
+        self.multiprocess_enabled = False
 
     def __enter__(self):
         super().__enter__()
         for e in SubProcess.instance_list:
             e.process.start()
+        self.multiprocess_enabled = True
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -46,6 +48,7 @@ class SubProcess(SignalEOS):
         for d in SubProcess.shm_list:
             multiprocessing.shared_memory.SharedMemory(name=d["name"]).unlink()
         SubProcess.shm_list = []
+        self.multiprocess_enabled = False
 
     @staticmethod
     def to_shm(name, bytez, **kwargs):
@@ -98,6 +101,41 @@ class SubProcessTransformElement(TransformElement, SubProcess):
         TransformElement.__post_init__(self)
         self.in_queue = multiprocessing.Queue(maxsize=1)
         self.out_queue = multiprocessing.Queue(maxsize=1)
+        self.process_stop = multiprocessing.Event()
+        self.process = multiprocessing.Process(
+            target=self.sub_process_internal,
+            args=(
+                SubProcess.shm_list,
+                self.in_queue,
+                self.out_queue,
+                self.process_stop,
+                self.process_argdict,
+            ),
+        )
+        SubProcess.instance_list.append(self)
+
+    @staticmethod
+    def sub_process_internal(shm_list, inq, outq, process_stop, process_argdict):
+        raise NotImplementedError
+
+
+@dataclass
+class SubProcessSinkElement(SinkElement, SubProcess):
+    """
+    A Sink element that runs the function sub_process_internal(shm_list,
+    inq, outq, process_stop, process_argdict) in  a separate process. By design
+    sub_process_internal(...) does not have a reference to the class or instance
+    making it more likely to pickle.  This base class provides all of the arguments
+    with user specific arguments being handled by process_argdict.
+    """
+
+    process_argdict: Optional[dict] = None
+    queue_maxsize: Optional[int] = 100
+
+    def __post_init__(self):
+        SinkElement.__post_init__(self)
+        self.in_queue = multiprocessing.Queue(maxsize=self.queue_maxsize)
+        self.out_queue = multiprocessing.Queue(maxsize=self.queue_maxsize)
         self.process_stop = multiprocessing.Event()
         self.process = multiprocessing.Process(
             target=self.sub_process_internal,

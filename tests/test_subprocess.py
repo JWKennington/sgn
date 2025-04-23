@@ -4,8 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from queue import Empty
 from sgn.sources import SignalEOS
-from sgn.subprocess import SubProcess, SubProcessTransformElement
-from sgn.base import SourceElement, SinkElement, Frame
+from sgn.subprocess import SubProcess, SubProcessTransformElement, SubProcessSinkElement
+from sgn.base import SourceElement, Frame
 from sgn.apps import Pipeline
 import ctypes
 
@@ -28,10 +28,23 @@ class MySourceClass(SourceElement, SignalEOS):
 #
 # A sink class that does nothing
 #
-class MySinkClass(SinkElement):
+@dataclass
+class MySinkClass(SubProcessSinkElement):
+    def __post_init__(self):
+        super().__post_init__()
+
     def pull(self, pad, frame):
         if frame.EOS:
             self.mark_eos(pad)
+        self.in_queue.put(frame)
+
+    @staticmethod
+    def sub_process_internal(shm_list, inq, outq, process_stop, argdict):
+        while not process_stop.is_set():
+            try:
+                inq.get(timeout=1)
+            except Empty:
+                pass
 
 
 #

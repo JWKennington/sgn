@@ -5,7 +5,7 @@ import pytest
 from dataclasses import dataclass
 from queue import Empty
 from sgn.sources import SignalEOS
-from sgn.subprocess import SubProcess, SubProcessTransformElement
+from sgn.subprocess import SubProcess, SubProcessTransformElement, SubProcessSinkElement
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
 import ctypes
@@ -79,6 +79,11 @@ def test_shm_exception():
 def test_transform_exception():
     with pytest.raises(NotImplementedError):
         SubProcessTransformElement.sub_process_internal(None, None, None, None, None)
+
+
+def test_sink_exception():
+    with pytest.raises(NotImplementedError):
+        SubProcessSinkElement.sub_process_internal(None, None, None, None, None)
 
 
 def test_subprocess_exception():
