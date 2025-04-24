@@ -148,7 +148,6 @@ class SubProcessSinkElement(SinkElement, SubProcess):
             ),
         )
         SubProcess.instance_list.append(self)
-        self.multiprocess_enabled = SubProcess.multiprocess_enabled
 
     @staticmethod
     def sub_process_internal(shm_list, inq, outq, process_stop, process_argdict):
