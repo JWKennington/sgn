@@ -144,8 +144,9 @@ class CallableTransform(InputPull):
             data=res,
         )
 
-    @staticmethod
+    @classmethod
     def from_combinations(
+        cls,
         name: str,
         combos: Iterable[tuple[tuple[str, ...], Callable, str]],
         sink_pad_names: Optional[Sequence[str]] = None,
@@ -176,7 +177,7 @@ class CallableTransform(InputPull):
         """
         callmap = {out: func for _, func, out in combos}
         namemap = {out: inp for inp, _, out in combos}
-        return CallableTransform(
+        return cls(
             name=name,
             callmap=callmap,
             depmap=namemap,
@@ -184,8 +185,9 @@ class CallableTransform(InputPull):
             source_pad_names=[] if source_pad_names is None else source_pad_names,
         )
 
-    @staticmethod
+    @classmethod
     def from_callable(
+        cls,
         name: str,
         callable: Callable,
         output_pad_name: str,
@@ -208,7 +210,7 @@ class CallableTransform(InputPull):
         Returns:
             CallableTransform, the created CallableTransform
         """
-        return CallableTransform(
+        return cls(
             name=name,
             sink_pad_names=sink_pad_names,
             callmap={output_pad_name: callable},
