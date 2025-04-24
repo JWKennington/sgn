@@ -151,9 +151,9 @@ class CallableTransform(InputPull):
         sink_pad_names: Optional[Sequence[str]] = None,
         source_pad_names: Optional[Sequence[str]] = None,
     ):
-        """Create a CallableTransform from a list of combinations where each combination
-        is.
+        """Create a CallableTransform from a list of combinations.
 
+        Each combination takes the form:
             (input_keys, func, output_name)
 
         Args:
@@ -191,8 +191,9 @@ class CallableTransform(InputPull):
         output_pad_name: str,
         sink_pad_names: list[str],
     ):
-        """Create a CallableTransform from a single callable that will be applied to all
-        inputs.
+        """Create a CallableTransform from a single callable.
+
+        The callable will be applied to all inputs.
 
         Args:
             name:
