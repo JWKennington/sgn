@@ -41,10 +41,12 @@ class NullSink(SinkElement):
 
 @dataclass
 class CollectSink(SinkElement):
-    """A sink element that has one collection per sink pad. Each frame that is pulled
-    into the sink is added to the collection for that pad using a ".append" method. If
-    the extract_data flag is set, the data is extracted from the frame and added to the
-    deque , otherwise the frame itself is added to the collection.
+    """A sink element that has one collection per sink pad.
+
+    Each frame that is pulled into the sink is added to the collection for that
+    pad using a ".append" method. If the extract_data flag is set, the data is
+    extracted from the frame and added to the deque, otherwise the frame
+    itself is added to the collection.
 
     Args:
         collects:
@@ -130,10 +132,11 @@ class CollectSink(SinkElement):
 
 @dataclass
 class DequeSink(CollectSink):
-    """A sink element that has one double-ended-queue (deque ) per sink pad. Each frame
-    that is pulled into the sink is added to the deque for that pad. If the extract_data
-    flag is set, the data is extracted from the frame and added to the deque , otherwise
-    the frame itself is added to the deque.
+    """A sink element that has one double-ended-queue (deque) per sink pad.
+
+    Each frame that is pulled into the sink is added to the deque for that pad.
+    If the extract_data flag is set, the data is extracted from the frame and
+    added to the deque , otherwise the frame itself is added to the deque.
 
     Args:
         collects:

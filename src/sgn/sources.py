@@ -118,9 +118,10 @@ class NullSource(SourceElement, SignalEOS):
 
 @dataclass
 class IterSource(SourceElement):
-    """A source element that has one iterable per source pad. The end of stream is
-    controlled by setting an optional limit on the number of times a deque can be empty
-    before EOS is signaled.
+    """A source element that has one iterable per source pad.
+
+    The end of stream is controlled by setting an optional limit on the number
+    of times a deque can be empty before EOS is signaled.
 
     Args:
         iters:
@@ -264,9 +265,10 @@ class IterSource(SourceElement):
 
 @dataclass
 class DequeSource(IterSource):
-    """A source element that has one double-ended-queue (deque ) per source pad. The end
-    of stream is controlled by setting an optional limit on the number of times a deque
-    can be empty before EOS is signaled.
+    """A source element that has one double-ended-queue (deque) per source pad.
+
+    The end of stream is controlled by setting an optional limit on the number
+    of times a deque can be empty before EOS is signaled.
 
     Args:
         iters:
