@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import json
 import socket
 from dataclasses import dataclass
+from pathlib import Path
 from queue import Queue
 from threading import Thread
 
@@ -140,8 +143,10 @@ class HTTPControl(SignalEOS):
     post_queues: dict[str, Queue] = {}
     get_queues: dict[str, Queue] = {}
     http_thread = None
-    registry_file = "registry.txt"
     tag = None
+
+    def __init__(self, registry_file: str | Path = "registry.txt") -> None:
+        self.registry_file = registry_file
 
     def __enter__(self):
         # The bottle thread doesn't want to die without daemon mode (which
@@ -161,7 +166,7 @@ class HTTPControl(SignalEOS):
         LOGGER.info(
             "Bottle app running on http://%s:%s", HTTPControl.host, HTTPControl.port
         )
-        with open(HTTPControl.registry_file, "w") as f:
+        with open(self.registry_file, "w") as f:
             f.write("http://%s:%s" % (HTTPControl.host, HTTPControl.port))
         super().__enter__()
         return self

@@ -121,7 +121,7 @@ class TestHTTPControlElements:
     """Tests for HTTPControlSourceElement, HTTPTransformElement and
     HTTPControlSinkElement classes."""
 
-    def test_init_and_context_manager(self):
+    def test_init_and_context_manager(self, tmp_path):
         HTTPControlSourceElement(
             name="testsrc",
             source_pad_names=[
@@ -146,7 +146,7 @@ class TestHTTPControlElements:
         HTTPControlSourceElement.get_queues["testsrc"].put({"a": {"b": "c"}})
         HTTPControlSourceElement.get_queues["testtrans"].put({"a": {"b": "c"}})
         HTTPControlSourceElement.get_queues["testsink"].put({"a": {"b": "c"}})
-        with HTTPControl() as control:
+        with HTTPControl(registry_file=tmp_path / "registry.txt") as control:
             # UGH this is super annoying but if you don't wait a while then the
             # bottle server might not be ready.
             import time
