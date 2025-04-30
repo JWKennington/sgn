@@ -49,7 +49,9 @@ class MyTransformClass(SubProcessTransformElement):
         self.in_queue.put(frame)
 
     @staticmethod
-    def sub_process_internal(shm_list, inq, outq, process_stop, argdict):
+    def sub_process_internal(
+        shm_list, inq, outq, process_stop, main_thread_exception, argdict
+    ):
         # access some shared memory - there is only one
         shm = shm_list[0]["shm"]
         print(shm.buf)
@@ -78,12 +80,14 @@ def test_shm_exception():
 
 def test_transform_exception():
     with pytest.raises(NotImplementedError):
-        SubProcessTransformElement.sub_process_internal(None, None, None, None, None)
+        SubProcessTransformElement.sub_process_internal(
+            None, None, None, None, None, None
+        )
 
 
 def test_sink_exception():
     with pytest.raises(NotImplementedError):
-        SubProcessSinkElement.sub_process_internal(None, None, None, None, None)
+        SubProcessSinkElement.sub_process_internal(None, None, None, None, None, None)
 
 
 def test_subprocess_exception():

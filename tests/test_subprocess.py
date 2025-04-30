@@ -39,7 +39,9 @@ class MySinkClass(SubProcessSinkElement):
         self.in_queue.put(frame)
 
     @staticmethod
-    def sub_process_internal(shm_list, inq, outq, process_stop, argdict):
+    def sub_process_internal(
+        shm_list, inq, outq, process_stop, main_thread_exception, argdict
+    ):
         while not process_stop.is_set():
             try:
                 inq.get(timeout=1)
@@ -60,7 +62,9 @@ class MyTransformClass(SubProcessTransformElement):
         self.in_queue.put(frame)
 
     @staticmethod
-    def sub_process_internal(shm_list, inq, outq, process_stop, argdict):
+    def sub_process_internal(
+        shm_list, inq, outq, process_stop, main_thread_exception, argdict
+    ):
         # access some shared memory - there is only one
         shm = shm_list[0]["shm"]
         print(shm.buf)
