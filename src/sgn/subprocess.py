@@ -76,7 +76,9 @@ class SubProcess(SignalEOS):
         try:
             self.pipeline.run()
         except Exception as e:
+            print("pipeline failed with", e)
             for p in SubProcess.instance_list:
+                p.main_thread_exception.set()
                 p.process_stop.set()
             for p in SubProcess.instance_list:
                 p.process.join()
@@ -89,10 +91,15 @@ class SubProcess(SignalEOS):
 class SubProcessTransformElement(TransformElement, SubProcess):
     """
     A Transform element that runs the function sub_process_internal(shm_list,
-    inq, outq, process_stop, process_argdict) in  a separate process. By design
-    sub_process_internal(...) does not have a reference to the class or instance
-    making it more likely to pickle.  This base class provides all of the arguments
-    with user specific arguments being handled by process_argdict.
+    inq, outq, process_stop, main_thread_exception, process_argdict) in a separate
+    process. By design sub_process_internal(...) does not have a reference to the
+    class or instance making it more likely to pickle.  This base class provides
+    all of the arguments with user specific arguments being handled by
+    process_argdict.
+
+    The main_thread_exception parameter is an Event that is set when an
+    exception occurs in the main thread, allowing subprocesses to perform cleanup
+    operations before terminating.
     """
 
     process_argdict: Optional[dict] = None
@@ -102,6 +109,7 @@ class SubProcessTransformElement(TransformElement, SubProcess):
         self.in_queue = multiprocessing.Queue(maxsize=1)
         self.out_queue = multiprocessing.Queue(maxsize=1)
         self.process_stop = multiprocessing.Event()
+        self.main_thread_exception = multiprocessing.Event()
         self.process = multiprocessing.Process(
             target=self.sub_process_internal,
             args=(
@@ -109,24 +117,63 @@ class SubProcessTransformElement(TransformElement, SubProcess):
                 self.in_queue,
                 self.out_queue,
                 self.process_stop,
+                self.main_thread_exception,
                 self.process_argdict,
             ),
         )
         SubProcess.instance_list.append(self)
 
     @staticmethod
-    def sub_process_internal(shm_list, inq, outq, process_stop, process_argdict):
+    def sub_process_internal(
+        shm_list, inq, outq, process_stop, main_thread_exception, process_argdict
+    ):
+        """
+        Method to be implemented by subclasses. Runs in a separate process.
+
+        Args:
+            shm_list: List of shared memory objects
+            inq: Input queue for receiving data
+            outq: Output queue for sending data
+            process_stop: Event that signals when the process should stop
+            main_thread_exception: Event that is set when an exception occurs
+                in the main thread
+            process_argdict: Dictionary of additional arguments
+        """
         raise NotImplementedError
 
 
 @dataclass
 class SubProcessSinkElement(SinkElement, SubProcess):
     """
-    A Sink element that runs the function sub_process_internal(shm_list,
-    inq, outq, process_stop, process_argdict) in  a separate process. By design
-    sub_process_internal(...) does not have a reference to the class or instance
-    making it more likely to pickle.  This base class provides all of the arguments
-    with user specific arguments being handled by process_argdict.
+    A Sink element that runs the function sub_process_internal(shm_list, inq,
+    outq, process_stop, main_thread_exception, process_argdict) in a separate
+    process. By design sub_process_internal(...) does not have a reference to the
+    class or instance making it more likely to pickle.  This base class provides
+    all of the arguments with user specific arguments being handled by
+    process_argdict.
+
+    The main_thread_exception parameter is an Event that is set when an
+    exception occurs in the main thread, allowing subprocesses to perform cleanup
+    operations before terminating, as shown in this example:
+
+    ```python
+    @staticmethod
+    def sub_process_internal(shm_list,
+                             inq,
+                             outq,
+                             process_stop,
+                             main_thread_exception,
+                             process_argdict
+                            ):
+        while not process_stop.is_set():
+            time.sleep(1)
+            outq.put(numpy.arange(10000))
+            print('snk', time.time(), flush=True)
+        if main_thread_exception.is_set():
+            while not outq.empty():
+                outq.get_nowait()
+        outq.close()
+    ```
     """
 
     process_argdict: Optional[dict] = None
@@ -137,6 +184,7 @@ class SubProcessSinkElement(SinkElement, SubProcess):
         self.in_queue = multiprocessing.Queue(maxsize=self.queue_maxsize)
         self.out_queue = multiprocessing.Queue(maxsize=self.queue_maxsize)
         self.process_stop = multiprocessing.Event()
+        self.main_thread_exception = multiprocessing.Event()
         self.process = multiprocessing.Process(
             target=self.sub_process_internal,
             args=(
@@ -144,11 +192,26 @@ class SubProcessSinkElement(SinkElement, SubProcess):
                 self.in_queue,
                 self.out_queue,
                 self.process_stop,
+                self.main_thread_exception,
                 self.process_argdict,
             ),
         )
         SubProcess.instance_list.append(self)
 
     @staticmethod
-    def sub_process_internal(shm_list, inq, outq, process_stop, process_argdict):
+    def sub_process_internal(
+        shm_list, inq, outq, process_stop, main_thread_exception, process_argdict
+    ):
+        """
+        Method to be implemented by subclasses. Runs in a separate process.
+
+        Args:
+            shm_list: List of shared memory objects
+            inq: Input queue for receiving data
+            outq: Output queue for sending data
+            process_stop: Event that signals when the process should stop
+            main_thread_exception: Event that is set when an exception occurs
+               in the main thread
+            process_argdict: Dictionary of additional arguments
+        """
         raise NotImplementedError

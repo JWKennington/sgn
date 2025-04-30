@@ -11,6 +11,7 @@ nav:
     - tutorials/http_control.md
     - tutorials/memory_profiling.md
     - tutorials/signal_handling.md
+    - tutorials/subprocess.md
   - FAQs:
     - faqs/pads.md
   - User Guide:
@@ -25,6 +26,7 @@ nav:
     - Transforms: api/transforms.md
     - Sinks: api/sinks.md
     - Control: api/control.md
+    - Subprocess: api/subprocess.md
 
 
 plugins:
