@@ -53,8 +53,8 @@ def _element_struct_plaintext(element):
     # https://graphviz.org/doc/info/shapes.html#html
     struct = f"""<
 <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" bgcolor="DodgerBlue">
-  <TR><TD COLSPAN="3"><b>{element.name}</b></TD></TR>
-  <TR><TD COLSPAN="3">{etype}</TD></TR>
+  <TR><TD COLSPAN="3" CELLPADDING="4"><b>{element.name}</b></TD></TR>
+  <TR><TD COLSPAN="3" CELLPADDING="4">{etype}</TD></TR>
   <TR>
     <TD>"""
     if element.sink_pads:
@@ -66,7 +66,7 @@ def _element_struct_plaintext(element):
             snk_id = _id(snk.name)
             snk_name = element.rsnks[snk]
             color = _color(snk)
-            struct += f"""<TR><TD PORT="{snk_id}" fixedsize="true" width="{width}" height="30" align="left" bgcolor="{color}">{snk_name}</TD></TR>"""  # noqa E501
+            struct += f"""<TR><TD PORT="{snk_id}" fixedsize="false" width="{width}" height="30" align="left" bgcolor="{color}">{snk_name}</TD></TR>"""  # noqa E501
         struct += """
 </TABLE>
 """
@@ -85,7 +85,7 @@ def _element_struct_plaintext(element):
             src_id = _id(src.name)
             src_name = element.rsrcs[src]
             color = _color(src)
-            struct += f"""<TR><TD PORT="{src_id}" fixedsize="true" width="{width}" height="30" align="right" bgcolor="{color}">{src_name}</TD></TR>"""  # noqa E501
+            struct += f"""<TR><TD PORT="{src_id}" fixedsize="false" width="{width}" height="30" align="right" bgcolor="{color}">{src_name}</TD></TR>"""  # noqa E501
         struct += """
 </TABLE>
 """
