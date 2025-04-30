@@ -25,36 +25,14 @@ def _color(node):
         return "MediumAquaMarine"
 
 
-# def _element_struct_record(element):
-#     """render element as "record" structure"""
-#     columns = []
-#     ss = []
-#     for snk in element.sink_pads:
-#         snk_id = _id(snk.name)
-#         snk_name = element.rsnks[snk]
-#         ss.append(f"<{snk_id}> {snk_name}")
-#     if ss:
-#         columns.append("{" + "|".join(ss) + "}")
-#     columns.append("")
-#     ss = []
-#     for src in element.source_pads:
-#         src_id = _id(src.name)
-#         src_name = element.rsrcs[src]
-#         ss.append(f"<{src_id}> {src_name}")
-#     if ss:
-#         columns.append("{" + "|".join(ss) + "}")
-#     struct = element.name + "|" + "{" + "|".join(columns) + "}"
-#     return struct
-
-
 def _element_struct_plaintext(element):
     """render element as html structure"""
     etype = element.__class__.__name__
     # https://graphviz.org/doc/info/shapes.html#html
     struct = f"""<
 <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" bgcolor="DodgerBlue">
-  <TR><TD COLSPAN="3"><b>{element.name}</b></TD></TR>
-  <TR><TD COLSPAN="3">{etype}</TD></TR>
+  <TR><TD COLSPAN="3" CELLPADDING="4"><b>{element.name}</b></TD></TR>
+  <TR><TD COLSPAN="3" CELLPADDING="4">{etype}</TD></TR>
   <TR>
     <TD>"""
     if element.sink_pads:
@@ -66,7 +44,7 @@ def _element_struct_plaintext(element):
             snk_id = _id(snk.name)
             snk_name = element.rsnks[snk]
             color = _color(snk)
-            struct += f"""<TR><TD PORT="{snk_id}" fixedsize="true" width="{width}" height="30" align="left" bgcolor="{color}">{snk_name}</TD></TR>"""  # noqa E501
+            struct += f"""<TR><TD PORT="{snk_id}" fixedsize="false" width="{width}" height="30" align="left" bgcolor="{color}">{snk_name}</TD></TR>"""  # noqa E501
         struct += """
 </TABLE>
 """
@@ -85,7 +63,7 @@ def _element_struct_plaintext(element):
             src_id = _id(src.name)
             src_name = element.rsrcs[src]
             color = _color(src)
-            struct += f"""<TR><TD PORT="{src_id}" fixedsize="true" width="{width}" height="30" align="right" bgcolor="{color}">{src_name}</TD></TR>"""  # noqa E501
+            struct += f"""<TR><TD PORT="{src_id}" fixedsize="false" width="{width}" height="30" align="right" bgcolor="{color}">{src_name}</TD></TR>"""  # noqa E501
         struct += """
 </TABLE>
 """
@@ -129,7 +107,6 @@ def visualize(pipeline, label=None, path=None):
             "ranksep": "2",
         },
         node_attr={
-            # "shape": "record",
             "shape": "plaintext",
             "fontname": "times mono",
         },

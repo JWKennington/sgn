@@ -197,12 +197,12 @@ class TestPipelineGraphviz:
             "\tsnk1 [label=<",
             '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
             'bgcolor="DodgerBlue">',
-            '  <TR><TD COLSPAN="3"><b>snk1</b></TD></TR>',
-            '  <TR><TD COLSPAN="3">NullSink</TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4"><b>snk1</b></TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4">NullSink</TD></TR>',
             "  <TR>",
             "    <TD>",
             '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
-            '<TR><TD PORT="snk1__snk__H1" fixedsize="true" width="18" height="30" '
+            '<TR><TD PORT="snk1__snk__H1" fixedsize="false" width="18" height="30" '
             'align="left" bgcolor="lightblue">H1</TD></TR>',
             "</TABLE>",
             "",
@@ -216,15 +216,15 @@ class TestPipelineGraphviz:
             "\tsrc1 [label=<",
             '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
             'bgcolor="DodgerBlue">',
-            '  <TR><TD COLSPAN="3"><b>src1</b></TD></TR>',
-            '  <TR><TD COLSPAN="3">NullSource</TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4"><b>src1</b></TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4">NullSource</TD></TR>',
             "  <TR>",
             "    <TD>",
             "    </TD>",
             "    <TD>-</TD>",
             "    <TD>",
             '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
-            '<TR><TD PORT="src1__src__H1" fixedsize="true" width="18" height="30" '
+            '<TR><TD PORT="src1__src__H1" fixedsize="false" width="18" height="30" '
             'align="right" bgcolor="MediumAquaMarine">H1</TD></TR>',
             "</TABLE>",
             "",
@@ -235,12 +235,12 @@ class TestPipelineGraphviz:
             "\tt1 [label=<",
             '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
             'bgcolor="DodgerBlue">',
-            '  <TR><TD COLSPAN="3"><b>t1</b></TD></TR>',
-            '  <TR><TD COLSPAN="3">CallableTransform</TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4"><b>t1</b></TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4">CallableTransform</TD></TR>',
             "  <TR>",
             "    <TD>",
             '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
-            '<TR><TD PORT="t1__snk__H1" fixedsize="true" width="18" height="30" '
+            '<TR><TD PORT="t1__snk__H1" fixedsize="false" width="18" height="30" '
             'align="left" bgcolor="lightblue">H1</TD></TR>',
             "</TABLE>",
             "",
@@ -248,7 +248,7 @@ class TestPipelineGraphviz:
             "    <TD>-</TD>",
             "    <TD>",
             '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
-            '<TR><TD PORT="t1__src__H1" fixedsize="true" width="18" height="30" '
+            '<TR><TD PORT="t1__src__H1" fixedsize="false" width="18" height="30" '
             'align="right" bgcolor="MediumAquaMarine">H1</TD></TR>',
             "</TABLE>",
             "",
@@ -284,12 +284,12 @@ class TestPipelineGraphviz:
             "\tsnk [label=<",
             '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
             'bgcolor="DodgerBlue">',
-            '  <TR><TD COLSPAN="3"><b>snk</b></TD></TR>',
-            '  <TR><TD COLSPAN="3">NullSink</TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4"><b>snk</b></TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4">NullSink</TD></TR>',
             "  <TR>",
             "    <TD>",
             '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
-            '<TR><TD PORT="snk__snk__H1" fixedsize="true" width="18" height="30" '
+            '<TR><TD PORT="snk__snk__H1" fixedsize="false" width="18" height="30" '
             'align="left" bgcolor="tomato">H1</TD></TR>',
             "</TABLE>",
             "",
@@ -303,15 +303,15 @@ class TestPipelineGraphviz:
             "\tsrc [label=<",
             '<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0" '
             'bgcolor="DodgerBlue">',
-            '  <TR><TD COLSPAN="3"><b>src</b></TD></TR>',
-            '  <TR><TD COLSPAN="3">NullSource</TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4"><b>src</b></TD></TR>',
+            '  <TR><TD COLSPAN="3" CELLPADDING="4">NullSource</TD></TR>',
             "  <TR>",
             "    <TD>",
             "    </TD>",
             "    <TD>-</TD>",
             "    <TD>",
             '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
-            '<TR><TD PORT="src__src__H1" fixedsize="true" width="18" height="30" '
+            '<TR><TD PORT="src__src__H1" fixedsize="false" width="18" height="30" '
             'align="right" bgcolor="tomato">H1</TD></TR>',
             "</TABLE>",
             "",
