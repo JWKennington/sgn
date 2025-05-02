@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
+
+import time
+import multiprocessing
+
+import threading
 from dataclasses import dataclass
 from queue import Empty
 from sgn.sources import SignalEOS
-from sgn.subprocess import SubProcess, SubProcessTransformElement, SubProcessSinkElement
+from sgn.subprocess import (
+    SubProcess,
+    _SubProcessTransSink,
+    SubProcessTransformElement,
+    SubProcessSinkElement,
+)
 from sgn.base import SourceElement, Frame
 from sgn.apps import Pipeline
 import ctypes
@@ -16,7 +26,7 @@ def get_address(buffer):
 
 
 #
-# A simple source class that just sends nothing every 1 second until ctrl+C
+# A simple source class that just sends and EOS frame
 #
 
 
@@ -36,17 +46,19 @@ class MySinkClass(SubProcessSinkElement):
     def pull(self, pad, frame):
         if frame.EOS:
             self.mark_eos(pad)
-        self.in_queue.put(frame)
+        if self.at_eos and not self.terminated.is_set():
+            self.in_queue.put(frame)
+            self.sub_process_shutdown(10)
 
     @staticmethod
     def sub_process_internal(
-        shm_list, inq, outq, process_stop, main_thread_exception, argdict
+        **kwargs,
     ):
-        while not process_stop.is_set():
-            try:
-                inq.get(timeout=1)
-            except Empty:
-                pass
+        kwargs["outq"].put(None)
+        try:
+            kwargs["inq"].get(timeout=1)
+        except Empty:
+            pass
 
 
 #
@@ -57,27 +69,30 @@ class MyTransformClass(SubProcessTransformElement):
     def __post_init__(self):
         super().__post_init__()
         assert len(self.sink_pad_names) == 1 and len(self.source_pad_names) == 1
+        self.at_eos = False
+        self.frame_list = []
 
     def pull(self, pad, frame):
         self.in_queue.put(frame)
+        if frame.EOS and not self.terminated.is_set():
+            self.at_eos = True
+            self.frame_list = self.sub_process_shutdown(10)
 
     @staticmethod
     def sub_process_internal(
-        shm_list, inq, outq, process_stop, main_thread_exception, argdict
+        **kwargs,
     ):
         # access some shared memory - there is only one
-        shm = shm_list[0]["shm"]
+        shm = kwargs["shm_list"][0]["shm"]
         print(shm.buf)
-        while not process_stop.is_set():
-            try:
-                frame = inq.get(timeout=1)
-                outq.put(frame)
-            except Empty:
-                pass
-        outq.put(Frame(EOS=True))
+        try:
+            frame = kwargs["inq"].get(timeout=1)
+            kwargs["outq"].put(frame)
+        except Empty:
+            pass
 
     def new(self, pad):
-        return self.out_queue.get()
+        return self.frame_list[0]
 
 
 #
@@ -120,6 +135,87 @@ def test_subprocess():
         # This will cause the processes to die **AFTER** the pipeline
         # completes.  Internally this also calls pipeline.run()
         subprocess.run()
+
+
+def test_subprocess_wrapper():
+    terminated = multiprocessing.Event()
+    shutdown = multiprocessing.Event()
+    stop = multiprocessing.Event()
+    shutdown.set()
+    stop.set()
+    inq = multiprocessing.Queue(maxsize=1)
+    outq = multiprocessing.Queue(maxsize=1)
+
+    def func(**kwargs):
+        pass
+
+    _SubProcessTransSink._sub_process_wrapper(
+        func,
+        terminated,
+        process_shutdown=shutdown,
+        process_stop=stop,
+        inq=inq,
+        outq=outq,
+    )
+
+
+def test_subprocess_wrapper_2():
+    terminated = multiprocessing.Event()
+    shutdown = multiprocessing.Event()
+    stop = multiprocessing.Event()
+    inq = multiprocessing.Queue(maxsize=1)
+    outq = multiprocessing.Queue(maxsize=1)
+
+    def func(**kwargs):
+        raise RuntimeError("nope")
+
+    _SubProcessTransSink._sub_process_wrapper(
+        func,
+        terminated,
+        process_shutdown=shutdown,
+        process_stop=stop,
+        inq=inq,
+        outq=outq,
+    )
+
+
+def test_subprocess_wrapper_3():
+    terminated = threading.Event()
+    shutdown = threading.Event()
+    stop = threading.Event()
+    shutdown.set()
+    inq = multiprocessing.Queue(maxsize=1)
+    inq.put(None)
+    outq = multiprocessing.Queue(maxsize=1)
+    outq.put(None)
+
+    def func(**kwargs):
+        # time.sleep(1)
+        raise ValueError("nope")
+
+    thread = threading.Thread(
+        target=_SubProcessTransSink._sub_process_wrapper,
+        args=(func, terminated),
+        kwargs={
+            "process_shutdown": shutdown,
+            "process_stop": stop,
+            "inq": inq,
+            "outq": outq,
+        },
+    )
+    thread.start()
+    time.sleep(1)
+    stop.set()
+    shutdown.set()
+    thread.join()
+
+
+# def test_subprocess_stop():
+#    inq = multiprocessing.Queue(maxsize=1)
+#    outq = multiprocessing.Queue(maxsize=1)
+#    inq.put(None)
+#    outq.put(None)
+#    _SubProcessTransSink.sub_process_stop(inq=inq, outq=outq)
 
 
 if __name__ == "__main__":

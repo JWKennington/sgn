@@ -13,10 +13,10 @@ This tutorial will guide you through creating elements that run in separate proc
 
 The `subprocess` module in SGN provides several key components:
 
-- `SubProcess`: A context manager for running SGN pipelines with elements that implement separate processes
-- `SubProcessTransformElement`: A Transform element that runs in a separate process
-- `SubProcessSinkElement`: A Sink element that runs in a separate process
-- Shared memory management for efficient data sharing between processes
+- `SubProcess`: A context manager for running SGN pipelines with elements that implement separate processes. It manages the lifecycle of subprocesses in an SGN pipeline, handling process creation, execution, and cleanup.
+- `SubProcessTransformElement`: A Transform element that runs processing logic in a separate process. It communicates with the main process through input and output queues.
+- `SubProcessSinkElement`: A Sink element that runs data consumption logic in a separate process. Like the Transform element, it uses queues for communication.
+- Shared memory management for efficient data sharing between processes without serialization overhead.
 
 ## Creating a Pipeline with Subprocesses
 
@@ -58,22 +58,26 @@ class ProcessingTransformElement(SubProcessTransformElement):
         self.in_queue.put(frame)
 
     @staticmethod
-    def sub_process_internal(
-        shm_list, inq, outq, process_stop, main_thread_exception, argdict
-    ):
+    def sub_process_internal(**kwargs):
         """
         This method runs in a separate process.
         
-        Args:
-            shm_list: List of shared memory objects
-            inq: Input queue for receiving data
-            outq: Output queue for sending data
-            process_stop: Event that signals when the process should stop
-            main_thread_exception: Event that signals when the main thread has an exception
-            argdict: Additional arguments dictionary
-        """
-        print(f"Transform subprocess started, process ID: {os.getpid()}")
+        The method receives all necessary resources via kwargs, making it more likely 
+        to pickle correctly when creating the subprocess.
         
+        Args:
+            shm_list (list): List of shared memory objects created with SubProcess.to_shm()
+            inq (multiprocessing.Queue): Input queue for receiving data from the main process
+            outq (multiprocessing.Queue): Output queue for sending data back to the main process
+            process_stop (multiprocessing.Event): Event that signals when the process should stop
+            process_shutdown (multiprocessing.Event): Event that signals orderly shutdown (process all pending data)
+            process_argdict (dict, optional): Dictionary of additional user-specific arguments
+        """
+        # Extract the kwargs for convenience
+        inq, outq = kwargs["inq"], kwargs["outq"]
+        process_stop = kwargs["process_stop"]
+        
+        print(f"Transform subprocess started, process ID: {os.getpid()}")
         while not process_stop.is_set():
             try:
                 # Get the next frame with a timeout
@@ -92,8 +96,8 @@ class ProcessingTransformElement(SubProcessTransformElement):
                 pass
             
         # Check if we're stopping due to an exception in the main thread
-        if main_thread_exception.is_set():
-            print("Main thread had an exception, cleaning up...")
+        if kwargs.get("process_shutdown", None) and kwargs["process_shutdown"].is_set():
+            print("Main thread is shutting down, cleaning up...")
             # Clean up any remaining items in the queue
             while not inq.empty():
                 inq.get_nowait()
@@ -119,15 +123,23 @@ class LoggingSinkElement(SubProcessSinkElement):
         self.in_queue.put((pad.name, frame))
 
     @staticmethod
-    def sub_process_internal(
-        shm_list, inq, outq, process_stop, main_thread_exception, argdict
-    ):
+    def sub_process_internal(**kwargs):
         """
         This method runs in a separate process.
+        
+        Args:
+            shm_list (list): List of shared memory objects created with SubProcess.to_shm()
+            inq (multiprocessing.Queue): Input queue for receiving data from the main process
+            outq (multiprocessing.Queue): Output queue for sending data back to the main process
+            process_stop (multiprocessing.Event): Event that signals when the process should stop
+            process_shutdown (multiprocessing.Event): Event that signals orderly shutdown
+            process_argdict (dict, optional): Dictionary of additional user-specific arguments
         """
         import os
         print(f"Sink subprocess started, process ID: {os.getpid()}")
         
+        inq, outq = kwargs["inq"], kwargs["outq"]
+        process_stop = kwargs["process_stop"]
         while not process_stop.is_set():
             try:
                 # Get the next frame with a timeout
@@ -145,8 +157,8 @@ class LoggingSinkElement(SubProcessSinkElement):
                 pass
                 
         # Check if we're stopping due to an exception in the main thread
-        if main_thread_exception.is_set():
-            print("Main thread had an exception, cleaning up...")
+        if kwargs.get("process_shutdown", None) and kwargs["process_shutdown"].is_set():
+            print("Main thread is shutting down, cleaning up...")
             # Clean up any remaining items in the queue
             while not inq.empty():
                 inq.get_nowait()
@@ -188,7 +200,8 @@ if __name__ == "__main__":
 ## Sharing Memory Between Processes
 
 For more efficient data sharing, especially with large data structures like NumPy arrays, 
-you can use shared memory. Here's how to use it:
+you can use shared memory. The `to_shm()` method creates a shared memory segment that will be 
+automatically cleaned up when the SubProcess context manager exits.
 
 ```python
 # Create shared data in the main process
@@ -200,7 +213,9 @@ array_data = np.array([1, 2, 3, 4, 5], dtype=np.float64)
 shared_data = array_data.tobytes()
 
 # Register it with SGN's shared memory manager
-SubProcess.to_shm("my_shared_array", shared_data)
+# This creates a shared memory segment that will be automatically cleaned up
+# when the SubProcess context manager exits
+# SubProcess.to_shm("my_shared_array", shared_data)
 ```
 
 Then in your subprocess:
@@ -227,28 +242,55 @@ def sub_process_internal(
             print(f"Modified array: {array}")
 ```
 
-## Handling Exceptions
+## Orderly Shutdown and Handling Exceptions
 
-When an exception occurs in the main thread, the `main_thread_exception` event will be set.
-This allows subprocesses to perform cleanup operations before terminating:
+The `SubProcessTransformElement` and `SubProcessSinkElement` classes provide the `sub_process_shutdown()` 
+method for initiating an orderly shutdown of a subprocess. This method signals the subprocess to 
+complete processing of any pending data and then terminate. It waits for the subprocess to indicate 
+completion and collects any remaining data from the output queue.
+
+When either an orderly shutdown is requested or an exception occurs in the main thread, 
+the `process_shutdown` event will be set. This allows subprocesses to perform cleanup 
+operations before terminating:
 
 ```python
 @staticmethod
-def sub_process_internal(
-    shm_list, inq, outq, process_stop, main_thread_exception, argdict
-):
+def sub_process_internal(**kwargs):
+    inq, outq = kwargs["inq"], kwargs["outq"]
+    process_stop = kwargs["process_stop"]
+    process_shutdown = kwargs["process_shutdown"]
+
     while not process_stop.is_set():
         # Normal processing...
         pass
         
-    # Check if we're stopping due to an exception
-    if main_thread_exception.is_set():
-        print("Main thread had an exception, cleaning up...")
-        # Perform cleanup (e.g., empty queues, close resources)
-        while not outq.empty():
-            outq.get_nowait()
-    
+    # Check if we're stopping due to an orderly shutdown or exception
+    if process_shutdown.is_set():
+        print("Processing remaining items and cleaning up...")
+        # Process any remaining items in the queue
+        while not inq.empty():
+            try:
+                item = inq.get_nowait()
+                # Process the final items...
+            except:
+                pass
+                
+    # Always clean up resources
+    while not outq.empty():
+        outq.get_nowait()
     outq.close()
+```
+
+You can also implement graceful shutdown in your element's `pull` method:
+
+```python
+def pull(self, pad, frame):
+    self.in_queue.put(frame)
+    
+    if frame.EOS and not self.terminated.is_set():
+        # Initiate orderly shutdown and wait up to 10 seconds
+        remaining_items = self.sub_process_shutdown(10)
+        # Process remaining items if needed
 ```
 
 ## Complete Example with NumPy Array Processing
@@ -296,11 +338,11 @@ class ArrayProcessingElement(SubProcessTransformElement):
         self.in_queue.put(frame)
 
     @staticmethod
-    def sub_process_internal(
-        shm_list, inq, outq, process_stop, main_thread_exception, argdict
-    ):
+    def sub_process_internal(**kwargs):
         print(f"Transform subprocess started, process ID: {os.getpid()}")
         
+        inq, outq = kwargs["inq"], kwargs["outq"]
+        process_stop = kwargs["process_stop"]
         while not process_stop.is_set():
             try:
                 frame = inq.get(timeout=1)
@@ -340,11 +382,11 @@ class ArraySinkElement(SubProcessSinkElement):
         self.in_queue.put((pad.name, frame))
 
     @staticmethod
-    def sub_process_internal(
-        shm_list, inq, outq, process_stop, main_thread_exception, argdict
-    ):
+    def sub_process_internal(**kwargs):
         print(f"Sink subprocess started, process ID: {os.getpid()}")
         
+        inq, outq = kwargs["inq"], kwargs["outq"]
+        process_stop = kwargs["process_stop"]
         while not process_stop.is_set():
             try:
                 pad_name, frame = inq.get(timeout=1)
@@ -398,16 +440,22 @@ if __name__ == "__main__":
 
 ## Best Practices
 
-1. **Clean Queue Management**: Always ensure queues are properly emptied when shutting down, especially when handling exceptions.
+1. **Clean Queue Management**: Always ensure queues are properly emptied when shutting down, especially when handling exceptions. The `_drainqs()` helper method is available to clean up queues during termination.
 
-2. **Shared Memory**: When working with large data, use shared memory rather than passing data through queues.
+2. **Shared Memory**: When working with large data, use `SubProcess.to_shm()` to efficiently share memory between processes rather than passing large objects through queues.
 
-3. **Exception Handling**: Implement proper exception handling in both the main thread and subprocesses.
+3. **Orderly Shutdown**: Use the `sub_process_shutdown()` method for graceful termination, allowing processes to finish any pending work before stopping.
 
-4. **Resource Management**: Make sure to close all resources (files, connections, etc.) in your subprocesses.
+4. **Exception Handling**: Implement proper exception handling in both the main thread and subprocesses. Check for `process_shutdown` events to properly clean up resources.
 
-5. **Timeouts**: Always use timeouts when getting data from queues to avoid deadlocks.
+5. **Resource Management**: Always close all resources (files, connections, etc.) in your subprocesses before termination. This prevents resource leaks.
+
+6. **Timeouts**: Always use timeouts when getting data from queues to avoid deadlocks. The standard pattern is to use a 1-second timeout and catch Empty exceptions.
+
+7. **Pickling Considerations**: The design of `sub_process_internal` intentionally avoids class or instance references to prevent pickling issues. Pass all data via function arguments.
 
 ## Conclusion
 
 The subprocess functionality in SGN provides a powerful way to parallelize data processing across multiple processes. By using the patterns shown in this tutorial, you can create efficient, fault-tolerant pipelines that take advantage of multiple CPU cores.
+
+The careful management of process lifecycle, shared memory, and inter-process communication enables building reliable multi-process pipelines even for complex data processing tasks.
