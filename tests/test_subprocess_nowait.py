@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 import pytest
+import time
 from dataclasses import dataclass
 from queue import Empty
 from sgn.sources import SignalEOS
 from sgn.subprocess import SubProcess, SubProcessTransformElement, SubProcessSinkElement
-from sgn.base import SourceElement, SinkElement, Frame
+from sgn.base import SourceElement, Frame
 from sgn.apps import Pipeline
 import ctypes
 
@@ -17,7 +18,7 @@ def get_address(buffer):
 
 
 #
-# A simple source class that just sends nothing every 1 second until ctrl+C
+# A simple source class that just sends and EOS frame
 #
 
 
@@ -27,13 +28,28 @@ class MySourceClass(SourceElement, SignalEOS):
 
 
 #
-# A sink class that does raises an exception
+# A sink class that does nothing
 #
-class MyBrokenSinkClass(SinkElement):
+@dataclass
+class MySinkClass(SubProcessSinkElement):
+    def __post_init__(self):
+        super().__post_init__()
+
     def pull(self, pad, frame):
-        # raise ValueError("Not today!")
+        self.in_queue.put(frame)
+        self.in_queue.put(frame)
+        self.in_queue.put(frame)
         if frame.EOS:
             self.mark_eos(pad)
+            self.sub_process_shutdown(1e-6)
+
+    @staticmethod
+    def sub_process_internal(
+        **kwargs,
+    ):
+        kwargs["inq"].get(timeout=1)
+        time.sleep(3)
+        kwargs["outq"].put(None)
 
 
 #
@@ -48,54 +64,26 @@ class MyTransformClass(SubProcessTransformElement):
     def pull(self, pad, frame):
         self.in_queue.put(frame)
 
-    def internal(self):
-        self.at_eos = False
-        self.terminated.set()
-        print(self.at_eos, self.terminated.is_set())
-        super().internal()
-
     @staticmethod
     def sub_process_internal(
         **kwargs,
     ):
-        # access some shared memory - there is only one
-        shm = kwargs["shm_list"][0]["shm"]
-        print(shm.buf)
-        while not kwargs["process_stop"].is_set():
-            try:
-                frame = kwargs["inq"].get(timeout=1)
-                kwargs["outq"].put(frame)
-            except Empty:
-                pass
-        kwargs["outq"].put(Frame(EOS=True))
-        kwargs["terminated"].set()
+        try:
+            frame = kwargs["inq"].get(timeout=1)
+            kwargs["outq"].put(frame)
+        except Empty:
+            kwargs["outq"].put(Frame(EOS=True))
 
     def new(self, pad):
         return self.out_queue.get()
 
 
-def test_shm_exception():
-
-    shared_data = bytearray(
-        "Here is a string that will be shared between processes", "utf-8"
-    )
-    with pytest.raises(FileExistsError):
-        # Trying this again will raise an exception that is trapped
-        SubProcess.to_shm("shared_data", shared_data)
-        SubProcess.to_shm("shared_data", shared_data)
+#
+# This goes into shared memory
+#
 
 
-def test_transform_exception():
-    with pytest.raises(NotImplementedError):
-        SubProcessTransformElement.sub_process_internal()
-
-
-def test_sink_exception():
-    with pytest.raises(NotImplementedError):
-        SubProcessSinkElement.sub_process_internal()
-
-
-def test_subprocess_exception():
+def test_subprocess():
 
     shared_data = bytearray(
         "Here is a string that will be shared between processes", "utf-8"
@@ -109,7 +97,7 @@ def test_subprocess_exception():
     transform2 = MyTransformClass(
         sink_pad_names=("event",), source_pad_names=("samples2",)
     )
-    sink = MyBrokenSinkClass(sink_pad_names=("samples1", "samples2"))
+    sink = MySinkClass(sink_pad_names=("samples1", "samples2"))
 
     pipeline = Pipeline()
 
@@ -134,4 +122,4 @@ def test_subprocess_exception():
 
 
 if __name__ == "__main__":
-    test_subprocess_exception()
+    test_subprocess()
