@@ -202,7 +202,7 @@ class _SubProcessTransSink(SubProcess):
                 while not inq.empty():
                     func(**kwargs)
         except Exception as e:
-            print(e)
+            print("Exception: ", repr(e))
         terminated.set()
         if process_shutdown.is_set() and not process_stop.is_set():
             while not process_stop.is_set():
