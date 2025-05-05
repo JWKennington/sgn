@@ -199,8 +199,20 @@ class _SubProcessTransSink(SubProcess):
             while not process_shutdown.is_set() and not process_stop.is_set():
                 func(**kwargs)
             if process_shutdown.is_set() and not process_stop.is_set():
-                while not inq.empty():
-                    func(**kwargs)
+                tries = 0
+                num_empty = 3
+                while True:
+                    if not inq.empty():
+                        func(**kwargs)
+                        tries = 0  # reset
+                    else:
+                        time.sleep(1)
+                        tries += 1
+                        if tries > num_empty:
+                            # Try several times to make sure queue is actually empty
+                            # FIXME: find a better way
+                            break
+
         except Exception as e:
             print("Exception: ", repr(e))
         terminated.set()
