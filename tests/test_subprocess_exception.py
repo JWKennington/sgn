@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import pytest
+import multiprocessing
 from dataclasses import dataclass
 from queue import Empty
 from sgn.sources import SignalEOS
@@ -96,11 +97,24 @@ def test_sink_exception():
 
 
 def test_subprocess_exception():
+    # Make sure instance list is clear before starting the test
+    SubProcess.instance_list = []
 
-    shared_data = bytearray(
-        "Here is a string that will be shared between processes", "utf-8"
-    )
-    SubProcess.to_shm("shared_data", shared_data)
+    # Create a new shared memory segment for this test
+    try:
+        shared_data = bytearray("Here is a string for exception test", "utf-8")
+        SubProcess.to_shm("exception_test_mem", shared_data)
+    except FileExistsError:
+        # Cleanup any existing shared memory with this name
+        for d in SubProcess.shm_list:
+            try:
+                multiprocessing.shared_memory.SharedMemory(name=d["name"]).unlink()
+            except FileNotFoundError:
+                pass
+        SubProcess.shm_list = []
+        # Try again
+        shared_data = bytearray("Here is a string for exception test", "utf-8")
+        SubProcess.to_shm("exception_test_mem", shared_data)
 
     source = MySourceClass(source_pad_names=("event",))
     transform1 = MyTransformClass(
@@ -131,6 +145,15 @@ def test_subprocess_exception():
         # completes.  Internally this also calls pipeline.run()
         with pytest.raises(RuntimeError):
             subprocess.run()
+
+    # Clean up
+    for d in SubProcess.shm_list:
+        try:
+            multiprocessing.shared_memory.SharedMemory(name=d["name"]).unlink()
+        except FileNotFoundError:
+            pass
+    SubProcess.shm_list = []
+    SubProcess.instance_list = []
 
 
 if __name__ == "__main__":
