@@ -39,16 +39,22 @@ class SignalEOS:
 
     @classmethod
     def signaled_eos(cls):
-        """Returns true of the intersection of received signals and handled
-        signals is nonzero.  This can be used by developers to decide if EOS should be
-        set"""
+        """Indicate whether a signal has been received to indicate an EOS.
+
+        Returns true of the intersection of received signals and handled
+        signals is nonzero.  This can be used by developers to decide if EOS
+        should be set.
+        """
         return bool(cls.rcvd_signals & cls.handled_signals)
 
     def raise_signal(self, sig):
-        """Intended to be used after a statment executed as a context manager if
-        the application needs to re-raise one of the signals with the previous signal
-        handler.  NOTE - this will only raise the signal if it had been previously
-        raised"""
+        """Raise a signal that has already been raised previously.
+
+        Intended to be used if the application needs to re-raise one of the
+        signals with the previous signal handler.  NOTE - this will only raise
+        the signal if it had been previously raised and only within a given
+        context.
+        """
         if sig in SignalEOS.rcvd_signals:
             signal.raise_signal(sig)
 
@@ -64,6 +70,7 @@ class SignalEOS:
         """Restore the original signal handlers"""
         for sig in SignalEOS.handled_signals:
             signal.signal(sig, SignalEOS.previous_handlers[sig])
+        SignalEOS.rcvd_signals = set([])
 
 
 @dataclass
