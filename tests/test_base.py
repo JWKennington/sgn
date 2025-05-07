@@ -1,7 +1,9 @@
 """Unit tests for the base module."""
 
 import asyncio
+import random
 import os
+from dataclasses import dataclass
 from logging import Logger
 from unittest import mock
 
@@ -20,6 +22,7 @@ from sgn.base import (
     UniqueID,
     get_sgn_logger,
 )
+from sgn.frames import DataSpec
 
 
 def asyncio_run(coro):
@@ -27,16 +30,9 @@ def asyncio_run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-class TestFrame:
-    """Tests for the Frame class."""
-
-    def test_init(self):
-        """Test the Frame class constructor."""
-        f = Frame()
-        assert isinstance(f, Frame)
-        assert not f.EOS
-        assert not f.is_gap
-        assert f.data is None
+@dataclass(frozen=True)
+class RateDataSpec(DataSpec):
+    rate: int
 
 
 class TestUniqueID:
@@ -129,7 +125,8 @@ class TestSinkPad:
         """Test the __call__ method."""
 
         def dummy_src(pad):
-            return Frame()
+            spec = RateDataSpec(rate=random.randint(1, 2048))
+            return Frame(spec=spec)
 
         def dummy_snk(pad, frame):
             return None
@@ -152,6 +149,11 @@ class TestSinkPad:
         asyncio_run(p1())
         asyncio_run(p2())
         assert p2.input is not None
+
+        # Run again, data specification will be different
+        asyncio_run(p1())
+        with pytest.raises(ValueError):
+            asyncio_run(p2())
 
 
 class TestElementLike:

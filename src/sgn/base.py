@@ -6,7 +6,9 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Callable, Dict, Optional, Sequence, Union
+
+from .frames import DataSpec, Frame
 
 SGN_LOG_LEVELS = {
     "DEBUG": logging.DEBUG,
@@ -69,28 +71,6 @@ def get_sgn_logger(
 
 
 LOGGER = get_sgn_logger("sgn", SGN_LOG_LEVELS)
-
-
-@dataclass
-class Frame:
-    """Generic class to hold the basic unit of data that flows through a graph.
-
-    Args:
-        EOS:
-            bool, default False, Whether this frame indicates end of stream (EOS)
-        is_gap:
-            bool, default False, Whether this frame is marked as a gap
-        metadata:
-            dict, optional, Metadata associated with this frame.
-    """
-
-    EOS: bool = False
-    is_gap: bool = False
-    metadata: dict = field(default_factory=dict)
-    data: Any = None
-
-    def __post_init__(self):
-        pass
 
 
 class _PostInitBase:
@@ -202,6 +182,7 @@ class SourcePad(UniqueID, PadLike):
             Frame, optional, This attribute is set to be the output Frame when the pad
             is called.
     """
+
     output: Optional[Frame] = None
 
     async def __call__(self) -> None:
@@ -232,9 +213,15 @@ class SinkPad(UniqueID, PadLike):
         input:
             Frame, optional, This holds the Frame provided by the linked source pad.
             Generally it gets set when this SinkPad is called, default None
+        data_spec:
+            DataSpec, optional, This holds a specification for the data stored
+            in frames, and is expected to be consistent across frames passing
+            through this pad. This is set when this sink pad is first called
     """
+
     other: Optional[SourcePad] = None
     input: Optional[Frame] = None
+    data_spec: Optional[DataSpec] = None
 
     def link(self, other: SourcePad) -> dict[Pad, set[Pad]]:
         """Returns a dictionary of dependencies suitable for adding to a graphlib graph.
@@ -272,6 +259,15 @@ class SinkPad(UniqueID, PadLike):
         assert isinstance(self.other, SourcePad), "Sink pad has not been linked"
         self.input = self.other.output
         assert isinstance(self.input, Frame)
+        if self.data_spec is None:
+            self.data_spec = self.input.spec
+        if not self.data_spec == self.input.spec:
+            msg = (
+                f"frame received by {self.name} is inconsistent with "
+                "previously received frames. previous data specification: "
+                f"{self.data_spec}, current data specification: {self.input.spec}"
+            )
+            raise ValueError(msg)
         self.call(self, self.input)
         if self.element is not None:
             LOGGER.getChild(self.element.name).info("\t%s:%s", self, self.input)
