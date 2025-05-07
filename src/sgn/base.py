@@ -187,69 +187,7 @@ class PadLike:
 
 
 @dataclass(eq=False, repr=False)
-class _SourcePadLike(PadLike):
-    """A pad that provides a data Frame when called.
-
-    Args:
-        element:
-            Element, The Element instance associated with this pad
-        call:
-            Callable, The function that will be called during graph execution for
-            this pad
-        output:
-            Frame, optional, This attribute is set to be the output Frame when the pad
-            is called.
-    """
-
-    output: Optional[Frame] = None
-
-
-@dataclass(eq=False, repr=False)
-class _SinkPadLike(PadLike):
-    """<pre>A pad that receives a data Frame when called.  When linked, it returns a
-    dictionary suitable for building a graph in graphlib.
-
-    Args:
-        element:
-            Element, The Element instance associated with this pad
-        call:
-            Callable, The function that will be called during graph execution for
-            this pad
-        other:
-            SourcePad, optional, This holds the source pad that is linked to this sink
-            pad, default None
-        input:
-            Frame, optional, This holds the Frame provided by the linked source pad.
-            Generally it gets set when this SinkPad is called, default None
-    </pre>"""
-
-    other: Optional[SourcePad] = None
-    input: Optional[Frame] = None
-
-
-@dataclass(eq=False, repr=False)
-class _InternalPadLike(PadLike):
-    r"""A pad that sits inside an element and is called between sink and source pads.
-    Internal pads are connected in the elements internal graph according to the below
-    (data flows top to bottom)
-
-    snk1   ...  snkN     (if exist)
-      \\   ...   //
-         internal      (always exists)
-      //   ...   \\
-     src1  ...  srcM     (if exist)
-
-    Args:
-        element:
-            Element, The Element instance associated with this pad
-        call:
-            Callable, The function that will be called during graph execution for
-            this pad
-    """
-
-
-@dataclass(eq=False, repr=False)
-class SourcePad(UniqueID, _SourcePadLike):
+class SourcePad(UniqueID, PadLike):
     """A pad that provides a data Frame when called.
 
     Args:
@@ -260,7 +198,11 @@ class SourcePad(UniqueID, _SourcePadLike):
             this pad
         name:
             str, optional, The unique name for this object
+        output:
+            Frame, optional, This attribute is set to be the output Frame when the pad
+            is called.
     """
+    output: Optional[Frame] = None
 
     async def __call__(self) -> None:
         """When called, a source pad receives a Frame from the element that the pad
@@ -272,7 +214,7 @@ class SourcePad(UniqueID, _SourcePadLike):
 
 
 @dataclass(eq=False, repr=False)
-class SinkPad(UniqueID, _SinkPadLike):
+class SinkPad(UniqueID, PadLike):
     """A pad that receives a data Frame when called.  When linked, it returns a
     dictionary suitable for building a graph in graphlib.
 
@@ -284,7 +226,15 @@ class SinkPad(UniqueID, _SinkPadLike):
             pad, takes two arguments, the pad and the frame
         name:
             str, optional, The unique name for this object
+        other:
+            SourcePad, optional, This holds the source pad that is linked to this sink
+            pad, default None
+        input:
+            Frame, optional, This holds the Frame provided by the linked source pad.
+            Generally it gets set when this SinkPad is called, default None
     """
+    other: Optional[SourcePad] = None
+    input: Optional[Frame] = None
 
     def link(self, other: SourcePad) -> dict[Pad, set[Pad]]:
         """Returns a dictionary of dependencies suitable for adding to a graphlib graph.
@@ -328,7 +278,7 @@ class SinkPad(UniqueID, _SinkPadLike):
 
 
 @dataclass(eq=False, repr=False)
-class InternalPad(UniqueID, _InternalPadLike):
+class InternalPad(UniqueID, PadLike):
     """A pad that sits inside an element and is called between sink and source pads.
     Internal pads are connected in the elements internal graph according to the below
     (data flows top to bottom)

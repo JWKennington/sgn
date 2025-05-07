@@ -18,9 +18,6 @@ from sgn.base import (
     SourcePad,
     TransformElement,
     UniqueID,
-    _PostInitBase,
-    _SinkPadLike,
-    _SourcePadLike,
     get_sgn_logger,
 )
 
@@ -40,16 +37,6 @@ class TestFrame:
         assert not f.EOS
         assert not f.is_gap
         assert f.data is None
-
-
-class TestPostInitBase:
-    """Test group for _PostInitBase class."""
-
-    def test_post_init(self):
-        """Test the _PostInitBase class constructor."""
-        pi = _PostInitBase()
-        assert isinstance(pi, _PostInitBase)
-        assert hasattr(pi, "__post_init__")
 
 
 class TestUniqueID:
@@ -90,19 +77,6 @@ class TestPadLikes:
         pl = PadLike(element=None, call=None)
         with pytest.raises(NotImplementedError):
             asyncio_run(pl())
-
-    def test_source_pad_like(self):
-        """Test the source_pad_like method."""
-        spl = _SourcePadLike(element=None, call=None)
-        assert isinstance(spl, _SourcePadLike)
-        assert spl.output is None
-
-    def test_sink_pad_like(self):
-        """Test the sink_pad_like method."""
-        spl = _SinkPadLike(element=None, call=None)
-        assert isinstance(spl, _SinkPadLike)
-        assert spl.input is None
-        assert spl.other is None
 
 
 class TestSourcePad:
