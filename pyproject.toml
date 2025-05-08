@@ -92,7 +92,16 @@ source = [
 ]
 
 [tool.coverage.report]
-omit = ["_version.py", "tests/*", "examples/*", "setup.py", "*/__init__.py", "src/sgn/bottle.py"]
+# print report with one decimal point
+precision = 1
+show_missing = true
+omit = [
+    "_version.py",
+	"tests/*",
+	"examples/*",
+	"*/__init__.py",
+	"src/sgn/bottle.py",
+]
 
 [tool.isort]
 profile = "black"
