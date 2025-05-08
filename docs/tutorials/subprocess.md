@@ -18,6 +18,8 @@ The `subprocess` module in SGN provides several key components:
 - `SubProcessSinkElement`: A Sink element that runs data consumption logic in a separate process. Like the Transform element, it uses queues for communication.
 - Shared memory management for efficient data sharing between processes without serialization overhead.
 
+> **IMPORTANT**: All code using the `SubProcess` context manager must be wrapped within an `if __name__ == "__main__":` block. This requirement exists because SGN uses Python's multiprocessing module with the 'spawn' start method, which requires that the main module be importable.
+
 ## Creating a Pipeline with Subprocesses
 
 Let's build a simple pipeline that demonstrates how to use the subprocess capabilities:
@@ -438,21 +440,70 @@ if __name__ == "__main__":
     main()
 ```
 
+## Signal Handling in Subprocesses
+
+SGN's subprocess implementation includes special handling for signals, particularly `KeyboardInterrupt` (Ctrl+C). When you press Ctrl+C in a terminal running an SGN pipeline with subprocesses, the behavior is designed to ensure a clean, coordinated shutdown:
+
+1. **KeyboardInterrupt Resilience**: Subprocesses automatically catch and ignore `KeyboardInterrupt` exceptions. This prevents subprocesses from terminating abruptly when Ctrl+C is pressed.
+
+2. **Coordinated Shutdown**: Instead of individual subprocesses terminating independently, the main process receives the signal and coordinates a graceful shutdown of all subprocess elements.
+
+3. **Continued Processing**: While the shutdown sequence is in progress, subprocesses will continue processing their current tasks and can drain any remaining items in their queues.
+
+This design provides several benefits:
+
+- Prevents data loss during processing
+- Ensures all subprocesses shut down in a coordinated manner
+- Allows for proper cleanup of resources like shared memory and queues
+- Creates more predictable pipeline behavior
+
+Here's how this works internally:
+
+```python
+# Inside the subprocess wrapper
+try:
+    while not stop_condition:
+        try:
+            # Run the subprocess function
+            func(**kwargs)
+        except KeyboardInterrupt as ei:
+            # Catch and ignore KeyboardInterrupt
+            print("subprocess received, ", repr(ei), " ...continuing.")
+            continue  # Continue processing
+except Exception as e:
+    # Handle other exceptions...
+    print("Exception:", repr(e))
+```
+
 ## Best Practices
 
-1. **Clean Queue Management**: Always ensure queues are properly emptied when shutting down, especially when handling exceptions. The `_drainqs()` helper method is available to clean up queues during termination.
+1. **Main Guard Pattern**: Always wrap your main code using the `SubProcess` context manager inside an `if __name__ == "__main__":` block. This is critical because SGN uses the 'spawn' multiprocessing start method, which requires that the main module be importable.
 
-2. **Shared Memory**: When working with large data, use `SubProcess.to_shm()` to efficiently share memory between processes rather than passing large objects through queues.
+    ```python
+    def main():
+        # Create your pipeline...
+        with SubProcess(pipeline) as subprocess:
+            subprocess.run()
 
-3. **Orderly Shutdown**: Use the `sub_process_shutdown()` method for graceful termination, allowing processes to finish any pending work before stopping.
+    if __name__ == "__main__":
+        main()
+    ```
 
-4. **Exception Handling**: Implement proper exception handling in both the main thread and subprocesses. Check for `process_shutdown` events to properly clean up resources.
+2. **Clean Queue Management**: Always ensure queues are properly emptied when shutting down, especially when handling exceptions. The `_drainqs()` helper method is available to clean up queues during termination.
 
-5. **Resource Management**: Always close all resources (files, connections, etc.) in your subprocesses before termination. This prevents resource leaks.
+3. **Shared Memory**: When working with large data, use `SubProcess.to_shm()` to efficiently share memory between processes rather than passing large objects through queues.
 
-6. **Timeouts**: Always use timeouts when getting data from queues to avoid deadlocks. The standard pattern is to use a 1-second timeout and catch Empty exceptions.
+4. **Orderly Shutdown**: Use the `sub_process_shutdown()` method for graceful termination, allowing processes to finish any pending work before stopping.
 
-7. **Pickling Considerations**: The design of `sub_process_internal` intentionally avoids class or instance references to prevent pickling issues. Pass all data via function arguments.
+5. **Signal Handling**: Be aware that subprocesses will ignore `KeyboardInterrupt` signals. If you need custom signal handling in your subprocesses, implement it in your `sub_process_internal` method, but make sure you don't interfere with SGN's ability to coordinate process shutdown.
+
+6. **Exception Handling**: Implement proper exception handling in both the main thread and subprocesses. Check for `process_shutdown` events to properly clean up resources.
+
+7. **Resource Management**: Always close all resources (files, connections, etc.) in your subprocesses before termination. This prevents resource leaks.
+
+8. **Timeouts**: Always use timeouts when getting data from queues to avoid deadlocks. The standard pattern is to use a 1-second timeout and catch Empty exceptions.
+
+9. **Pickling Considerations**: The design of `sub_process_internal` intentionally avoids class or instance references to prevent pickling issues. Pass all data via function arguments. Avoid using lambda functions in multiprocessing code, as they cannot be properly pickled.
 
 ## Conclusion
 

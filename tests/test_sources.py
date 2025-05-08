@@ -19,6 +19,38 @@ class TestSignalEOS:
         signal.signal(signal.SIGUSR2, lambda x, y: None)
         f.raise_signal(signal.SIGUSR2)
 
+    def test_raise_signal(self):
+        """Test the raise_signal method specifically."""
+        # Set up a test signal
+        test_signal = signal.SIGUSR1
+
+        # First test with a signal that hasn't been received (should not raise)
+        SignalEOS.rcvd_signals = set()
+        signal_eos = SignalEOS()
+        signal_eos.raise_signal(test_signal)
+
+        # Now test with a signal that has been received (should reach line 59)
+        SignalEOS.rcvd_signals.add(test_signal)
+
+        # Set up a flag to verify the signal was raised
+        signal_raised = False
+
+        def test_handler(signum, frame):
+            nonlocal signal_raised
+            signal_raised = True
+
+        # Set our test handler
+        original_handler = signal.getsignal(test_signal)
+        signal.signal(test_signal, test_handler)
+
+        try:
+            signal_eos.raise_signal(test_signal)
+            assert signal_raised, "Signal was not raised"
+        finally:
+            # Restore original handler
+            signal.signal(test_signal, original_handler)
+            SignalEOS.rcvd_signals = set()
+
 
 class TestNullSource:
     """Tests for Null Source class."""

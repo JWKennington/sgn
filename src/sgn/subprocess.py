@@ -10,7 +10,10 @@ from sgn import SinkElement, TransformElement
 from sgn.base import SGN_LOG_LEVELS, get_sgn_logger
 from sgn.sources import SignalEOS
 
-multiprocessing.set_start_method("fork")
+try:
+    multiprocessing.set_start_method("spawn")
+except RuntimeError:
+    pass
 LOGGER = get_sgn_logger("subprocess", SGN_LOG_LEVELS)
 
 
@@ -24,10 +27,27 @@ class SubProcess(SignalEOS):
     shared memory objects that will be automatically cleaned up on exit through the
     to_shm() method.
 
+    Key features include:
+    - Automatic management of process lifecycle (creation, starting, joining, cleanup)
+    - Shared memory management for efficient data sharing between processes
+    - Signal handling coordination between main process and subprocesses
+    - Resilience against KeyboardInterrupt (Ctrl+C) - subprocesses catch and
+      ignore these signals, allowing the main process to coordinate a clean shutdown
+    - Orderly shutdown to ensure all resources are properly released
+
+    IMPORTANT: All code using the SubProcess context manager MUST be wrapped within
+    an if __name__ == "__main__": block. This is required because SGN uses Python's
+    multiprocessing module with the 'spawn' start method, which requires that the main
+    module be importable.
+
     Example:
-        pipeline = Pipeline()
-        with SubProcess(pipeline) as subprocess:
-            subprocess.run()
+        def main():
+            pipeline = Pipeline()
+            with SubProcess(pipeline) as subprocess:
+                subprocess.run()
+
+        if __name__ == "__main__":
+            main()
     """
 
     shm_list: list = []
@@ -157,6 +177,14 @@ class _SubProcessTransSink(SubProcess):
     of communication queues, process lifecycle events, and provides methods for
     subprocess synchronization and cleanup.
 
+    Key features:
+    - Creates and manages subprocess communication channels (queues)
+    - Handles graceful process termination and resource cleanup
+    - Provides resilience against KeyboardInterrupt - subprocesses will catch and ignore
+      KeyboardInterrupt signals, allowing the main process to handle them and coordinate
+      a clean shutdown of all processes
+    - Supports orderly shutdown to process remaining queue items before termination
+
     This is an internal implementation class and should not be instantiated
     directly.  Instead, use SubProcessTransformElement or SubProcessSinkElement.
     """
@@ -191,13 +219,36 @@ class _SubProcessTransSink(SubProcess):
         terminated,
         **kwargs,
     ):
+        """Internal wrapper method that runs the actual subprocess function.
+
+        This method manages the execution of the subprocess function and handles various
+        events and exceptions. It's responsible for:
+        1. Running the subprocess function in a loop until stopped
+        2. Catching and ignoring KeyboardInterrupt exceptions to prevent subprocesses
+           from terminating prematurely when Ctrl+C is pressed
+        3. Managing orderly shutdown to drain remaining queue items
+        4. Setting the terminated event when the subprocess completes
+
+        Args:
+            func: The function to run in the subprocess (typically sub_process_internal)
+            terminated: Event that signals when the subprocess has terminated
+            **kwargs: Additional keyword arguments to pass to the function
+        """
         process_shutdown = kwargs["process_shutdown"]
         process_stop = kwargs["process_stop"]
         inq = kwargs["inq"]
 
         try:
             while not process_shutdown.is_set() and not process_stop.is_set():
-                func(**kwargs)
+                try:
+                    func(**kwargs)
+                except KeyboardInterrupt as ei:
+                    print("subprocess received, ", repr(ei), " ...continuing.")
+                    # Specifically catch and ignore KeyboardInterrupt to prevent
+                    # subprocesses from terminating when Ctrl+C is pressed
+                    # This allows the main process to handle the interrupt and
+                    # coordinate a clean shutdown of all subprocesses
+                    continue
             if process_shutdown.is_set() and not process_stop.is_set():
                 tries = 0
                 num_empty = 3
@@ -358,6 +409,12 @@ class SubProcessTransformElement(TransformElement, _SubProcessTransSink, SubProc
     subprocess to prevent pickling issues. Instead, it passes all necessary data
     and resources via function arguments.
 
+    The subprocess implementation includes special handling for
+    KeyboardInterrupt signals.  When Ctrl+C is pressed in the terminal,
+    subprocesses will catch and ignore the KeyboardInterrupt, allowing them to
+    continue processing while the main process coordinates a graceful shutdown.
+    This prevents data loss and ensures all resources are properly cleaned up.
+
     Attributes:
         process_argdict (dict, optional): Custom arguments to pass to the subprocess
         queue_maxsize (int, optional): Maximum size of the communication queues
@@ -410,6 +467,12 @@ class SubProcessSinkElement(SinkElement, _SubProcessTransSink, SubProcess):
     The design intentionally avoids passing class or instance references to the
     subprocess to prevent pickling issues. Instead, it passes all necessary data
     and resources via function arguments.
+
+    The subprocess implementation includes special handling for
+    KeyboardInterrupt signals.  When Ctrl+C is pressed in the terminal,
+    subprocesses will catch and ignore the KeyboardInterrupt, allowing them to
+    continue processing while the main process coordinates a graceful shutdown.
+    This prevents data loss and ensures all resources are properly cleaned up.
 
     Attributes:
         process_argdict (dict, optional): Custom arguments to pass to the subprocess
