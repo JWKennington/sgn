@@ -210,6 +210,67 @@ def test_subprocess_wrapper_3():
     thread.join()
 
 
+def test_subprocess_keyboard_interrupt():
+    """Test that KeyboardInterrupt is properly caught and handled in
+    _sub_process_wrapper.
+
+    This test specifically targets lines 215-216 in src/sgn/subprocess.py where a
+    KeyboardInterrupt is caught and ignored, allowing the process to continue.
+    """
+    # Set up events and queues
+    terminated = threading.Event()
+    shutdown = threading.Event()
+    stop = threading.Event()
+    inq = multiprocessing.Queue(maxsize=2)
+    outq = multiprocessing.Queue(maxsize=2)
+
+    # Flag to track iterations
+    iteration_count = 0
+    keyboard_interrupt_raised = False
+    completed_after_interrupt = False
+
+    def test_func(**kwargs):
+        nonlocal iteration_count, keyboard_interrupt_raised, completed_after_interrupt
+
+        # First call: raise KeyboardInterrupt
+        if iteration_count == 0:
+            iteration_count += 1
+            keyboard_interrupt_raised = True
+            raise KeyboardInterrupt("Test interrupt")
+
+        # Second call: mark that we continued after the interrupt
+        elif iteration_count == 1:
+            iteration_count += 1
+            completed_after_interrupt = True
+            # Signal to stop now
+            stop.set()
+
+    # Run the wrapper in a thread
+    def run_wrapper():
+        _SubProcessTransSink._sub_process_wrapper(
+            test_func,
+            terminated,
+            process_shutdown=shutdown,
+            process_stop=stop,
+            inq=inq,
+            outq=outq,
+        )
+
+    thread = threading.Thread(target=run_wrapper)
+    thread.daemon = True
+    thread.start()
+
+    # Wait for the thread to complete (should take < 1s)
+    thread.join(timeout=3)
+
+    # Verify that we continued after the KeyboardInterrupt
+    assert keyboard_interrupt_raised, "KeyboardInterrupt was not raised"
+    assert (
+        completed_after_interrupt
+    ), "Execution did not continue after KeyboardInterrupt"
+    assert terminated.is_set(), "The terminated event should be set"
+
+
 def test_subprocess_drain_queue():
     """
     Test specifically targeting the queue draining logic in _sub_process_wrapper
@@ -317,6 +378,11 @@ def test_subprocess_shutdown_timeout():
 
 
 # Test for exception handling in run method (lines 131-143)
+def dummy_process_func():
+    """A pickleable function for the multiprocessing.Process target."""
+    pass
+
+
 def test_subprocess_run_exception():
     """Test that the run method properly handles exceptions in the pipeline."""
 
@@ -328,7 +394,8 @@ def test_subprocess_run_exception():
     SubProcess.instance_list = []
 
     # Create test process with in_queue and out_queue
-    process = multiprocessing.Process(target=lambda: None)
+    # Use a named function instead of lambda for pickling compatibility
+    process = multiprocessing.Process(target=dummy_process_func)
     process.start()
 
     class MockInstance:
