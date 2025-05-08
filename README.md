@@ -1,11 +1,27 @@
 <!-- index.rst content start -->
 
-# SGN Documentation
+<h1 align="center">SGN Documentation</h1>
+
+<p align="center">
+  <a href="https://git.ligo.org/greg/sgn/-/pipelines/latest">
+    <img alt="ci" src="https://git.ligo.org/greg/sgn/badges/main/pipeline.svg" />
+  </a>
+  <a href="https://git.ligo.org/greg/sgn/-/pipelines/latest">
+    <img alt="ci" src="https://git.ligo.org/greg/sgn/badges/main/coverage.svg" />
+  </a>
+  <a href="https://greg.docs.ligo.org/sgn/">
+    <img alt="documentation" src="https://img.shields.io/badge/docs-mkdocs%20material-blue.svg?style=flat" />
+  </a>
+  <a href="https://pypi.org/project/sgn/">
+    <img alt="pypi version" src="https://img.shields.io/pypi/v/sgn.svg" />
+  </a>
+</p>
+
 
 SGN is a lightweight Python library for creating and executing task graphs
-asynchronously for streaming data. With only builtin-dependencies, SGN is easy to install and use.
-This page is for the base library `sgn`, but there is a family of libraries that extend the functionality of SGN,
-including:
+asynchronously for streaming data. With only builtin-dependencies, SGN is easy
+to install and use. This page is for the base library `sgn`, but there is a
+family of libraries that extend the functionality of SGN, including:
 
 - [`sgn-ts`](https://git.ligo.org/greg/sgn-ts): TimeSeries utilities for SGN
 - [`sgn-ligo`](https://git.ligo.org/greg/sgn-ligo): LSC specific utilities for SGN
@@ -18,17 +34,118 @@ To install SGN, simply run:
 pip install sgn
 ```
 
-SGN has no dependencies outside of the Python standard library, so it should be easy to install on any
-system.
+SGN has no dependencies outside of the Python standard library, so it should be
+easy to install on any system.
+
+## Quickstart
+
+To get started with SGN, you can create a simple task graph that represents a
+simple data processing pipeline with integers. Here's an example:
+
+```python
+import functools
+from sgn import CallableTransform, CollectSink, IterSource, Pipeline
+
+
+# Define a function to use in the pipeline
+def scale(frame, factor: float):
+    return None if frame.data is None else frame.data * factor
+
+
+# Create source element
+src = IterSource(
+    name="src1",
+    source_pad_names=["H1"],
+    iters={"src1:src:H1": [1, 2, 3]},
+)
+
+# Create a transform element using an arbitrary function
+trn1 = CallableTransform.from_callable(
+    name="t1",
+    sink_pad_names=["H1"],
+    callable=functools.partial(scale, factor=10),
+    output_pad_name="H1",
+)
+
+# Create the sink so we can access the data after running
+snk = CollectSink(
+    name="snk1",
+    sink_pad_names=("H1",),
+)
+
+# Create the Pipeline
+p = Pipeline()
+
+# Insert elements into pipeline and link them explicitly
+p.insert(
+    src,
+    trn1,
+    snk,
+    link_map={
+        "t1:snk:H1": "src1:src:H1",
+        "snk1:snk:H1": "t1:src:H1",
+    },
+)
+
+# Run the pipeline
+p.run()
+
+# Check the result of the sink queue to see outputs
+assert list(snk.collects["snk1:snk:H1"]) == [10, 20, 30]
+
+```
+
+The above example can be modified to use any data type, including json-friendly
+nested dictionaries, lists, and strings. The `CallableTransform` class can be
+used to create a transform element using any arbitrary function. The
+`DequeSource` and `DequeSink` classes are used to create source and sink elements
+that use `collections.deque` to store data.
+
+## General Concepts
+
+### Graph Construction
+
+- **Sources**: Sources are the starting point of a task graph. They produce
+  data that can be consumed by other tasks.
+
+- **Transforms**: Transforms are tasks that consume data from one or more
+  sources, process it, and produce new data.
+
+- **Sinks**: Sinks are tasks that consume data from one or more sources and do
+  something with it. This could be writing the data to a file, sending it over
+  the network, or anything else.
+
+### Control Flow
+
+Using these concepts, you can create complex task graphs using SGN that process
+and move data in a variety of ways. The SGN library provides a simple API for
+creating and executing task graphs, with a few key types:
+
+- **Frame**: A frame is a unit of data that is passed between tasks in a task
+  graph. Frames can contain any type of data, and can be passed between tasks
+  in a task graph.
+
+- **Pad**: A pad is a connection point between two tasks in a task graph. Pads
+  are used to pass frames between tasks, and can be used to connect tasks in a
+  task graph. An edge is a connection between two pads in a task graph.
+
+- **Element**: An element is a task in a task graph. Elements can be sources,
+  transforms, or sinks, and can be connected together to create a task graph.
+
+- **Pipeline**: A pipeline is a collection of elements that are connected
+  together to form a task graph. Pipelines can be executed to process data, and
+  can be used to create complex data processing workflows.
 
 ## Developer's Guide
 
-SGN will execute a fixed graph of "pads", which are asynchronous function calls bound to classes called "elements".
+SGN will execute a fixed graph of "pads", which are asynchronous function calls
+bound to classes called "elements".
 
 Data must have an origin and a end point in all graphs. These are called
 sources and sinks.  Elements that create data are called source elements and
-elements that collect data are called sink elements.  Likewise, pads on elements
-are also called source and sink pads.  Data passed between pads are stored in a Frame.
+elements that collect data are called sink elements.  Likewise, pads on
+elements are also called source and sink pads.  Data passed between pads are
+stored in a Frame.
 
 ```
     /       ----------------------      <
@@ -45,11 +162,10 @@ are also called source and sink pads.  Data passed between pads are stored in a 
            ---------------------       /
 ```
 
-The whole graph execution is orchestrated by an event loop that will execute until end of stream.  Here is a simple example implementing the above graph
+The whole graph execution is orchestrated by an event loop that will execute
+until end of stream.  Here is a simple example implementing the above graph
 
 ```{.python notest}
-#!/usr/bin/env python3
-
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
 
@@ -88,11 +204,10 @@ hello
 ```
 
 
-You would need to send SIG INT or SIG kill to stop the program. Lets add a feature to end the stream after 10 Frames.
+You would need to send SIG INT or SIG kill to stop the program. Lets add a
+feature to end the stream after 10 Frames.
 
 ```python
-#!/usr/bin/env python3
-
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
 
@@ -128,8 +243,8 @@ with one sink pad).
 
 What if we want more than one pad?  It is possible to have many source and sink
 pads on an element. SGN provides basic bookkeeping utilities for you, but
-generally what the "correct" behavior is is up to you. Lets try a more complicated
-example with multiple pads 
+generally what the "correct" behavior is is up to you. Lets try a more
+complicated example with multiple pads:
 
 ```
  ---------------------------------------------
@@ -148,8 +263,6 @@ example with multiple pads
 ```
 
 ```python 
-#!/usr/bin/env python3
-
 from dataclasses import dataclass
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
@@ -208,12 +321,10 @@ Note that the total number of outputs is 12.  We had the counter in the new()
 method which is a pad dependent method. It will be called once for each pad
 during each loop iteration.  What if we wanted 10 loop iterations before
 sending EOS? There is a convenient "internal" pad inside of every element that
-is guaranteed to be called before any source pads and after any sink pads.
-Lets modify the code to use that.
+is guaranteed to be called before any source pads and after any sink pads. Let's
+modify the code to use that:
 
 ```python
-#!/usr/bin/env python3
-
 from dataclasses import dataclass
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
@@ -280,8 +391,6 @@ How are you?
 We can also use the internal method to make a more useful sink output, e.g.,
 
 ```python
-#!/usr/bin/env python3
-
 from dataclasses import dataclass
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
@@ -341,7 +450,9 @@ which now produces
  Hello! How are you?
 ```
 
-Graphs can have other elements called "transform elements." These have both source and sink pads.  Also, it is possible to connect a source pad to multiple sink pads (but not the other way around). Lets try to implement this graph
+Graphs can have other elements called "transform elements." These have both
+source and sink pads.  Also, it is possible to connect a source pad to multiple
+sink pads (but not the other way around). Lets try to implement this graph
 
 ```
  ---------------------------------------------
@@ -375,8 +486,6 @@ Graphs can have other elements called "transform elements." These have both sour
 ```
 
 ```python
-#!/usr/bin/env python3
-
 from dataclasses import dataclass
 from sgn.base import SourceElement, SinkElement, TransformElement, Frame
 from sgn.apps import Pipeline
@@ -466,14 +575,22 @@ which produces
 ```
 ### All you need to know about pads and names
 
-Pads are hashable and they also have string names (though that name is not used as the hash).  When developing you might get a bit turned around about how to access and reference pads by name.  Here are a few rules:
+Pads are hashable and they also have string names (though that name is not used
+as the hash).  When developing you might get a bit turned around about how to
+access and reference pads by name.  Here are a few rules:
 
-- Elements have a notion of a short pad name.  These are verbatim what get passed to `source_pad_names` and `sink_pad_names`. 
-- The Element base classes will initialize pads with long pad names of the form `<element name>:["snk" | "source"]:<short name>`.
-- These long names are almost never needed for anything programmatically but they can be handy to print out because they carry extra information encoded in the name.
-- Usually you will use helper attributes to reference pads by their short names or to look up a pad's short name.
+- Elements have a notion of a short pad name.  These are verbatim what get
+  passed to `source_pad_names` and `sink_pad_names`. 
+- The Element base classes will initialize pads with long pad names of the form
+  `<element name>:["snk" | "source"]:<short name>`.
+- These long names are almost never needed for anything programmatically but
+  they can be handy to print out because they carry extra information encoded
+  in the name.
+- Usually you will use helper attributes to reference pads by their short names
+  or to look up a pad's short name.
 
-Below is a bit of interactive python code that should be all you need to sort this out.
+Below is a bit of interactive python code that should be all you need to sort
+this out.
 
 ```{.python notest}
 >>> from sgn.base import SourceElement
@@ -502,96 +619,3 @@ Below are some API docs for concepts that came up in this guide
 - [SinkElement](https://greg.docs.ligo.org/sgn/sgn.base.html#sgn.base.SinkElement)
 - [Frame](https://greg.docs.ligo.org/sgn/sgn.base.html#sgn.base.Frame)
 - [Pipeline](https://greg.docs.ligo.org/sgn/sgn.apps.html#sgn.apps.Pipeline)
-
-## General Concepts
-
-### Graph Construction
-
-- **Sources**: Sources are the starting point of a task graph. They produce data that can be consumed by
-  other tasks.
-
-- **Transforms**: Transforms are tasks that consume data from one or more sources, process it, and produce new data.
-
-- **Sinks**: Sinks are tasks that consume data from one or more sources and do something with it. This could be writing
-  the data to a file, sending it over the network, or anything else.
-
-### Control Flow
-
-Using these concepts, you can create complex task graphs using SGN that process and move data in a variety of ways.
-The SGN library provides a simple API for creating and executing task graphs, with a few key types:
-
-- **Frame**: A frame is a unit of data that is passed between tasks in a task graph. Frames can contain any type of
-  data, and can be passed between tasks in a task graph.
-
-- **Pad**: A pad is a connection point between two tasks in a task graph. Pads are used to pass frames between tasks,
-  and can be used to connect tasks in a task graph. An edge is a connection between two pads in a task graph.
-
-- **Element**: An element is a task in a task graph. Elements can be sources, transforms, or sinks, and can be connected
-  together to create a task graph.
-
-- **Pipeline**: A pipeline is a collection of elements that are connected together to form a task graph. Pipelines can
-  be executed to process data, and can be used to create complex data processing workflows.
-
-## Quickstart
-
-To get started with SGN, you can create a simple task graph that represents
-a simple data processing pipeline with integers. Here's an example:
-
-```python
-import functools
-from sgn import CallableTransform, CollectSink, IterSource, Pipeline
-
-
-# Define a function to use in the pipeline
-def scale(frame, factor: float):
-    return None if frame.data is None else frame.data * factor
-
-
-# Create source element
-src = IterSource(
-    name="src1",
-    source_pad_names=["H1"],
-    iters={"src1:src:H1": [1, 2, 3]},
-)
-
-# Create a transform element using an arbitrary function
-trn1 = CallableTransform.from_callable(
-    name="t1",
-    sink_pad_names=["H1"],
-    callable=functools.partial(scale, factor=10),
-    output_pad_name="H1",
-)
-
-# Create the sink so we can access the data after running
-snk = CollectSink(
-    name="snk1",
-    sink_pad_names=("H1",),
-)
-
-# Create the Pipeline
-p = Pipeline()
-
-# Insert elements into pipeline and link them explicitly
-p.insert(
-    src,
-    trn1,
-    snk,
-    link_map={
-        "t1:snk:H1": "src1:src:H1",
-        "snk1:snk:H1": "t1:src:H1",
-    },
-)
-
-# Run the pipeline
-p.run()
-
-# Check the result of the sink queue to see outputs
-assert list(snk.collects["snk1:snk:H1"]) == [10, 20, 30]
-
-```
-
-The above example can be modified to use any data type, including json-friendly
-nested dictionaries, lists, and strings. The `CallableTransform` class can be used to
-create a transform element using any arbitrary function. The `DeqSource` and `DeqSink` classes
-are used to create source and sink elements that use `collections.deque` to store data.
-
