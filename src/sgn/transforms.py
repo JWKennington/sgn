@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Optional, Sequence
 
-from sgn.base import Frame, SinkPad, SourcePad, TransformElement
+from sgn.base import SinkPad, SourcePad, TransformElement
+from sgn.frames import Frame
 
 
 @dataclass

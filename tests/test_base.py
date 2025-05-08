@@ -1,7 +1,9 @@
 """Unit tests for the base module."""
 
 import asyncio
+import random
 import os
+from dataclasses import dataclass
 from logging import Logger
 from unittest import mock
 
@@ -18,11 +20,9 @@ from sgn.base import (
     SourcePad,
     TransformElement,
     UniqueID,
-    _PostInitBase,
-    _SinkPadLike,
-    _SourcePadLike,
     get_sgn_logger,
 )
+from sgn.frames import DataSpec
 
 
 def asyncio_run(coro):
@@ -30,26 +30,9 @@ def asyncio_run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-class TestFrame:
-    """Tests for the Frame class."""
-
-    def test_init(self):
-        """Test the Frame class constructor."""
-        f = Frame()
-        assert isinstance(f, Frame)
-        assert not f.EOS
-        assert not f.is_gap
-        assert f.data is None
-
-
-class TestPostInitBase:
-    """Test group for _PostInitBase class."""
-
-    def test_post_init(self):
-        """Test the _PostInitBase class constructor."""
-        pi = _PostInitBase()
-        assert isinstance(pi, _PostInitBase)
-        assert hasattr(pi, "__post_init__")
+@dataclass(frozen=True)
+class RateDataSpec(DataSpec):
+    rate: int
 
 
 class TestUniqueID:
@@ -90,19 +73,6 @@ class TestPadLikes:
         pl = PadLike(element=None, call=None)
         with pytest.raises(NotImplementedError):
             asyncio_run(pl())
-
-    def test_source_pad_like(self):
-        """Test the source_pad_like method."""
-        spl = _SourcePadLike(element=None, call=None)
-        assert isinstance(spl, _SourcePadLike)
-        assert spl.output is None
-
-    def test_sink_pad_like(self):
-        """Test the sink_pad_like method."""
-        spl = _SinkPadLike(element=None, call=None)
-        assert isinstance(spl, _SinkPadLike)
-        assert spl.input is None
-        assert spl.other is None
 
 
 class TestSourcePad:
@@ -155,7 +125,8 @@ class TestSinkPad:
         """Test the __call__ method."""
 
         def dummy_src(pad):
-            return Frame()
+            spec = RateDataSpec(rate=random.randint(1, 2048))
+            return Frame(spec=spec)
 
         def dummy_snk(pad, frame):
             return None
@@ -178,6 +149,11 @@ class TestSinkPad:
         asyncio_run(p1())
         asyncio_run(p2())
         assert p2.input is not None
+
+        # Run again, data specification will be different
+        asyncio_run(p1())
+        with pytest.raises(ValueError):
+            asyncio_run(p2())
 
 
 class TestElementLike:

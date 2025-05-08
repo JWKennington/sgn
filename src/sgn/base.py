@@ -6,7 +6,9 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Callable, Dict, Optional, Sequence, Union
+
+from .frames import DataSpec, Frame
 
 SGN_LOG_LEVELS = {
     "DEBUG": logging.DEBUG,
@@ -69,28 +71,6 @@ def get_sgn_logger(
 
 
 LOGGER = get_sgn_logger("sgn", SGN_LOG_LEVELS)
-
-
-@dataclass
-class Frame:
-    """Generic class to hold the basic unit of data that flows through a graph.
-
-    Args:
-        EOS:
-            bool, default False, Whether this frame indicates end of stream (EOS)
-        is_gap:
-            bool, default False, Whether this frame is marked as a gap
-        metadata:
-            dict, optional, Metadata associated with this frame.
-    """
-
-    EOS: bool = False
-    is_gap: bool = False
-    metadata: dict = field(default_factory=dict)
-    data: Any = None
-
-    def __post_init__(self):
-        pass
 
 
 class _PostInitBase:
@@ -187,69 +167,7 @@ class PadLike:
 
 
 @dataclass(eq=False, repr=False)
-class _SourcePadLike(PadLike):
-    """A pad that provides a data Frame when called.
-
-    Args:
-        element:
-            Element, The Element instance associated with this pad
-        call:
-            Callable, The function that will be called during graph execution for
-            this pad
-        output:
-            Frame, optional, This attribute is set to be the output Frame when the pad
-            is called.
-    """
-
-    output: Optional[Frame] = None
-
-
-@dataclass(eq=False, repr=False)
-class _SinkPadLike(PadLike):
-    """<pre>A pad that receives a data Frame when called.  When linked, it returns a
-    dictionary suitable for building a graph in graphlib.
-
-    Args:
-        element:
-            Element, The Element instance associated with this pad
-        call:
-            Callable, The function that will be called during graph execution for
-            this pad
-        other:
-            SourcePad, optional, This holds the source pad that is linked to this sink
-            pad, default None
-        input:
-            Frame, optional, This holds the Frame provided by the linked source pad.
-            Generally it gets set when this SinkPad is called, default None
-    </pre>"""
-
-    other: Optional[SourcePad] = None
-    input: Optional[Frame] = None
-
-
-@dataclass(eq=False, repr=False)
-class _InternalPadLike(PadLike):
-    r"""A pad that sits inside an element and is called between sink and source pads.
-    Internal pads are connected in the elements internal graph according to the below
-    (data flows top to bottom)
-
-    snk1   ...  snkN     (if exist)
-      \\   ...   //
-         internal      (always exists)
-      //   ...   \\
-     src1  ...  srcM     (if exist)
-
-    Args:
-        element:
-            Element, The Element instance associated with this pad
-        call:
-            Callable, The function that will be called during graph execution for
-            this pad
-    """
-
-
-@dataclass(eq=False, repr=False)
-class SourcePad(UniqueID, _SourcePadLike):
+class SourcePad(UniqueID, PadLike):
     """A pad that provides a data Frame when called.
 
     Args:
@@ -260,7 +178,12 @@ class SourcePad(UniqueID, _SourcePadLike):
             this pad
         name:
             str, optional, The unique name for this object
+        output:
+            Frame, optional, This attribute is set to be the output Frame when the pad
+            is called.
     """
+
+    output: Optional[Frame] = None
 
     async def __call__(self) -> None:
         """When called, a source pad receives a Frame from the element that the pad
@@ -272,7 +195,7 @@ class SourcePad(UniqueID, _SourcePadLike):
 
 
 @dataclass(eq=False, repr=False)
-class SinkPad(UniqueID, _SinkPadLike):
+class SinkPad(UniqueID, PadLike):
     """A pad that receives a data Frame when called.  When linked, it returns a
     dictionary suitable for building a graph in graphlib.
 
@@ -284,7 +207,21 @@ class SinkPad(UniqueID, _SinkPadLike):
             pad, takes two arguments, the pad and the frame
         name:
             str, optional, The unique name for this object
+        other:
+            SourcePad, optional, This holds the source pad that is linked to this sink
+            pad, default None
+        input:
+            Frame, optional, This holds the Frame provided by the linked source pad.
+            Generally it gets set when this SinkPad is called, default None
+        data_spec:
+            DataSpec, optional, This holds a specification for the data stored
+            in frames, and is expected to be consistent across frames passing
+            through this pad. This is set when this sink pad is first called
     """
+
+    other: Optional[SourcePad] = None
+    input: Optional[Frame] = None
+    data_spec: Optional[DataSpec] = None
 
     def link(self, other: SourcePad) -> dict[Pad, set[Pad]]:
         """Returns a dictionary of dependencies suitable for adding to a graphlib graph.
@@ -322,13 +259,22 @@ class SinkPad(UniqueID, _SinkPadLike):
         assert isinstance(self.other, SourcePad), "Sink pad has not been linked"
         self.input = self.other.output
         assert isinstance(self.input, Frame)
+        if self.data_spec is None:
+            self.data_spec = self.input.spec
+        if not self.data_spec == self.input.spec:
+            msg = (
+                f"frame received by {self.name} is inconsistent with "
+                "previously received frames. previous data specification: "
+                f"{self.data_spec}, current data specification: {self.input.spec}"
+            )
+            raise ValueError(msg)
         self.call(self, self.input)
         if self.element is not None:
             LOGGER.getChild(self.element.name).info("\t%s:%s", self, self.input)
 
 
 @dataclass(eq=False, repr=False)
-class InternalPad(UniqueID, _InternalPadLike):
+class InternalPad(UniqueID, PadLike):
     """A pad that sits inside an element and is called between sink and source pads.
     Internal pads are connected in the elements internal graph according to the below
     (data flows top to bottom)

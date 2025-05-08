@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from time import sleep
 from typing import Any, Callable, Generator, Iterable, Iterator, Optional, Union
 
-from sgn.base import Frame, SourceElement, SourcePad
+from sgn.base import SourceElement, SourcePad
+from sgn.frames import Frame
 
 
 def _handler(signum, frame):
