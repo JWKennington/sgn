@@ -6,7 +6,11 @@ import multiprocessing
 from dataclasses import dataclass
 from queue import Empty
 from sgn.sources import SignalEOS
-from sgn.subprocess import SubProcess, SubProcessTransformElement, SubProcessSinkElement
+from sgn.subprocess import (
+    Parallelize,
+    ParallelizeTransformElement,
+    ParallelizeSinkElement,
+)
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
 import ctypes
@@ -41,7 +45,7 @@ class MyBrokenSinkClass(SinkElement):
 # A Transform class that runs its guts in a separate process
 #
 @dataclass
-class MyTransformClass(SubProcessTransformElement):
+class MyTransformClass(ParallelizeTransformElement):
     def __post_init__(self):
         super().__post_init__()
         assert len(self.sink_pad_names) == 1 and len(self.source_pad_names) == 1
@@ -82,39 +86,39 @@ def test_shm_exception():
     )
     with pytest.raises(FileExistsError):
         # Trying this again will raise an exception that is trapped
-        SubProcess.to_shm("shared_data", shared_data)
-        SubProcess.to_shm("shared_data", shared_data)
+        Parallelize.to_shm("shared_data", shared_data)
+        Parallelize.to_shm("shared_data", shared_data)
 
 
 def test_transform_exception():
     with pytest.raises(NotImplementedError):
-        SubProcessTransformElement.sub_process_internal()
+        ParallelizeTransformElement.sub_process_internal()
 
 
 def test_sink_exception():
     with pytest.raises(NotImplementedError):
-        SubProcessSinkElement.sub_process_internal()
+        ParallelizeSinkElement.sub_process_internal()
 
 
 def test_subprocess_exception():
     # Make sure instance list is clear before starting the test
-    SubProcess.instance_list = []
+    Parallelize.instance_list = []
 
     # Create a new shared memory segment for this test
     try:
         shared_data = bytearray("Here is a string for exception test", "utf-8")
-        SubProcess.to_shm("exception_test_mem", shared_data)
+        Parallelize.to_shm("exception_test_mem", shared_data)
     except FileExistsError:
         # Cleanup any existing shared memory with this name
-        for d in SubProcess.shm_list:
+        for d in Parallelize.shm_list:
             try:
                 multiprocessing.shared_memory.SharedMemory(name=d["name"]).unlink()
             except FileNotFoundError:
                 pass
-        SubProcess.shm_list = []
+        Parallelize.shm_list = []
         # Try again
         shared_data = bytearray("Here is a string for exception test", "utf-8")
-        SubProcess.to_shm("exception_test_mem", shared_data)
+        Parallelize.to_shm("exception_test_mem", shared_data)
 
     source = MySourceClass(source_pad_names=("event",))
     transform1 = MyTransformClass(
@@ -140,20 +144,20 @@ def test_subprocess_exception():
         },
     )
 
-    with SubProcess(pipeline) as subprocess:
+    with Parallelize(pipeline) as parallelize:
         # This will cause the processes to die **AFTER** the pipeline
         # completes.  Internally this also calls pipeline.run()
         with pytest.raises(RuntimeError):
-            subprocess.run()
+            parallelize.run()
 
     # Clean up
-    for d in SubProcess.shm_list:
+    for d in Parallelize.shm_list:
         try:
             multiprocessing.shared_memory.SharedMemory(name=d["name"]).unlink()
         except FileNotFoundError:
             pass
-    SubProcess.shm_list = []
-    SubProcess.instance_list = []
+    Parallelize.shm_list = []
+    Parallelize.instance_list = []
 
 
 if __name__ == "__main__":
