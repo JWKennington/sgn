@@ -7,4 +7,4 @@
 ## <h5>[HTTP Control](http_control.md)</h5>
 ## <h5>[Memory Profiling](memory_profiling.md)</h5>
 ## <h5>[Signal Handling](signal_handling.md)</h5>
-## <h5>[Using Subprocesses](subprocess.md)</h5>
+## <h5>[Using Parallelization](subprocess.md)</h5>
