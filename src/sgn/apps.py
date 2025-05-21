@@ -235,6 +235,16 @@ class Pipeline:
 
     @async_sgn_mem_profile(LOGGER)
     async def __execute_graph_loop(self) -> None:
+        async def _partial(node):
+            try:
+                return await node()
+            except Exception as e:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                msg = (
+                    f"(from pad '{node.name}'): {exc_value}."
+                )
+                raise exc_type(msg) from e
+
         self.__loop_counter += 1
         LOGGER.info("Executing graph loop %s:", self.__loop_counter)
         ts = graphlib.TopologicalSorter(self.graph)
@@ -242,12 +252,15 @@ class Pipeline:
         while ts.is_active():
             # concurrently execute the next batch of ready nodes
             nodes = ts.get_ready()
-            tasks = [self.loop.create_task(node()) for node in nodes]  # type: ignore # noqa: E501
+            tasks = [
+                self.loop.create_task(_partial(node)) for node in nodes  # type: ignore # noqa: E501
+            ]
             await asyncio.gather(*tasks)
             ts.done(*nodes)
 
     async def _execute_graphs(self) -> None:
         """Async graph execution function."""
+
         while not all(sink.at_eos for sink in self.sinks.values()):
             await self.__execute_graph_loop()
 
