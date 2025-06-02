@@ -240,9 +240,7 @@ class Pipeline:
                 return await node()
             except Exception as e:
                 exc_type, exc_value, exc_traceback = sys.exc_info()
-                msg = (
-                    f"(from pad '{node.name}'): {exc_value}."
-                )
+                msg = f"(from pad '{node.name}'): {exc_value}."
                 raise exc_type(msg) from e
 
         self.__loop_counter += 1
