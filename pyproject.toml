@@ -39,9 +39,13 @@ bottle = [
 visualize = [
     "graphviz",
 ]
+monitoring = [
+    "psutil",
+]
 test = [
     "sgn[bottle]",
     "sgn[visualize]",
+    "sgn[monitoring]",
     "numpy",
     "pytest",
     "pytest-cov",
@@ -71,6 +75,7 @@ lint = [
 dev = [
     "sgn[docs]",
     "sgn[lint]",
+    "sgn[monitoring]",
     "sgn[test]",
 ]
 
@@ -128,6 +133,7 @@ exclude = [
 
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --cov=sgn --cov-report=term-missing"
+norecursedirs = ["build", "dist"]
 
 [tool.flake8]
 max-line-length = 88

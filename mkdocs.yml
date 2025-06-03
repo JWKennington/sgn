@@ -12,6 +12,7 @@ nav:
     - tutorials/memory_profiling.md
     - tutorials/signal_handling.md
     - tutorials/subprocess.md
+    - tutorials/stats_monitoring.md
   - FAQs:
     - faqs/pads.md
   - User Guide:
