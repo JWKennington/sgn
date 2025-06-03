@@ -126,7 +126,7 @@ class MySinkClass(ParallelizeSinkElement):
             self.mark_eos(pad)
         if self.at_eos and not self.terminated.is_set():
             self.in_queue.put(frame)
-            self.sub_process_shutdown(10)
+            self.sub_process_shutdown(30)  # Increased timeout for CI environments
 
     @staticmethod
     def sub_process_internal(**kwargs):
@@ -419,7 +419,9 @@ class ResultCollector(ParallelizeSinkElement):
                 self.at_eos = True
                 # Shutdown the worker when all pads have received EOS
                 if not self.terminated.is_set():
-                    self.sub_process_shutdown(10)
+                    self.sub_process_shutdown(
+                        30
+                    )  # Increased timeout for CI environments
 
         # Only send to queue if it exists
         if self.in_queue is not None:

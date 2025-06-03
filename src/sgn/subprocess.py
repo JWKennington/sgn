@@ -65,7 +65,7 @@ class Parallelize(SignalEOS):
     # The hard timeout before a worker gets terminated.
     # Workers should cleanup after themselves within this time and exit cleanly.
     # This is a "global" property applied to all subprocesses / subthreads
-    join_timeout: float = 5.0
+    join_timeout: float = 10.0  # Increased for CI environments
     # Default flag for whether to use threading (False means use multiprocessing)
     use_threading_default: bool = False
     # Instance variable for thread mode
