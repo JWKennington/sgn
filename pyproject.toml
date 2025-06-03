@@ -134,6 +134,11 @@ exclude = [
 [tool.pytest.ini_options]
 addopts = "-p no:warnings --cov=sgn --cov-report=term-missing"
 norecursedirs = ["build", "dist"]
+# Run subprocess tests first to avoid multiprocessing pickling issues
+# This ensures multiprocessing context is set up cleanly
+testpaths = ["tests"]
+# Use this pattern to collect tests in a specific order
+python_files = ["test_subprocess*.py", "test_*.py"]
 
 [tool.flake8]
 max-line-length = 88
