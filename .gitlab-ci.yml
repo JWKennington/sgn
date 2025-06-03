@@ -28,7 +28,7 @@ python_test:
     - apt-get install -yqq graphviz
 
 check_makefile:
-  image: python:3.9
+  image: python:3.10
   stage: test
   script:
     - apt-get update
