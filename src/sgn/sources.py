@@ -6,11 +6,22 @@ subclass of SourceElement.
 
 from __future__ import annotations
 
+import os
 import signal
+import sys
+import time
+import warnings
 from collections import deque
 from dataclasses import dataclass
 from time import sleep
-from typing import Any, Callable, Generator, Iterable, Iterator, Optional, Union
+from typing import Any, Callable, Dict, Generator, Iterable, Iterator, Optional, Union
+
+try:
+    import psutil
+
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 from sgn.base import SourceElement, SourcePad
 from sgn.frames import Frame
@@ -321,3 +332,251 @@ class DequeSource(IterSource):
         """Get the iters property with more explicit alias."""
         assert isinstance(self.iters, dict)
         return self.iters
+
+
+@dataclass
+class StatsSource(SourceElement):
+    """A source element that produces system statistics.
+
+    This source collects system statistics using psutil and produces frames
+    containing system performance data for the current SGN pipeline and system.
+
+    Args:
+        interval:
+            Optional[float], time in seconds between stats collection.
+            If None, stats are collected every time new() is called.
+        include_process_stats:
+            bool, whether to include statistics about the current process.
+        include_system_stats:
+            bool, whether to include system-wide statistics.
+        frame_factory:
+            Callable, the factory function to create frames.
+        eos_on_signal:
+            bool, whether to end the stream on receiving a signal (SIGINT/SIGTERM).
+        wait:
+            Optional[float], time in seconds to wait between frames.
+            If None, frames are produced as fast as possible.
+    """
+
+    interval: Optional[float] = None
+    include_process_stats: bool = True
+    include_system_stats: bool = True
+    frame_factory: Callable = Frame
+    eos_on_signal: bool = True
+    wait: Optional[float] = None
+
+    def __post_init__(self):
+        """Post initialization setup for StatsSource."""
+        super().__post_init__()
+        self._last_collection_time = 0.0
+        self._eos = False
+
+        # Set up process tracking
+        self._current_pid = os.getpid()
+        self._current_process = None
+
+        if PSUTIL_AVAILABLE:
+            self._current_process = psutil.Process(self._current_pid)
+        else:
+            warnings.warn(
+                "psutil is not installed. StatsSource will provide minimal "
+                "functionality. Install with: pip install psutil",
+                stacklevel=2,
+            )
+
+        # Set up signal handling if requested
+        self._signal_handler = None
+        if self.eos_on_signal:
+            self._signal_handler = SignalEOS
+
+    def _collect_process_stats(self) -> Dict[str, Any]:
+        """Collect statistics for the current process.
+
+        Returns:
+            Dict containing process statistics.
+        """
+        if not PSUTIL_AVAILABLE or self._current_process is None:
+            return {
+                "pid": self._current_pid,
+                "error": "psutil not available",
+                "limited_info": True,
+            }
+
+        proc = self._current_process
+
+        # Basic process info
+        proc_info = {
+            "pid": proc.pid,
+            "name": proc.name(),
+            "status": proc.status(),
+            "created": proc.create_time(),
+            "running_time": time.time() - proc.create_time(),
+        }
+
+        # CPU stats
+        try:
+            proc_info["cpu_percent"] = proc.cpu_percent(interval=None)
+            proc_info["cpu_times"] = dict(proc.cpu_times()._asdict())
+            proc_info["num_threads"] = proc.num_threads()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+        # Memory stats
+        try:
+            mem_info = proc.memory_info()
+            proc_info["memory"] = {
+                "rss": mem_info.rss,  # Resident Set Size
+                "vms": mem_info.vms,  # Virtual Memory Size
+                "shared": getattr(mem_info, "shared", 0),
+                "text": getattr(mem_info, "text", 0),
+                "data": getattr(mem_info, "data", 0),
+            }
+            proc_info["memory_percent"] = proc.memory_percent()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+        # IO stats
+        try:
+            io_counters = proc.io_counters()
+            proc_info["io"] = {
+                "read_count": io_counters.read_count,
+                "write_count": io_counters.write_count,
+                "read_bytes": io_counters.read_bytes,
+                "write_bytes": io_counters.write_bytes,
+            }
+        except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
+            pass
+
+        return proc_info
+
+    def _collect_system_stats(self) -> Dict[str, Any]:
+        """Collect system-wide statistics.
+
+        Returns:
+            Dict containing system statistics.
+        """
+        if not PSUTIL_AVAILABLE:
+            return {
+                "error": "psutil not available",
+                "limited_info": True,
+                "system": sys.platform,
+                "python_version": sys.version,
+            }
+
+        system_stats = {}
+
+        # CPU stats
+        system_stats["cpu"] = {
+            "percent": psutil.cpu_percent(interval=None),
+            "count": {
+                "physical": psutil.cpu_count(logical=False),
+                "logical": psutil.cpu_count(logical=True),
+            },
+            "stats": dict(psutil.cpu_stats()._asdict()),
+        }
+
+        try:
+            system_stats["cpu"]["times"] = dict(psutil.cpu_times()._asdict())
+            system_stats["cpu"]["freq"] = (
+                dict(psutil.cpu_freq()._asdict()) if psutil.cpu_freq() else {}
+            )
+        except (AttributeError, OSError):
+            pass
+
+        # Memory stats
+        system_stats["memory"] = dict(psutil.virtual_memory()._asdict())
+        system_stats["swap"] = dict(psutil.swap_memory()._asdict())
+
+        # Disk stats
+        try:
+            system_stats["disk"] = {
+                "usage": dict(psutil.disk_usage("/")._asdict()),
+                "io_counters": (
+                    dict(psutil.disk_io_counters()._asdict())
+                    if psutil.disk_io_counters()
+                    else {}
+                ),
+            }
+        except (AttributeError, OSError):
+            pass
+
+        # Network stats
+        try:
+            net_io = psutil.net_io_counters()
+            system_stats["network"] = dict(net_io._asdict()) if net_io else {}
+        except (AttributeError, OSError):
+            pass
+
+        return system_stats
+
+    def should_collect_stats(self) -> bool:
+        """Determine if it's time to collect new statistics.
+
+        Returns:
+            bool, True if it's time to collect stats based on the interval.
+        """
+        current_time = time.time()
+        if (
+            self.interval is None
+            or (current_time - self._last_collection_time) >= self.interval
+        ):
+            self._last_collection_time = current_time
+            return True
+        return False
+
+    def check_eos(self) -> bool:
+        """Check if end-of-stream has been signaled.
+
+        Returns:
+            bool, True if EOS should be set.
+        """
+        if self._eos:
+            return True
+
+        if (
+            self.eos_on_signal
+            and self._signal_handler
+            and self._signal_handler.signaled_eos()
+        ):
+            return True
+
+        return False
+
+    def new(self, pad: SourcePad) -> Frame:
+        """Create a new Frame containing system statistics.
+
+        This method is called by the pipeline to produce a new frame with
+        current system statistics.
+
+        Args:
+            pad: SourcePad, the pad for which to produce a new Frame
+
+        Returns:
+            Frame, the Frame containing system statistics
+        """
+        # Respect the wait parameter if set, adding a delay between frames
+        if self.wait is not None:
+            time.sleep(self.wait)
+
+        stats: Dict[str, Any] = {}
+
+        # Check if we should collect stats based on the interval
+        if self.should_collect_stats():
+            # Collect process stats if requested
+            if self.include_process_stats:
+                stats["process"] = self._collect_process_stats()
+
+            # Collect system stats if requested
+            if self.include_system_stats:
+                stats["system"] = self._collect_system_stats()
+
+            # Add timestamp
+            stats["timestamp"] = float(time.time())
+
+        # Check for EOS condition
+        eos = self.check_eos()
+
+        # Create and return the frame
+        return self.frame_factory(
+            EOS=eos, data=stats, metadata={"stats_type": "system_metrics"}
+        )
