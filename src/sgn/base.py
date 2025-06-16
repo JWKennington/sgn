@@ -340,9 +340,9 @@ class ElementLike(UniqueID):
         return {p.name: p for p in self.sink_pads}
 
     @property
-    def pad_list(self) -> Sequence[Union[Pad, None]]:
+    def pad_list(self) -> Sequence[Pad]:
         """Return a list of all pads."""
-        all_pads: list[Union[Pad, None]] = []
+        all_pads: list[Pad] = []
         all_pads.extend(self.source_pads)
         all_pads.extend(self.sink_pads)
         all_pads.append(self.internal_pad)
@@ -354,7 +354,7 @@ class ElementLike(UniqueID):
         pass
 
 
-@dataclass(repr=False)
+@dataclass(repr=False, kw_only=True)
 class SourceElement(ElementLike):
     """Initialize with a list of source pads. Every source pad is added to the graph
     with no dependencies.
@@ -400,7 +400,7 @@ class SourceElement(ElementLike):
         raise NotImplementedError
 
 
-@dataclass(repr=False)
+@dataclass(repr=False, kw_only=True)
 class TransformElement(ElementLike):
     """Both "source_pads" and "sink_pads" must exist. The execution scheduling
     flow of the logic within a TransformElement is as follows: 1.) all sink
@@ -481,7 +481,7 @@ class TransformElement(ElementLike):
         raise NotImplementedError
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SinkElement(ElementLike):
     """Sink element represents a terminal node in a pipeline, that typically writes data
     to disk, etc. Sink_pads must exist but not source_pads.
@@ -554,5 +554,5 @@ class SinkElement(ElementLike):
         raise NotImplementedError
 
 
-Element = Union[TransformElement, SinkElement, SourceElement, ElementLike]
+Element = Union[TransformElement, SinkElement, SourceElement]
 Pad = Union[SinkPad, SourcePad, InternalPad]
