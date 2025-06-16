@@ -80,13 +80,10 @@ class Pipeline:
             ), f"Element name '{element.name}' is already in use in this pipeline"
             self._registry[element.name] = element
             for pad in element.pad_list:
-                if (
-                    pad is not None
-                ):  # Stupid mypy kludge, remove once python3.9 is dropped
-                    assert (
-                        pad.name not in self._registry
-                    ), f"Pad name '{pad.name}' is already in use in this pipeline"
-                    self._registry[pad.name] = pad
+                assert (
+                    pad.name not in self._registry
+                ), f"Pad name '{pad.name}' is already in use in this pipeline"
+                self._registry[pad.name] = pad
             if isinstance(element, SinkElement):
                 self.sinks[element.name] = element
             self.graph.update(element.graph)
@@ -139,11 +136,6 @@ class Pipeline:
         Returns:
             list[str], the nodes in the pipeline
         """
-        # TODO remove this kludge when Python3.9 support is dropped
-        element_types = [TransformElement, SinkElement, SourceElement, ElementLike]
-        if sys.version_info < (3, 10):
-            element_types = [SinkElement, SourceElement, TransformElement]
-
         if pads:
             pad_types = [SinkPad, SourcePad]
             if intra:
@@ -158,6 +150,7 @@ class Pipeline:
                     ]
                 )
             )
+        element_types = [TransformElement, SinkElement, SourceElement]
         return tuple(
             sorted(
                 [
