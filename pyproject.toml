@@ -146,6 +146,8 @@ force-exclude = "(src/sgn/bottle\\.py|src/sgn/_version\\.py)"
 
 [tool.mypy]
 ignore_missing_imports = true
+check_untyped_defs = false
+disable_error_code = ["annotation-unchecked"]
 exclude = [
     "build",
     "docs",

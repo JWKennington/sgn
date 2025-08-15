@@ -102,7 +102,7 @@ Here's a simple pattern for implementing a source element:
 from dataclasses import dataclass
 from queue import Empty
 from sgn.base import Frame
-from sgn.subprocess import ParallelizeSourceElement
+from sgn.subprocess import ParallelizeSourceElement, WorkerContext
 
 @dataclass
 class MySourceElement(ParallelizeSourceElement):
@@ -153,7 +153,7 @@ class MySourceElement(ParallelizeSourceElement):
             return Frame(data=None)
 
     @staticmethod
-    def sub_process_internal(**kwargs):
+    def worker_process(context: WorkerContext, item_count: int):
         """
         This method runs in a separate process/thread to handle data.
 
@@ -166,7 +166,7 @@ class MySourceElement(ParallelizeSourceElement):
 
         try:
             # Check if we should stop
-            if worker_stop.is_set():
+            if context.should_stop():
                 return
 
             # Get count from input queue (non-blocking)
@@ -174,13 +174,13 @@ class MySourceElement(ParallelizeSourceElement):
                 count = inq.get_nowait()
 
                 # If count exceeds limit, send EOS
-                if count >= kwargs.get("worker_argdict", {}).get("item_count", 5):
-                    outq.put(None)  # Signal EOS
+                if count >= item_count:
+                    context.output_queue.put(None)  # Signal EOS
                 else:
                     # Process the count and send result
                     result = f"Processed item {count}"
-                    outq.put(result)
-        except Empty:
+                    context.output_queue.put(result)
+        except queue.Empty:
             # Queue is empty, do nothing this time
             pass
 ```
@@ -228,31 +228,20 @@ class ProcessingTransformElement(ParallelizeTransformElement):
             self.sub_process_shutdown(10)
 
     @staticmethod
-    def sub_process_internal(**kwargs):
+    def worker_process(context: WorkerContext):
         """
         This method runs in a separate process or thread.
 
-        The method receives all necessary resources via kwargs, making it more likely
-        to pickle correctly when creating the worker.
+        The WorkerContext provides access to input/output queues and control events.
+        Instance attributes are automatically passed as keyword arguments.
 
-        Args:
-            shm_list (list): List of shared memory objects created with SubProcess.to_shm()
-                            (only relevant for process mode)
-            inq (Queue): Input queue for receiving data from the main process/thread
-            outq (Queue): Output queue for sending data back to the main process/thread
-            worker_stop (Event): Event that signals when the worker should stop
-            worker_shutdown (Event): Event that signals orderly shutdown (process all pending data)
-            worker_argdict (dict, optional): Dictionary of additional user-specific arguments
+        Using @staticmethod is recommended to avoid pickling issues.
         """
-        # Extract the kwargs for convenience
-        inq, outq = kwargs["inq"], kwargs["outq"]
-        worker_stop = kwargs["worker_stop"]
-
         import os
         print(f"Transform worker started, process ID: {os.getpid()}")
         try:
             # Get the next frame with a timeout
-            frame = inq.get(timeout=0.1)
+            frame = context.input_queue.get(timeout=0.1)
 
             # Process the data (in this case, square the number)
             if frame.data is not None:
@@ -260,9 +249,9 @@ class ProcessingTransformElement(ParallelizeTransformElement):
                 print(f"Transform: {frame.data}")
 
             # Send the processed frame back
-            outq.put(frame)
+            context.output_queue.put(frame)
 
-        except Empty:
+        except queue.Empty:
             # No data available, just continue
             pass
 
@@ -297,31 +286,22 @@ class LoggingSinkElement(ParallelizeSinkElement):
         # Send the frame to the worker
         self.in_queue.put((pad.name, frame))
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
+    def worker_process(self, context: WorkerContext):
         """
         This method runs in a separate thread.
 
-        Args:
-            inq (Queue): Input queue for receiving data from the main process/thread
-            outq (Queue): Output queue for sending data back to the main process/thread
-            worker_stop (Event): Event that signals when the worker should stop
-            worker_shutdown (Event): Event that signals orderly shutdown
-            worker_argdict (dict, optional): Dictionary of additional user-specific arguments
+        The WorkerContext provides access to input/output queues and control events.
         """
         import os
         print(f"Sink worker started, process ID: {os.getpid()}")
 
-        inq = kwargs["inq"]
-        worker_stop = kwargs["worker_stop"]
-
         # Only process if not stopped
-        if worker_stop.is_set():
+        if context.should_stop():
             return
 
         try:
             # Get the next frame with a timeout
-            pad_name, frame = inq.get(timeout=0.1)
+            pad_name, frame = context.input_queue.get(timeout=0.1)
 
             # Log the data
             if frame and not frame.EOS and frame.data is not None:
@@ -330,7 +310,7 @@ class LoggingSinkElement(ParallelizeSinkElement):
             if frame and frame.EOS:
                 print(f"Sink received EOS on {pad_name}")
 
-        except Empty:
+        except queue.Empty:
             # No data available, just continue
             pass
 
@@ -393,11 +373,11 @@ Then in your process worker:
 
 ```{.python notest}
 @staticmethod
-def sub_process_internal(**kwargs):
+def worker_process(context: WorkerContext):
     import numpy as np
 
     # Find our shared memory object
-    for item in kwargs["shm_list"]:
+    for item in context.shared_memory:
         if item["name"] == "shared_array_example":
             # Convert the shared memory buffer back to a numpy array
             buffer = item["shm"].buf
@@ -421,39 +401,35 @@ When either an orderly shutdown is requested or an exception occurs in the main 
 
 ```{.python notest}
 @staticmethod
-def sub_process_internal(**kwargs):
-    inq, outq = kwargs["inq"], kwargs["outq"]
-    worker_stop = kwargs["worker_stop"]
-    worker_shutdown = kwargs["worker_shutdown"]
-
+def worker_process(context: WorkerContext):
     # IMPORTANT: Don't use your own infinite loop here!
     # This method is already called repeatedly by the framework
     # Each call should just process one unit of work
 
     # Check if we should stop
-    if worker_stop.is_set():
+    if context.should_stop():
         return
 
     # Check if we're in orderly shutdown mode
-    if worker_shutdown and worker_shutdown.is_set():
+    if context.should_shutdown():
         # Process any remaining item in the queue
-        if not inq.empty():
+        if not context.input_queue.empty():
             try:
-                item = inq.get_nowait()
+                item = context.input_queue.get_nowait()
                 # Process this final item...
                 result = process_item(item)
-                outq.put(result)
+                context.output_queue.put(result)
             except Exception:
                 pass
         return
 
     # Normal processing for a single item
     try:
-        item = inq.get(timeout=0.1)
+        item = context.input_queue.get(timeout=0.1)
         # Process the item...
         result = process_item(item)
-        outq.put(result)
-    except Empty:
+        context.output_queue.put(result)
+    except queue.Empty:
         # No data available
         pass
 ```
@@ -532,7 +508,7 @@ When deciding between threading and multiprocessing, consider these factors:
 
 5. **Orderly Shutdown**: Use the `sub_process_shutdown()` method for graceful termination, allowing workers to finish any pending work before stopping.
 
-6. **Signal Handling**: Be aware that workers will ignore `KeyboardInterrupt` signals. If you need custom signal handling in your workers, implement it in your `sub_process_internal` method, but make sure you don't interfere with SGN's ability to coordinate worker shutdown.
+6. **Signal Handling**: Be aware that workers will ignore `KeyboardInterrupt` signals. If you need custom signal handling in your workers, implement it in your `worker_process` method, but make sure you don't interfere with SGN's ability to coordinate worker shutdown.
 
 7. **Exception Handling**: Implement proper exception handling in both the main thread and workers. Check for `worker_shutdown` events to properly clean up resources.
 
@@ -540,7 +516,7 @@ When deciding between threading and multiprocessing, consider these factors:
 
 9. **Timeouts**: Always use timeouts when getting data from queues to avoid deadlocks. The standard pattern is to use a short timeout (0.1 to 1 second) and catch Empty exceptions.
 
-10. **Pickling Considerations**: When using process mode, the design of `sub_process_internal` intentionally avoids class or instance references to prevent pickling issues. Pass all data via function arguments. Avoid using lambda functions in multiprocessing code, as they cannot be properly pickled.
+10. **Pickling Considerations**: When using process mode, the `worker_process` method receives parameters automatically extracted from instance attributes, avoiding pickling issues with complex objects. Avoid using lambda functions in multiprocessing code, as they cannot be properly pickled.
 
 11. **Implement the abstract `new()` method**: When creating a `ParallelizeSourceElement` subclass, you must implement the abstract `new()` method to retrieve data from the worker and create frames for each source pad.
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import logging
 import multiprocessing
 import multiprocessing.shared_memory
@@ -7,7 +8,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from sgn import SinkElement, TransformElement
 from sgn.base import SourceElement
@@ -15,6 +16,34 @@ from sgn.frames import Frame
 from sgn.sources import SignalEOS
 
 logger = logging.getLogger("sgn.subprocess")
+
+
+class WorkerContext:
+    """Context object passed to worker methods with clean access to resources."""
+
+    def __init__(
+        self,
+        input_queue=None,
+        output_queue=None,
+        worker_stop=None,
+        worker_shutdown=None,
+        **kwargs,
+    ):
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.stop_event = worker_stop
+        self.shutdown_event = worker_shutdown
+        self.shared_memory = kwargs.get("shm_list", [])
+        self.state = {}  # Persistent dict for worker state across calls
+        self._raw_kwargs = kwargs
+
+    def should_stop(self) -> bool:
+        """Check if the worker should stop processing."""
+        return self.stop_event and self.stop_event.is_set()
+
+    def should_shutdown(self) -> bool:
+        """Check if the worker should shutdown gracefully."""
+        return self.shutdown_event and self.shutdown_event.is_set()
 
 
 class Parallelize(SignalEOS):
@@ -35,26 +64,27 @@ class Parallelize(SignalEOS):
       signals, allowing the main process to coordinate a clean shutdown
     - Orderly shutdown to ensure all resources are properly released
     - Support for both multiprocessing and threading concurrency models
+    - Automatic detection and invocation when pipeline.run() is called
 
     IMPORTANT: When using process mode, code using Parallelize MUST be
     wrapped within an if __name__ == "__main__": block. This is required because SGN
     uses Python's multiprocessing module with the 'spawn' start method, which requires
     that the main module be importable.
 
-    Example with default process mode:
+    Example with automatic parallelization (RECOMMENDED):
         def main():
             pipeline = Pipeline()
-            with Parallelize(pipeline) as parallelize:
-                subprocess.run()
+            # Add ParallelizeTransformElement, ParallelizeSinkElement, etc.
+            pipeline.run()  # Automatically detects and enables parallelization
 
         if __name__ == "__main__":
             main()
 
-    Example with thread mode:
+    Example with manual context manager (LEGACY):
         def main():
             pipeline = Pipeline()
-            with Parallelize(pipeline, use_threading=True) as parallelize:
-                subprocess.run()
+            with Parallelize(pipeline) as parallelize:
+                parallelize.run()
 
         if __name__ == "__main__":
             main()
@@ -194,9 +224,12 @@ class Parallelize(SignalEOS):
             RuntimeError: If an exception occurs during pipeline execution
             AssertionError: If no pipeline was provided to the SubProcess
         """
-        assert self.pipeline is not None, "Pipeline must be provided to Parallelize constructor before running"
+        assert (
+            self.pipeline is not None
+        ), "Pipeline must be provided to Parallelize constructor before running"
         try:
-            self.pipeline.run()
+            # Disable auto-parallelization since we're already in a Parallelize context
+            self.pipeline.run(auto_parallelize=False)
         except Exception as e:
             # Signal all workers to stop when an exception occurs
             for p in Parallelize.instance_list:
@@ -225,6 +258,22 @@ class Parallelize(SignalEOS):
         for p in Parallelize.instance_list:
             p.worker_stop.set()
 
+    @staticmethod
+    def needs_parallelization(pipeline):
+        """
+        Check if a pipeline contains any elements that require parallelization.
+
+        Args:
+            pipeline: The Pipeline instance to check
+
+        Returns:
+            bool: True if the pipeline contains any Parallelize* elements
+        """
+        # Check if any element is a subclass of _ParallelizeBase
+        return any(
+            isinstance(element, _ParallelizeBase) for element in pipeline.elements
+        )
+
 
 @dataclass
 class _ParallelizeBase(Parallelize):
@@ -247,9 +296,26 @@ class _ParallelizeBase(Parallelize):
 
     This is an internal implementation class and should not be instantiated
     directly. Instead, use ParallelizeTransformElement or ParallelizeSinkElement.
+
+    Developer Usage:
+        @dataclass
+        class MyElement(ParallelizeTransformElement):
+            multiplier: int = 2
+            threshold: float = 0.5
+
+            @staticmethod
+            def worker_process(
+                context: WorkerContext, multiplier: int, threshold: float
+            ):
+                try:
+                    frame = context.input_queue.get(timeout=1.0)
+                    if frame and frame.data > threshold:
+                        frame.data *= multiplier
+                        context.output_queue.put(frame)
+                except queue.Empty:
+                    pass
     """
 
-    worker_argdict: Optional[dict] = None
     queue_maxsize: Optional[int] = 100
     err_maxsize: int = 16384
     # Flag that can be set by subclasses to override the default
@@ -263,6 +329,9 @@ class _ParallelizeBase(Parallelize):
             else Parallelize.use_threading_default
         )
 
+        # Extract worker parameters automatically from instance attributes
+        worker_params = self._extract_worker_parameters()
+
         # Create appropriate queue based on mode
         if self.use_threading:
             self.in_queue = queue.Queue(maxsize=self.queue_maxsize)
@@ -271,15 +340,15 @@ class _ParallelizeBase(Parallelize):
             self.worker_shutdown = threading.Event()
             self.terminated = threading.Event()
             self.worker = threading.Thread(
-                target=self._sub_process_wrapper,
-                args=(self.sub_process_internal, self.terminated),
+                target=self._worker_wrapper,
+                args=(self.terminated,),
                 kwargs={
                     "shm_list": Parallelize.shm_list,
                     "inq": self.in_queue,
                     "outq": self.out_queue,
                     "worker_stop": self.worker_stop,
                     "worker_shutdown": self.worker_shutdown,
-                    "worker_argdict": self.worker_argdict,
+                    **worker_params,
                 },
                 daemon=False,  # Ensure the thread doesn't terminate too early
             )
@@ -290,15 +359,15 @@ class _ParallelizeBase(Parallelize):
             self.worker_shutdown = multiprocessing.Event()
             self.terminated = multiprocessing.Event()
             self.worker = multiprocessing.Process(
-                target=self._sub_process_wrapper,
-                args=(self.sub_process_internal, self.terminated),
+                target=self._worker_wrapper,
+                args=(self.terminated,),
                 kwargs={
                     "shm_list": Parallelize.shm_list,
                     "inq": self.in_queue,
                     "outq": self.out_queue,
                     "worker_stop": self.worker_stop,
                     "worker_shutdown": self.worker_shutdown,
-                    "worker_argdict": self.worker_argdict,
+                    **worker_params,
                 },
                 daemon=False,  # Ensure the process doesn't terminate too early
             )
@@ -306,60 +375,69 @@ class _ParallelizeBase(Parallelize):
         # Add to the global instance list
         Parallelize.instance_list.append(self)
 
-    @staticmethod
-    def _sub_process_wrapper(
-        func,
-        terminated,
-        **kwargs,
-    ):
-        """Internal wrapper method that runs the actual worker function.
+    def _extract_worker_parameters(self):
+        """Extract parameters for worker_process method from instance attributes."""
+        # Get the signature of the worker_process method
+        sig = inspect.signature(self.worker_process)
+        extracted = {}
 
-        This method manages the execution of the worker function and handles various
-        events and exceptions. It's responsible for:
-        1. Running the worker function in a loop until stopped
-        2. Catching and ignoring KeyboardInterrupt exceptions to prevent workers
-           from terminating prematurely when Ctrl+C is pressed
-        3. Managing orderly shutdown to drain remaining queue items
-        4. Setting the terminated event when the worker completes
+        for param_name, param in sig.parameters.items():
+            if param_name in ("self", "context"):  # Skip special parameters
+                continue
 
-        Args:
-            func: The function to run in the worker (typically sub_process_internal)
-            terminated: Event that signals when the worker has terminated
-            **kwargs: Additional keyword arguments including:
-                worker_shutdown: Event that signals orderly shutdown
-                worker_stop: Event that signals immediate stop
-                inq: Input queue for receiving data
-                outq: Output queue for sending data
-                worker_argdict: Optional custom arguments for the worker
-        """
-        worker_shutdown = kwargs["worker_shutdown"]
-        worker_stop = kwargs["worker_stop"]
-        inq = kwargs["inq"]
+            # Try to get the value from instance attributes
+            if hasattr(self, param_name):
+                extracted[param_name] = getattr(self, param_name)
+            elif param.default is not param.empty:
+                # Use default value if available
+                extracted[param_name] = param.default
+
+        return extracted
+
+    def _worker_wrapper(self, terminated, **kwargs):
+        """Clean wrapper that calls the user's worker_process method."""
+        # Create the context object with clean queue wrappers
+        context = WorkerContext(
+            input_queue=kwargs.get("inq"),
+            output_queue=kwargs.get("outq"),
+            worker_stop=kwargs.get("worker_stop"),
+            worker_shutdown=kwargs.get("worker_shutdown"),
+            shm_list=kwargs.get("shm_list", []),
+        )
+
+        # Extract worker parameters (excluding the special ones)
+        worker_params = {}
+        special_keys = {"shm_list", "inq", "outq", "worker_stop", "worker_shutdown"}
+        for key, value in kwargs.items():
+            if key not in special_keys:
+                worker_params[key] = value
 
         try:
-            while not worker_shutdown.is_set() and not worker_stop.is_set():
+            while not context.should_stop() and not context.should_shutdown():
                 try:
-                    func(**kwargs)
-                except KeyboardInterrupt as ei:
-                    print("worker received, ", repr(ei), " ...continuing.")
+                    # Call the user's clean worker_process method
+                    self.worker_process(context, **worker_params)
+                except KeyboardInterrupt:
                     # Specifically catch and ignore KeyboardInterrupt to prevent
                     # workers from terminating when Ctrl+C is pressed
                     # This allows the main process to handle the interrupt and
                     # coordinate a clean shutdown of all workers
+                    print("worker received KeyboardInterrupt...continuing.")
                     continue
 
-            if worker_shutdown.is_set() and not worker_stop.is_set():
+            # Handle graceful shutdown
+            if context.should_shutdown() and not context.should_stop():
                 tries = 0
                 num_empty = 3
                 while True:
                     try:
-                        # Check if queue is empty
-                        is_empty = False
-                        if hasattr(inq, "empty"):  # Both queue types have empty()
-                            is_empty = inq.empty()
+                        # Check if input queue is empty
+                        is_empty = (
+                            context.input_queue.empty() if context.input_queue else True
+                        )
 
                         if not is_empty:
-                            func(**kwargs)
+                            self.worker_process(context, **worker_params)
                             tries = 0  # reset
                         else:
                             time.sleep(1)
@@ -375,46 +453,61 @@ class _ParallelizeBase(Parallelize):
                             break
 
         except Exception as e:
-            print("Exception: ", repr(e))
-        terminated.set()
-        if worker_shutdown.is_set() and not worker_stop.is_set():
-            while not worker_stop.is_set():
-                time.sleep(1)
-        _ParallelizeBase._drainqs(**kwargs)
+            print("Exception in worker:", repr(e))
+        finally:
+            terminated.set()
+            if context.should_shutdown() and not context.should_stop():
+                while not context.should_stop():
+                    time.sleep(1)
+            self._drain_queues(
+                input_queue=kwargs.get("inq"), output_queue=kwargs.get("outq")
+            )
 
-    @staticmethod
-    def sub_process_internal(
-        **kwargs,
-    ):
-        """
-        Method to be implemented by subclasses. Runs in a separate process or thread.
+    def worker_process(self, context: WorkerContext, *args: Any, **kwargs: Any) -> None:
+        """Override this method in subclasses to implement worker logic.
 
-        This is the main method that will execute in the worker. Subclasses must
-        override this method to implement their specific processing logic. The method
-        receives all necessary resources via kwargs, making it more likely to pickle
-        correctly when using process mode.
+        This method should be implemented as a static method or avoid accessing
+        instance attributes directly to prevent pickling issues in multiprocessing mode.
+        All necessary data should be passed through the method parameters.
 
         Args:
-            shm_list (list): List of shared memory objects created with
-                Parallelize.to_shm() (only relevant for process mode)
-            inq (Queue): Input queue for receiving data from the main process/thread
-            outq (Queue): Output queue for sending data back to the main process/thread
-            worker_stop (Event): Event that signals when the worker should stop
-            worker_shutdown (Event): Event that signals orderly shutdown
-                (process all pending data)
-            terminated (Event): Event that the worker sets when it has completed
-                processing
-            worker_argdict (dict, optional): Dictionary of additional
-                user-specific arguments
-
-        Note:
-            This implementation intentionally does not reference the class or instance,
-            which could cause pickling issues when creating processes.
-
-        Raises:
-            NotImplementedError: This method must be overridden by subclasses
+            context: WorkerContext with clean access to queues and events
+            *args: Automatically extracted instance attributes
+            **kwargs: Automatically extracted instance attributes with defaults
         """
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses must implement worker_process method")
+
+    @staticmethod
+    def _drain_queues(input_queue=None, output_queue=None):
+        """Drain and close the input and output queues.
+
+        Args:
+            input_queue: The input queue to drain and close
+            output_queue: The output queue to drain and close
+        """
+        # Drain output queue
+        if output_queue is not None:
+            try:
+                while True:
+                    if hasattr(output_queue, "get_nowait"):
+                        output_queue.get_nowait()
+            except (queue.Empty, Exception):
+                pass
+            # Close the queue if it supports closing
+            if hasattr(output_queue, "close"):
+                output_queue.close()
+
+        # Drain input queue
+        if input_queue is not None:
+            try:
+                while True:
+                    if hasattr(input_queue, "get_nowait"):
+                        input_queue.get_nowait()
+            except (queue.Empty, Exception):
+                pass
+            # Close the queue if it supports closing
+            if hasattr(input_queue, "close"):
+                input_queue.close()
 
     def sub_process_shutdown(self, timeout=0):
         """
@@ -464,51 +557,6 @@ class _ParallelizeBase(Parallelize):
         self.out_queue = None
         return out
 
-    @staticmethod
-    def _drainqs(**kwargs):
-        """
-        Drain and close the input and output queues.
-
-        This is an internal helper method to clean up queues during worker
-        termination. It removes all items from both input and output queues to
-        prevent resource leaks, then closes the queues if they support closing.
-
-        Args:
-            **kwargs: Keyword arguments containing 'inq' and 'outq' keys referencing
-                    the input and output Queue objects
-
-        Note:
-            Subclasses can override this method if they need to process remaining
-            data in the queues instead of discarding it.
-        """
-        inq, outq = kwargs["inq"], kwargs["outq"]
-
-        # Drain output queue
-        if outq is not None:
-            try:
-                while True:
-                    if hasattr(outq, "get_nowait"):
-                        outq.get_nowait()
-            except (queue.Empty, Exception):
-                pass
-
-            # Close the queue if it supports closing
-            if hasattr(outq, "close"):
-                outq.close()
-
-        # Drain input queue
-        if inq is not None:
-            try:
-                while True:
-                    if hasattr(inq, "get_nowait"):
-                        inq.get_nowait()
-            except (queue.Empty, Exception):
-                pass
-
-            # Close the queue if it supports closing
-            if hasattr(inq, "close"):
-                inq.close()
-
     def internal(self):
         """
         Check for premature worker termination.
@@ -532,7 +580,7 @@ class ParallelizeTransformElement(TransformElement, _ParallelizeBase, Paralleliz
     This class extends the standard TransformElement to execute its processing in a
     separate worker (process or thread). It communicates with the main process/thread
     through input and output queues, and manages the worker lifecycle. Subclasses must
-    implement the sub_process_internal method to define the processing logic that runs
+    implement the worker_process method to define the processing logic that runs
     in the worker.
 
     The design intentionally avoids passing class or instance references to the
@@ -546,7 +594,6 @@ class ParallelizeTransformElement(TransformElement, _ParallelizeBase, Paralleliz
     are properly cleaned up.
 
     Attributes:
-        worker_argdict (dict, optional): Custom arguments to pass to the worker
         queue_maxsize (int, optional): Maximum size of the communication queues
         err_maxsize (int): Maximum size for error data
         at_eos (bool): Flag indicating if End-Of-Stream has been reached
@@ -557,20 +604,23 @@ class ParallelizeTransformElement(TransformElement, _ParallelizeBase, Paralleliz
     Example with default process mode:
         @dataclass
         class MyProcessingElement(ParallelizeTransformElement):
-            def __post_init__(self):
-                super().__post_init__()
+            multiplier: int = 2  # Instance attributes become worker parameters
 
             def pull(self, pad, frame):
                 # Send the frame to the worker
                 self.in_queue.put(frame)
+                if frame.EOS:
+                    self.at_eos = True
 
-            @staticmethod
-            def sub_process_internal(**kwargs):
-                # Process data in the worker
-                inq, outq = kwargs["inq"], kwargs["outq"]
-                frame = inq.get(timeout=1)
-                # Process frame data
-                outq.put(processed_frame)
+            def worker_process(self, context: WorkerContext, multiplier: int):
+                # Process data in the worker using the clean context
+                try:
+                    frame = context.input_queue.get(timeout=0.1)
+                    if frame and not frame.EOS:
+                        frame.data *= multiplier
+                        context.output_queue.put(frame)
+                except queue.Empty:
+                    pass
 
             def new(self, pad):
                 # Get processed data from the worker
@@ -580,8 +630,32 @@ class ParallelizeTransformElement(TransformElement, _ParallelizeBase, Paralleliz
         @dataclass
         class MyThreadedElement(ParallelizeTransformElement):
             _use_threading_override = True
+            # Implementation same as above
 
-            # Rest of implementation same as above
+    Example:
+        @dataclass
+        class MyProcessingElement(ParallelizeTransformElement):
+            multiplier: int = 2
+            threshold: float = 0.5
+
+            def pull(self, pad, frame):
+                self.in_queue.put(frame)
+                if frame.EOS:
+                    self.at_eos = True
+
+            def worker_process(
+                self, context: WorkerContext, multiplier: int, threshold: float
+            ):
+                try:
+                    frame = context.input_queue.get(timeout=0.1)
+                    if frame and not frame.EOS and frame.data > threshold:
+                        frame.data *= multiplier
+                        context.output_queue.put(frame)
+                except queue.Empty:
+                    pass
+
+            def new(self, pad):
+                return self.out_queue.get()
     """
 
     at_eos: bool = False
@@ -601,7 +675,7 @@ class ParallelizeSinkElement(SinkElement, _ParallelizeBase, Parallelize):
     This class extends the standard SinkElement to execute its processing in a
     separate worker (process or thread). It communicates with the main process/thread
     through input and output queues, and manages the worker lifecycle. Subclasses must
-    implement the sub_process_internal method to define the consumption logic that runs
+    implement the worker_process method to define the consumption logic that runs
     in the worker.
 
     The design intentionally avoids passing class or instance references to the
@@ -615,7 +689,6 @@ class ParallelizeSinkElement(SinkElement, _ParallelizeBase, Parallelize):
     are properly cleaned up.
 
     Attributes:
-        worker_argdict (dict, optional): Custom arguments to pass to the worker
         queue_maxsize (int, optional): Maximum size of the communication queues
         err_maxsize (int): Maximum size for error data
         _use_threading_override (bool, optional): Set to True to use threading or
@@ -625,22 +698,16 @@ class ParallelizeSinkElement(SinkElement, _ParallelizeBase, Parallelize):
     Example with default process mode:
         @dataclass
         class MyLoggingSinkElement(ParallelizeSinkElement):
-            def __post_init__(self):
-                super().__post_init__()
-
             def pull(self, pad, frame):
                 if frame.EOS:
                     self.mark_eos(pad)
                 # Send the frame to the worker
                 self.in_queue.put((pad.name, frame))
 
-            @staticmethod
-            def sub_process_internal(**kwargs):
-                inq, worker_stop = kwargs["inq"], kwargs["worker_stop"]
-
+            def worker_process(self, context: WorkerContext):
                 try:
                     # Get data from the main process/thread
-                    pad_name, frame = inq.get(timeout=1)
+                    pad_name, frame = context.input_queue.get(timeout=0.1)
 
                     # Process or log the data
                     if not frame.EOS:
@@ -648,15 +715,14 @@ class ParallelizeSinkElement(SinkElement, _ParallelizeBase, Parallelize):
                     else:
                         print(f"Sink received EOS on {pad_name}")
 
-                except Empty:
+                except queue.Empty:
                     pass
 
     Example with thread mode:
         @dataclass
         class MyThreadedSinkElement(ParallelizeSinkElement):
             _use_threading_override = True
-
-            # Rest of implementation same as above
+            # Implementation same as above
     """
 
     internal = _ParallelizeBase.internal
@@ -674,7 +740,7 @@ class ParallelizeSourceElement(SourceElement, _ParallelizeBase, Parallelize):
     This class extends the standard SourceElement to execute its data generation logic
     in a separate worker (process or thread). It communicates with the main process
     through output queues, and manages the worker lifecycle. Subclasses must implement
-    the sub_process_internal method to define the data generation logic that runs in
+    the worker_process method to define the data generation logic that runs in
     the worker.
 
     The design intentionally avoids passing class or instance references to the
@@ -688,7 +754,6 @@ class ParallelizeSourceElement(SourceElement, _ParallelizeBase, Parallelize):
     are properly cleaned up.
 
     Attributes:
-        worker_argdict (dict, optional): Custom arguments to pass to the worker
         queue_maxsize (int, optional): Maximum size of the communication queues
         err_maxsize (int): Maximum size for error data
         frame_factory (Callable, optional): Function to create Frame objects
@@ -732,23 +797,20 @@ class ParallelizeSourceElement(SourceElement, _ParallelizeBase, Parallelize):
                     # Return an empty frame if no data is available
                     return Frame(data=None)
 
-            @staticmethod
-            def sub_process_internal(**kwargs):
-                outq, worker_stop = kwargs["outq"], kwargs["worker_stop"]
-
+            def worker_process(self, context: WorkerContext):
                 # Generate data and send it back to the main process/thread
                 for i in range(10):
-                    if worker_stop.is_set():
+                    if context.should_stop():
                         break
-                    outq.put(f"Generated data {i}")
+                    context.output_queue.put(f"Generated data {i}")
                     time.sleep(0.5)
 
                 # Signal end of stream with None
-                outq.put(None)
+                context.output_queue.put(None)
 
                 # Wait for worker_stop before terminating
                 # This prevents "worker stopped before EOS" errors
-                while not worker_stop.is_set():
+                while not context.should_stop():
                     time.sleep(0.1)
 
     Example with thread mode:

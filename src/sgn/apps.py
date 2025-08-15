@@ -411,9 +411,26 @@ class Pipeline:
                     msg = f"Sink pad not linked: {sink_pad}"
                     raise RuntimeError(msg)
 
-    def run(self) -> None:
-        """Run the pipeline until End Of Stream (EOS)"""
+    def run(self, auto_parallelize: bool = True) -> None:
+        """Run the pipeline until End Of Stream (EOS)
+
+        Args:
+            auto_parallelize: If True (default), automatically detects if
+            parallelization is needed and handles it transparently. If False,
+            runs the pipeline normally without parallelization detection.
+        """
         configure_sgn_logging()
+        if auto_parallelize:
+            # Import here to avoid circular imports
+            from sgn.subprocess import Parallelize
+
+            # Use automatic parallelization detection
+            if Parallelize.needs_parallelization(self):
+                with Parallelize(self) as parallelize:
+                    parallelize.run()
+                return
+
+        # Run normally without parallelization
         self.check()
         if not self.loop.is_running():
             self.loop.run_until_complete(self._execute_graphs())

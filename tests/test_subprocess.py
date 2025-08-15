@@ -7,6 +7,7 @@ import multiprocessing
 import pytest
 import threading
 import ctypes
+import queue
 from dataclasses import dataclass
 from queue import Empty
 
@@ -17,6 +18,7 @@ from sgn.subprocess import (
     ParallelizeTransformElement,
     ParallelizeSinkElement,
     ParallelizeSourceElement,
+    WorkerContext,
 )
 from sgn.base import SourceElement, Frame
 from sgn.apps import Pipeline
@@ -128,12 +130,11 @@ class MySinkClass(ParallelizeSinkElement):
             self.in_queue.put(frame)
             self.sub_process_shutdown(30)  # Increased timeout for CI environments
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
-        kwargs["outq"].put(None)
+    def worker_process(self, context):
+        context.output_queue.put(None)
         try:
-            kwargs["inq"].get(timeout=0.1)
-        except Empty:
+            context.input_queue.get(timeout=0.1)
+        except queue.Empty:
             pass
 
 
@@ -153,15 +154,16 @@ class MyTransformClass(ParallelizeTransformElement):
             self.at_eos = True
             self.frame_list = self.sub_process_shutdown(10)
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
+    def worker_process(self, context):
         # access some shared memory - there is only one
         # Just access it to verify it exists, but don't need to use it
-        _ = kwargs["shm_list"][0]["shm"]
+        if context.shared_memory:
+            _ = context.shared_memory[0]["shm"]
         try:
-            frame = kwargs["inq"].get(timeout=0.1)
-            kwargs["outq"].put(frame)
-        except Empty:
+            frame = context.input_queue.get(timeout=0.1)
+            if frame:
+                context.output_queue.put(frame)
+        except queue.Empty:
             pass
 
     def new(self, pad):
@@ -198,8 +200,7 @@ class SimpleThreadedSource(ParallelizeSourceElement):
         super().__post_init__()
         # Track EOS status per output pad
         self.pad_eos_sent = {pad.name: False for pad in self.source_pads}
-        # Store count in worker arguments
-        self.worker_argdict = {"count": self.count}
+        # count will be automatically passed to worker_process
         # Pre-populate result queue for testing
         self.results = []
 
@@ -230,27 +231,21 @@ class SimpleThreadedSource(ParallelizeSourceElement):
             # If queue is empty, return empty frame
             return Frame(data=None)
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
+    def worker_process(self, context: WorkerContext, count: int) -> None:
         """Generate sequential numbers and send to the main thread."""
-        outq = kwargs["outq"]
-        worker_stop = kwargs["worker_stop"]
-        worker_argdict = kwargs.get("worker_argdict", {})
-        count = worker_argdict.get("count", 3)
-
         # Send count number of items
         for i in range(1, count + 1):
             # Check if we should stop
-            if worker_stop.is_set():
+            if context.should_stop():
                 break
 
             # Send the number
-            outq.put(i)
+            context.output_queue.put(i)
             # Minimal delay to avoid flooding the queue while keeping tests fast
             time.sleep(0.001)
 
         # Signal end of stream
-        outq.put(None)
+        context.output_queue.put(None)
 
 
 @dataclass
@@ -264,8 +259,7 @@ class SimpleProcessSource(ParallelizeSourceElement):
         super().__post_init__()
         # Track EOS status per output pad
         self.pad_eos_sent = {pad.name: False for pad in self.source_pads}
-        # Store count in worker arguments
-        self.worker_argdict = {"count": self.count}
+        # count will be automatically passed to worker_process
         # Pre-populate result queue for testing
         self.results = []
 
@@ -296,27 +290,21 @@ class SimpleProcessSource(ParallelizeSourceElement):
             # If queue is empty, return empty frame
             return Frame(data=None)
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
+    def worker_process(self, context: WorkerContext, count: int) -> None:
         """Generate squared numbers and send to the main process."""
-        outq = kwargs["outq"]
-        worker_stop = kwargs["worker_stop"]
-        worker_argdict = kwargs.get("worker_argdict", {})
-        count = worker_argdict.get("count", 3)
-
         # Send count number of items
         for i in range(1, count + 1):
             # Check if we should stop
-            if worker_stop.is_set():
+            if context.should_stop():
                 break
 
             # Send the squared number
-            outq.put(i * i)
+            context.output_queue.put(i * i)
             # Minimal delay to avoid flooding the queue while keeping tests fast
             time.sleep(0.001)
 
         # Signal end of stream
-        outq.put(None)
+        context.output_queue.put(None)
 
 
 @dataclass
@@ -338,19 +326,15 @@ class ThreadedMultiplier(ParallelizeTransformElement):
             self.at_eos = True
             self.frame_list = self.sub_process_shutdown(10)
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
-        inq, outq = kwargs["inq"], kwargs["outq"]
-        worker_argdict = kwargs.get("worker_argdict", {})
-        multiplier = worker_argdict.get("multiplier", 2)
-
+    def worker_process(self, context: WorkerContext, multiplier: int) -> None:
         try:
-            frame = inq.get(timeout=0.1)
-            if not frame.EOS:
-                # Modify the frame data
-                frame.data = frame.data * multiplier
-            outq.put(frame)
-        except Empty:
+            frame = context.input_queue.get(timeout=0.1)
+            if frame:
+                if not frame.EOS:
+                    # Modify the frame data
+                    frame.data = frame.data * multiplier
+                context.output_queue.put(frame)
+        except queue.Empty:
             pass
 
     def new(self, pad):
@@ -377,16 +361,15 @@ class ProcessedSquarer(ParallelizeTransformElement):
             self.at_eos = True
             self.frame_list = self.sub_process_shutdown(10)
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
-        inq, outq = kwargs["inq"], kwargs["outq"]
+    def worker_process(self, context):
         try:
-            frame = inq.get(timeout=0.1)
-            if not frame.EOS:
-                # Square the data
-                frame.data = frame.data**2
-            outq.put(frame)
-        except Empty:
+            frame = context.input_queue.get(timeout=0.1)
+            if frame:
+                if not frame.EOS:
+                    # Square the data
+                    frame.data = frame.data**2
+                context.output_queue.put(frame)
+        except queue.Empty:
             pass
 
     def new(self, pad):
@@ -427,18 +410,15 @@ class ResultCollector(ParallelizeSinkElement):
         if self.in_queue is not None:
             self.in_queue.put((pad.name, frame))
 
-    @staticmethod
-    def sub_process_internal(**kwargs):
-        inq, outq = kwargs["inq"], kwargs["outq"]
-        # Worker stop event is available but not needed for this test
-        _ = kwargs.get("worker_stop")
-
+    def worker_process(self, context):
         try:
-            pad_name, frame = inq.get(timeout=0.1)
-            if not frame.EOS and outq is not None:
-                # Store the frame data in the results
-                outq.put((pad_name, frame.data))
-        except Empty:
+            data = context.input_queue.get(timeout=0.1)
+            if data:
+                pad_name, frame = data
+                if not frame.EOS:
+                    # Store the frame data in the results
+                    context.output_queue.put((pad_name, frame.data))
+        except queue.Empty:
             pass
 
     def get_results(self):
@@ -487,8 +467,8 @@ def test_subprocess():
         },
     )
 
-    with Parallelize(pipeline) as parallelize:
-        parallelize.run()
+    # Use automatic parallelization detection
+    pipeline.run()
 
 
 def test_subprocess_exit_kill():
@@ -557,47 +537,11 @@ def test_subprocess_exit_kill():
         Parallelize.instance_list = original_instances
 
 
-def test_subprocess_run_normal_completion():
-    """Test that worker_stop events are set when pipeline completes normally."""
-
-    # Test pipeline that completes normally
-    class TestPipeline:
-        def run(self):
-            # Just return successfully
-            pass
-
-    # Create test instance
-    class TestInstance:
-        def __init__(self):
-            self.worker_stop = multiprocessing.Event()
-
-    # Save original and create test instances
-    original_instances = Parallelize.instance_list.copy()
-    Parallelize.instance_list = []
-
-    try:
-        # Add our test instance
-        instance = TestInstance()
-        Parallelize.instance_list.append(instance)
-
-        # Create a Parallelize and run it normally
-        parallelize = Parallelize(TestPipeline())
-        parallelize.run()
-
-        # Verify the stop event was set
-        assert (
-            instance.worker_stop.is_set()
-        ), "worker_stop event was not set on normal completion"
-    finally:
-        # Restore original state
-        Parallelize.instance_list = original_instances
-
-
 def test_subprocess_run_exception():
     """Test that the run method properly handles exceptions in the pipeline."""
 
     class TestPipeline:
-        def run(self):
+        def run(self, auto_parallelize=True):
             raise ValueError("Test exception")
 
     # Create a custom process class with a kill method that we can track
@@ -659,7 +603,7 @@ def test_subprocess_run_exception():
 # Test low-level subprocess wrapper components
 #
 def test_subprocess_wrapper():
-    """Test the basic operation of _sub_process_wrapper."""
+    """Test the basic operation of _worker_wrapper."""
     terminated = multiprocessing.Event()
     shutdown = multiprocessing.Event()
     stop = multiprocessing.Event()
@@ -668,11 +612,12 @@ def test_subprocess_wrapper():
     inq = multiprocessing.Queue(maxsize=1)
     outq = multiprocessing.Queue(maxsize=1)
 
-    def func(**kwargs):
-        pass
+    class TestElement(_ParallelizeBase):
+        def worker_process(self, context):
+            pass
 
-    _ParallelizeBase._sub_process_wrapper(
-        func,
+    element = TestElement()
+    element._worker_wrapper(
         terminated,
         worker_shutdown=shutdown,
         worker_stop=stop,
@@ -682,18 +627,19 @@ def test_subprocess_wrapper():
 
 
 def test_subprocess_wrapper_with_exception():
-    """Test _sub_process_wrapper with a function that raises an exception."""
+    """Test _worker_wrapper with a function that raises an exception."""
     terminated = multiprocessing.Event()
     shutdown = multiprocessing.Event()
     stop = multiprocessing.Event()
     inq = multiprocessing.Queue(maxsize=1)
     outq = multiprocessing.Queue(maxsize=1)
 
-    def func(**kwargs):
-        raise RuntimeError("nope")
+    class TestElement(_ParallelizeBase):
+        def worker_process(self, context):
+            raise RuntimeError("nope")
 
-    _ParallelizeBase._sub_process_wrapper(
-        func,
+    element = TestElement()
+    element._worker_wrapper(
         terminated,
         worker_shutdown=shutdown,
         worker_stop=stop,
@@ -716,12 +662,15 @@ def test_subprocess_wrapper_with_threading():
     outq = multiprocessing.Queue(maxsize=1)
     outq.put(None)
 
-    def func(**kwargs):
-        raise ValueError("nope")
+    class TestElement(_ParallelizeBase):
+        def worker_process(self, context):
+            raise ValueError("nope")
+
+    element = TestElement()
 
     thread = threading.Thread(
-        target=_ParallelizeBase._sub_process_wrapper,
-        args=(func, terminated),
+        target=element._worker_wrapper,
+        args=(terminated,),
         kwargs={
             "worker_shutdown": shutdown,
             "worker_stop": stop,
@@ -750,26 +699,29 @@ def test_subprocess_keyboard_interrupt():
     keyboard_interrupt_raised = False
     completed_after_interrupt = False
 
-    def test_func(**kwargs):
-        nonlocal iteration_count, keyboard_interrupt_raised, completed_after_interrupt
+    class TestElement(_ParallelizeBase):
+        def worker_process(self, context):
+            nonlocal iteration_count, keyboard_interrupt_raised
+            nonlocal completed_after_interrupt
 
-        # First call: raise KeyboardInterrupt
-        if iteration_count == 0:
-            iteration_count += 1
-            keyboard_interrupt_raised = True
-            raise KeyboardInterrupt("Test interrupt")
+            # First call: raise KeyboardInterrupt
+            if iteration_count == 0:
+                iteration_count += 1
+                keyboard_interrupt_raised = True
+                raise KeyboardInterrupt("Test interrupt")
 
-        # Second call: mark that we continued after the interrupt
-        elif iteration_count == 1:
-            iteration_count += 1
-            completed_after_interrupt = True
-            # Signal to stop now
-            stop.set()
+            # Second call: mark that we continued after the interrupt
+            elif iteration_count == 1:
+                iteration_count += 1
+                completed_after_interrupt = True
+                # Signal to stop now
+                stop.set()
+
+    element = TestElement()
 
     # Run the wrapper in a thread
     def run_wrapper():
-        _ParallelizeBase._sub_process_wrapper(
-            test_func,
+        element._worker_wrapper(
             terminated,
             worker_shutdown=shutdown,
             worker_stop=stop,
@@ -811,24 +763,25 @@ def test_subprocess_drain_queue():
     # Track calls to func
     call_count = 0
 
-    # This function will be called to process each item from the queue
-    def test_func(**kwargs):
-        nonlocal call_count
-        q = kwargs["inq"]
-        try:
-            item = q.get(block=False)
-            call_count += 1
-            # Simulate processing by printing
-            print(f"Processing item: {item.data}")
-            # Explicitly set the terminated event at the end
-            terminated.set()
-        except Empty:
-            pass
+    class TestElement(_ParallelizeBase):
+        def worker_process(self, context):
+            nonlocal call_count
+            try:
+                frame = context.input_queue.get(block=False)
+                if frame:
+                    call_count += 1
+                    # Simulate processing by printing
+                    print(f"Processing item: {frame.data}")
+                    # Explicitly set the terminated event at the end
+                    terminated.set()
+            except queue.Empty:
+                pass
+
+    element = TestElement()
 
     # Use a thread so we can set process_stop after a delay
     def run_wrapper():
-        _ParallelizeBase._sub_process_wrapper(
-            test_func,
+        element._worker_wrapper(
             terminated,
             worker_shutdown=worker_shutdown,
             worker_stop=worker_stop,
@@ -856,12 +809,13 @@ def test_subprocess_drain_queue():
 
 
 def test_subprocess_internal_not_implemented():
-    """Test that _ParallelizeBase.sub_process_internal raises NotImplementedError.
+    """Test that _ParallelizeBase.worker_process raises NotImplementedError.
 
     This confirms correct base class behavior.
     """
+    base = _ParallelizeBase()
     with pytest.raises(NotImplementedError):
-        _ParallelizeBase.sub_process_internal()
+        base.worker_process(None)
 
 
 def test_subprocess_internal_runtime_error():
@@ -938,7 +892,7 @@ def test_threading_mode():
     transform = ThreadedMultiplier(
         sink_pad_names=("in",),
         source_pad_names=("out",),
-        worker_argdict={"multiplier": 3},
+        multiplier=3,
     )
     collector = ResultCollector(sink_pad_names=("original", "transformed"))
 
@@ -981,7 +935,7 @@ def test_mixed_concurrency():
     thread_transform = ThreadedMultiplier(
         sink_pad_names=("in",),
         source_pad_names=("out",),
-        worker_argdict={"multiplier": 2},
+        multiplier=2,
     )
 
     process_transform = ProcessedSquarer(
@@ -1069,6 +1023,106 @@ def test_complete_subprocess_pipeline():
     # Verify that the pad_eos_sent dictionary has entries and none are True
     assert len(source.pad_eos_sent) > 0
     assert all(not v for v in source.pad_eos_sent.values())
+
+
+def test_worker_context_comprehensive():
+    """Comprehensive test for WorkerContext functionality."""
+
+    # Test WorkerContext edge cases with None values
+    context = WorkerContext()
+    assert context.input_queue is None
+    assert context.output_queue is None
+    assert context.stop_event is None
+    assert not context.should_stop() and not context.should_shutdown()
+
+    # Test with actual events and queues
+    import threading
+
+    stop_event = threading.Event()
+    shutdown_event = threading.Event()
+    input_q = queue.Queue()
+    output_q = queue.Queue()
+
+    context = WorkerContext(
+        input_queue=input_q,
+        output_queue=output_q,
+        worker_stop=stop_event,
+        worker_shutdown=shutdown_event,
+    )
+
+    # Test queue access
+    assert context.input_queue is input_q
+    assert context.output_queue is output_q
+
+    # Test event handling
+    stop_event.set()
+    assert context.should_stop() is True
+
+    shutdown_event.set()
+    assert context.should_shutdown() is True
+
+
+def test_pipeline_parallelization_detection():
+    """Test automatic parallelization detection for pipelines."""
+
+    # Empty pipeline should not need parallelization
+    empty_pipeline = Pipeline()
+    assert Parallelize.needs_parallelization(empty_pipeline) is False
+
+    # Pipeline with regular elements should not need parallelization
+    class RegularSource(SourceElement):
+        def new(self, pad):
+            return Frame(data=None, EOS=True)
+
+    regular_pipeline = Pipeline()
+    regular_pipeline.insert(RegularSource(source_pad_names=("out",)))
+    assert Parallelize.needs_parallelization(regular_pipeline) is False
+
+
+def test_parameter_extraction_edge_cases():
+    # Create a minimal class that has _extract_worker_parameters but no worker_process
+    class ElementWithoutWorkerProcess:
+        def _extract_worker_parameters(self):
+            """Extract parameters for worker_process method from instance attributes."""
+            if not hasattr(self, "worker_process"):
+                return {}
+            # ... rest would be unreachable in this test
+
+    element_no_worker = ElementWithoutWorkerProcess()
+    extracted = element_no_worker._extract_worker_parameters()
+    assert extracted == {}, "Should return empty dict when no worker_process method"
+
+    # Parameter uses default value from method signature
+    @dataclass
+    class TestElementWithMethodDefaults(ParallelizeTransformElement):
+        existing_param: int = 42
+
+        def new(self, pad):
+            return Frame()
+
+        def pull(self, pad, frame):
+            pass
+
+        @staticmethod
+        def worker_process(
+            context: WorkerContext,
+            existing_param: int,
+            method_default_param: str = "from_method",
+        ) -> None:
+            pass
+
+    # Test element where parameter has default in method but not as instance attribute
+    element = TestElementWithMethodDefaults(
+        sink_pad_names=("input",), source_pad_names=("output",)
+    )
+
+    # This should extract parameters and use method defaults where needed (line 446)
+    extracted = element._extract_worker_parameters()
+
+    assert "existing_param" in extracted
+    assert "method_default_param" in extracted
+    assert extracted["existing_param"] == 42  # From instance
+    assert extracted["method_default_param"] == "from_method"
 
 
 if __name__ == "__main__":

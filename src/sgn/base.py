@@ -380,7 +380,9 @@ class TransformElement(ABC, ElementLike, Generic[FrameLike]):
         self.snks = {n: p for n, p in zip(self.sink_pad_names, self.sink_pads)}
         self.rsrcs = {p: n for n, p in zip(self.source_pad_names, self.source_pads)}
         self.rsnks = {p: n for n, p in zip(self.sink_pad_names, self.sink_pads)}
-        assert self.source_pads and self.sink_pads, "TransformElement must specify both sink and source pads"
+        assert (
+            self.source_pads and self.sink_pads
+        ), "TransformElement must specify both sink and source pads"
 
         # Make maximal bipartite graph in two pieces
         # First, (all sinks -> internal)
