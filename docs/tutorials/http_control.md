@@ -90,7 +90,7 @@ class ControlledSink(HTTPControlSinkElement):
 
         # Update state for HTTP clients
         HTTPControl.exchange_state(
-            self.name, 
+            self.name,
             {"received_count": self.received_count, "last_message": self.last_message}
         )
 
@@ -222,8 +222,8 @@ class ControlledSink(HTTPControlSinkElement):
 # Create pipeline elements
 source = ControlledSource(name="source", source_pad_names=("out",))
 transform = ControlledTransform(
-    name="transform", 
-    sink_pad_names=("in",), 
+    name="transform",
+    sink_pad_names=("in",),
     source_pad_names=("out",)
 )
 sink = ControlledSink(name="sink", sink_pad_names=("in",))

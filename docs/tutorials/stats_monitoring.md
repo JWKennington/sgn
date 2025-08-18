@@ -109,7 +109,7 @@ The `StatsSource` class provides several parameters to customize the statistics 
 
 - `interval`: Time in seconds between stats collection. If `None`, stats are collected every time `new()` is called.
 - `include_process_stats`: Whether to include statistics about the current process.
-- `include_system_stats`: Whether to include system-wide statistics. 
+- `include_system_stats`: Whether to include system-wide statistics.
 - `eos_on_signal`: Whether to end the stream on receiving SIGINT/SIGTERM signals.
 - `wait`: Time in seconds to wait between frames. This can help establish a consistent timing pattern.
 

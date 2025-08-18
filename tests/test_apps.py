@@ -370,3 +370,172 @@ class TestPipelineGraphviz:
         with mock.patch.dict("sys.modules", {"graphviz": None}):
             with pytest.raises(ImportError):
                 p.visualize("test.svg")
+
+
+def test_pipeline_connect_element_to_element():
+    """Test basic pipeline.connect() with element-to-element connection."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+
+    src = IterSource(name="src", source_pad_names=["H1", "L1"])
+    sink = NullSink(name="sink", sink_pad_names=["H1", "L1"])
+
+    pipeline = Pipeline()
+    pipeline.connect(src, sink)
+
+    # Verify elements were inserted
+    assert "src" in pipeline._registry
+    assert "sink" in pipeline._registry
+
+    # Verify graph has connections
+    assert len(pipeline.graph) > 0
+
+
+def test_pipeline_connect_with_groups():
+    """Test pipeline.connect() with ElementGroup."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+    from sgn.groups import group, select
+
+    src1 = IterSource(name="src1", source_pad_names=["H1"])
+    src2 = IterSource(name="src2", source_pad_names=["L1", "V1"])
+    sink = NullSink(name="sink", sink_pad_names=["H1", "L1"])
+
+    pipeline = Pipeline()
+    sources = group(src1, select(src2, "L1"))
+    pipeline.connect(sources, sink)
+
+    # All elements should be inserted
+    assert "src1" in pipeline._registry
+    assert "src2" in pipeline._registry
+    assert "sink" in pipeline._registry
+
+    # Connect using standalone PadSelection as source
+    pipeline2 = Pipeline()
+    src3 = IterSource(name="src3", source_pad_names=["out"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["in"])
+
+    selection = select(src3, "out")
+    pipeline2.connect(selection, sink2, link_map={"in": "out"})
+    assert "src3" in pipeline2._registry
+    assert "sink2" in pipeline2._registry
+
+
+def test_pipeline_connect_explicit_mapping():
+    """Test pipeline.connect() with explicit link_map."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+
+    src = IterSource(name="src", source_pad_names=["out"])
+    sink = NullSink(name="sink", sink_pad_names=["in"])
+
+    pipeline = Pipeline()
+    pipeline.connect(src, sink, link_map={"in": "out"})
+
+    assert "src" in pipeline._registry
+    assert "sink" in pipeline._registry
+
+    # Test error cases with invalid pad names in explicit mapping
+    src2 = IterSource(name="src2", source_pad_names=["valid"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["valid"])
+
+    # Test invalid sink pad name
+    with pytest.raises(KeyError, match="sink pad 'invalid_sink' not found"):
+        pipeline.connect(src2, sink2, link_map={"invalid_sink": "valid"})
+
+    # Test invalid source pad name
+    with pytest.raises(KeyError, match="source pad 'invalid_src' not found"):
+        pipeline.connect(src2, sink2, link_map={"valid": "invalid_src"})
+
+
+def test_pipeline_connect_error_handling():
+    """Test pipeline.connect() error handling."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+
+    src = IterSource(name="src", source_pad_names=["H1"])
+    sink = NullSink(name="sink", sink_pad_names=["L1"])
+
+    pipeline = Pipeline()
+
+    # Passing sink as source - should fail
+    with pytest.raises(ValueError, match="no source pads"):
+        pipeline.connect(sink, src)
+
+    # Passing source as sink - should fail
+    with pytest.raises(ValueError, match="no sink pads"):
+        pipeline.connect(src, src)  # Using src as both source and sink
+
+
+def test_pipeline_connect_mismatched_pads_error():
+    """Test error when pad names don't match in ambiguous cases."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+
+    # Multiple sources with different names than sinks should be ambiguous
+    src1 = IterSource(name="src1", source_pad_names=["H1"])
+    src2 = IterSource(name="src2", source_pad_names=["L1"])
+    sink1 = NullSink(name="sink1", sink_pad_names=["V1"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["X1"])
+
+    from sgn.groups import group
+
+    pipeline = Pipeline()
+    sources = group(src1, src2)
+    sinks = group(sink1, sink2)
+
+    # No matching pad names and multiple pads on each side - should be ambiguous
+    with pytest.raises(
+        ValueError, match="unable to determine unambiguous linking strategy"
+    ):
+        pipeline.connect(sources, sinks)
+
+
+def test_pipeline_connect_linking_strategies():
+    """Test different implicit linking strategies in pipeline.connect()."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+    from sgn.groups import group
+
+    # N-to-one linking
+    src1 = IterSource(name="src1", source_pad_names=["H1"])
+    src2 = IterSource(name="src2", source_pad_names=["L1"])
+    sink_single = NullSink(name="sink_single", sink_pad_names=["data"])
+
+    pipeline1 = Pipeline()
+    sources = group(src1, src2)
+    pipeline1.connect(sources, sink_single)
+    assert len(pipeline1.graph) > 0
+
+    # One-to-N linking
+    src_single = IterSource(name="src_single", source_pad_names=["data"])
+    sink1 = NullSink(name="sink1", sink_pad_names=["H1"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["L1"])
+
+    pipeline2 = Pipeline()
+    sinks = group(sink1, sink2)
+    pipeline2.connect(src_single, sinks)
+    assert len(pipeline2.graph) > 0
+
+
+def test_pipeline_connect_ambiguous_linking_error():
+    """Test error when linking strategy is ambiguous."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+    from sgn.groups import group
+
+    # multiple sources and multiple sinks with different names
+    src1 = IterSource(name="src1", source_pad_names=["H1", "L1"])
+    src2 = IterSource(name="src2", source_pad_names=["V1"])
+    sink1 = NullSink(name="sink1", sink_pad_names=["out1"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["out2"])
+
+    pipeline = Pipeline()
+    sources = group(src1, src2)  # 3 source pads: H1, L1, V1
+    sinks = group(sink1, sink2)  # 2 sink pads: out1, out2
+
+    # This is ambiguous - can't determine how to map 3 sources to 2 sinks
+    with pytest.raises(
+        ValueError, match="unable to determine unambiguous linking strategy"
+    ):
+        pipeline.connect(sources, sinks)

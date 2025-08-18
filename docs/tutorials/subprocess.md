@@ -88,7 +88,7 @@ from sgn.subprocess import ParallelizeTransformElement
 class MyThreadedTransform(ParallelizeTransformElement):
     # Override the default to use thread mode for this element
     _use_threading_override = True
-    
+
     # ... rest of implementation
 ```
 
@@ -109,7 +109,7 @@ class MySourceElement(ParallelizeSourceElement):
     # Optional: override default concurrency mode
     _use_threading_override = True  # Use threading instead of multiprocessing
     item_count: int = 5  # Total items to generate
-    
+
     def __post_init__(self):
         super().__post_init__()
         # Initialize counter
@@ -118,61 +118,61 @@ class MySourceElement(ParallelizeSourceElement):
         self.at_eos = False
         # Pass parameters to worker
         self.worker_argdict = {"item_count": self.item_count}
-    
+
     def internal(self):
         """
         Called by the pipeline to generate data.
-        
+
         This method is responsible for sending commands to the worker.
         """
         # Only send new count if we haven't reached the limit
         if self.counter < self.item_count and not self.at_eos:
             self.counter += 1
             self.in_queue.put(self.counter)
-    
+
     def new(self, pad):
         """Get the next frame for the given pad."""
         # If we're at EOS, keep returning EOS frames
         if self.at_eos:
             return Frame(data=None, EOS=True)
-            
+
         try:
             # Try to get data from the queue with a short timeout
             data = self.out_queue.get(timeout=0.1)
-            
+
             # None signals EOS
             if data is None:
                 self.at_eos = True
                 return Frame(data=None, EOS=True)
-                
+
             # Return regular data frame
             return Frame(data=data)
-            
+
         except Empty:
             # If queue is empty, return empty frame
             return Frame(data=None)
-    
+
     @staticmethod
     def sub_process_internal(**kwargs):
         """
-        This method runs in a separate process/thread to handle data. 
-        
+        This method runs in a separate process/thread to handle data.
+
         It reads count values from the input queue, processes them,
         and puts the results in the output queue.
         """
         inq = kwargs["inq"]
         outq = kwargs["outq"]
         worker_stop = kwargs["worker_stop"]
-        
+
         try:
             # Check if we should stop
             if worker_stop.is_set():
                 return
-                
+
             # Get count from input queue (non-blocking)
             if not inq.empty():
                 count = inq.get_nowait()
-                
+
                 # If count exceeds limit, send EOS
                 if count >= kwargs.get("worker_argdict", {}).get("item_count", 5):
                     outq.put(None)  # Signal EOS
@@ -206,7 +206,7 @@ class NumberSourceElement(SourceElement, SignalEOS):
     def __post_init__(self):
         super().__post_init__()
         self.counter = 0
-        
+
     def new(self, pad):
         self.counter += 1
         # Stop after generating 10 numbers

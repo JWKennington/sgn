@@ -91,7 +91,7 @@ class MySourceClass(SourceElement):
         super().__post_init__()
         # save a pad map also hashed by pad not the string
         # NOTE: this must be done after super() post init so that the source pads exist
-        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
         self.cnt = 0
     def internal(self):
         self.cnt += 1
@@ -118,7 +118,7 @@ pipeline = Pipeline()
 pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"], sink.snks["y"]: source.srcs["b"],})
 
 pipeline.run()
-``` 
+```
 
 which now produces
 

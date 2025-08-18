@@ -3,21 +3,21 @@
 What if we want more than one pad?  It is possible to have many source and sink
 pads on an element. SGN provides basic bookkeeping utilities for you, but
 generally what the "correct" behavior is is up to you. Lets try a more complicated
-example with multiple pads 
+example with multiple pads
 
 ```
  ---------------------------------------------
 |                                             |
 |              Source Element 1               |
 |                                             |
- --- [source pad 'a'] --- [source pad 'b'] --- 
+ --- [source pad 'a'] --- [source pad 'b'] ---
            |                 |
            | data flow       |
            V                 V
- --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- 
-|                                             | 
+ --- [sink pad 'x'  ] --- [sink pad 'y'  ] ---
+|                                             |
 |               Sink Element 1                |
-|                                             | 
+|                                             |
 ----------------------------------------------
 ```
 
@@ -63,7 +63,7 @@ pipeline.run()
 Running this produces the following output:
 
 ```
-e1-056827:~ crh184$ ./sgn-readme 
+e1-056827:~ crh184$ ./sgn-readme
 Hello!
 How are you?
 Hello!

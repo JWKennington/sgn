@@ -1,15 +1,15 @@
 # Example: Simple JSON Pipeline
 
 This example shows a simple pipeline for performing operations on more complicated payloads, similar to JSON-style
-data structures. The pipeline containing a source, a transform, and a sink. 
+data structures. The pipeline containing a source, a transform, and a sink.
 
 The source is a `IterSource`, which iterates through the given list `payloads` and produces one `IterFrame` object
 per item in the list. Note that the list contains two items, each of which is a list of dictionaries. Each dictionary
 represents a packet of data, with a `time` field, a `buffer` field (a numpy array), and a `trusted` field (a boolean).
-This shows that the `IterFrame` object can contain complex data structures, including an iterable of dictionaries, 
+This shows that the `IterFrame` object can contain complex data structures, including an iterable of dictionaries,
 perhaps representing a "recent" poll of a JSON-style source service.
 
-For the transform, we define a function `demean_if_trusted` that subtracts the mean value from the `buffer` array, if and 
+For the transform, we define a function `demean_if_trusted` that subtracts the mean value from the `buffer` array, if and
 only if the data packet is "trusted", which is stored in the `trusted` key of the payload. While simple, this shows
 how to build more complex operators that can depend on multiple features of a payload. To use this function
 in the pipeline, we create a `CallableTransform` element that wraps the function, by using the helper method

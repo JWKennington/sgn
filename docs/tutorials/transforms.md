@@ -7,7 +7,7 @@ Graphs can have other elements called "transform elements." These have both sour
 |                                             |
 |              Source Element 1               |
 |                                             |
- --- [source pad 'a'] --- [source pad 'b'] --- 
+ --- [source pad 'a'] --- [source pad 'b'] ---
            |\                |\
            | \               | \
            |  \              |  \_________________________________________
@@ -26,10 +26,10 @@ Graphs can have other elements called "transform elements." These have both sour
            |                 |                               /
            | data flow       |                              /
            V                 V                             V
- --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- [sink pad 'z'  ] --- 
-|                                                                  | 
+ --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- [sink pad 'z'  ] ---
+|                                                                  |
 |               Sink Element 1                                     |
-|                                                                  | 
+|                                                                  |
 -------------------------------------------------------------------
 ```
 
@@ -50,7 +50,7 @@ class MySourceClass(SourceElement):
         super().__post_init__()
         # save a pad map also hashed by pad not the string
         # NOTE: this must be done after super() post init so that the source pads exist
-        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
         self.cnt = 0
     def internal(self):
         self.cnt += 1
@@ -75,8 +75,8 @@ class MyTransformClass(TransformElement):
     def new(self, pad):
         # This element just has one source pad
         return self.outframe
-        
-        
+
+
 class MySinkClass(SinkElement):
     def __post_init__(self):
         super().__post_init__()
@@ -96,9 +96,9 @@ sink = MySinkClass(sink_pad_names = ("x","y","z"))
 pipeline = Pipeline()
 
 pipeline.insert(source,
-               transform, 
+               transform,
                sink,
-               link_map = {sink.snks["x"]: source.srcs["a"], 
+               link_map = {sink.snks["x"]: source.srcs["a"],
                            sink.snks["y"]: source.srcs["b"],
                            transform.snks["l"]: source.srcs["a"],
                            transform.snks["m"]: source.srcs["b"],
@@ -111,16 +111,16 @@ pipeline.run()
 which produces
 
 ```
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
 ```
 

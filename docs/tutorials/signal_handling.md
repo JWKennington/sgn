@@ -36,21 +36,21 @@ class MySignalAwareSource(SourceElement, SignalEOS):
     def __post_init__(self):
         super().__post_init__()
         self.count = 0
-        
+
     def new(self, pad):
         # Check if we received a signal (like Ctrl+C)
         eos = self.signaled_eos() or self.count > 10
-        
+
         time.sleep(1)
         self.count += 1
         print(f"Producing frame {self.count}")
-        
+
         return Frame(data=f"Frame {self.count}", EOS=eos)
 
 class MySink(SinkElement):
     def pull(self, pad, frame):
         print(f"Processing: {frame.data}")
-        
+
         if frame.EOS:
             print("End of stream received, shutting down...")
             self.mark_eos(pad)
@@ -100,17 +100,17 @@ class DataGenerator(SourceElement, SignalEOS):
     def __post_init__(self):
         super().__post_init__()
         self.count = 0
-        
+
     def new(self, pad):
         # Simulate some data generation work
         time.sleep(0.5)
         self.count += 1
-        
+
         # Check if we received a signal
-        eos = self.signaled_eos() or self.count > 10 
+        eos = self.signaled_eos() or self.count > 10
         if eos:
             print("Signal received, preparing to shut down...")
-        
+
         data = f"Data point {self.count}"
         return Frame(data=data, EOS=eos)
 
@@ -118,17 +118,17 @@ class DataProcessor(TransformElement):
     def pull(self, pad, frame):
         # Store the incoming frame for each pad
         setattr(self, f"frame_{pad.name}", frame)
-    
+
     def new(self, pad):
         # Get the corresponding input frame
         frame = getattr(self, f"frame_{self.sink_pads[0].name}")
-        
+
         # Process the data (in this case, just uppercase it)
         if not frame.EOS:
             processed_data = frame.data.upper()
         else:
             processed_data = frame.data
-            
+
         # Pass on the EOS flag
         return Frame(data=processed_data, EOS=frame.EOS)
 
@@ -136,7 +136,7 @@ class DataSaver(SinkElement):
     def __post_init__(self):
         super().__post_init__()
         self.saved_data = []
-        
+
     def pull(self, pad, frame):
         if not frame.EOS:
             # Save the data

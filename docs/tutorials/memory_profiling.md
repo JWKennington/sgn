@@ -54,7 +54,7 @@ class SimpleSource(SourceElement):
         super().__init__(**kwargs)
         self.counter = 0
         self.max_frames = 10
-    
+
     def new(self, pad):
         # Generate a new frame with incrementing counter
         self.counter += 1
