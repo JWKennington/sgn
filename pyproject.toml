@@ -79,6 +79,16 @@ dev = [
     "sgn[test]",
 ]
 
+[project.entry-points.sgn_elements]
+IterSource = "sgn.sources:IterSource"
+NullSource = "sgn.sources:NullSource"
+DequeSource = "sgn.sources:DequeSource"
+StatsSource = "sgn.sources:StatsSource"
+CallableTransform = "sgn.transforms:CallableTransform"
+CollectSink = "sgn.sinks:CollectSink"
+NullSink = "sgn.sinks:NullSink"
+DequeSink = "sgn.sinks:DequeSink"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
