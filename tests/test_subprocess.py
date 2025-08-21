@@ -11,6 +11,7 @@ import queue
 from dataclasses import dataclass
 from queue import Empty
 
+from sgn.sinks import NullSink
 from sgn.sources import SignalEOS
 from sgn.subprocess import (
     Parallelize,
@@ -590,7 +591,7 @@ def test_subprocess_run_exception():
 
     # Now run the test
     parallelize = Parallelize(TestPipeline())
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         parallelize.run()
 
     # Verify cleanup
@@ -829,6 +830,7 @@ def test_subprocess_internal_runtime_error():
             self.terminated = multiprocessing.Event()
             self.terminated.set()  # Set terminated
             self.at_eos = False  # But not at_eos
+            self._retrieved_worker_exception = None
 
     element = TestParallelizeElement()
     with pytest.raises(RuntimeError):
@@ -1123,6 +1125,212 @@ def test_parameter_extraction_edge_cases():
     assert "method_default_param" in extracted
     assert extracted["existing_param"] == 42  # From instance
     assert extracted["method_default_param"] == "from_method"
+
+
+def test_worker_exception_storage_threading():
+    """Test worker exception storage in threading mode."""
+
+    @dataclass
+    class ExceptionSource(ParallelizeSourceElement):
+        """A source that raises an exception in worker_process."""
+
+        _use_threading_override: bool = True  # Force threading mode
+
+        def __post_init__(self):
+            super().__post_init__()
+
+        def new(self, pad):
+            # Return empty frame - worker handles the logic
+            return Frame(data=None)
+
+        def worker_process(self, context: WorkerContext) -> None:
+            """Worker that raises a test exception."""
+            raise ValueError("Test exception from worker")
+
+    # Create the source element
+    source = ExceptionSource(source_pad_names=("test",))
+
+    # Start the worker thread and let it fail
+    source.worker.start()
+    source.worker.join(timeout=2)
+
+    # Verify that the worker terminated
+    assert source.terminated.is_set()
+
+    # Get the exception and verify it
+    stored_exception = source.get_worker_exception()
+    assert stored_exception is not None
+    assert isinstance(stored_exception, ValueError)
+    assert str(stored_exception) == "Test exception from worker"
+
+
+def test_worker_exception_storage_multiprocessing():
+    """Test worker exception storage in multiprocessing mode."""
+
+    @dataclass
+    class ExceptionSource(ParallelizeSourceElement):
+        """A source that raises an exception in worker_process."""
+
+        _use_threading_override: bool = False
+
+        def __post_init__(self):
+            super().__post_init__()
+
+        def new(self, pad):
+            return Frame(data=None)
+
+        def worker_process(self, context: WorkerContext) -> None:
+            """Worker that raises a test exception."""
+            raise ValueError("Test exception from worker")
+
+    # Create the source element
+    source = ExceptionSource(source_pad_names=("test",))
+
+    # Start the worker process and let it fail
+    source.worker.start()
+    source.worker.join(timeout=2)
+
+    # Verify that the worker terminated
+    assert source.terminated.is_set()
+
+    # Get the exception and verify it
+    stored_exception = source.get_worker_exception()
+    assert stored_exception is not None
+    assert isinstance(stored_exception, ValueError)
+    assert str(stored_exception) == "Test exception from worker"
+
+
+def test_get_worker_exception_threading():
+    """Test get_worker_exception method in threading mode."""
+
+    @dataclass
+    class FailingThreadedSource(ParallelizeSourceElement):
+        """Source that fails in worker with a specific error."""
+
+        _use_threading_override: bool = True
+
+        def __post_init__(self):
+            super().__post_init__()
+
+        def new(self, pad):
+            return Frame(data=None)
+
+        def worker_process(self, context: WorkerContext) -> None:
+            raise AssertionError("Custom assertion error from threaded worker")
+
+    # Create the element
+    source = FailingThreadedSource(source_pad_names=("test",))
+
+    # Start the worker thread and let it fail
+    source.worker.start()
+    source.worker.join(timeout=2)
+
+    # Verify that the worker terminated and we can get the exception
+    assert source.terminated.is_set()
+
+    # Test that get_worker_exception returns the stored exception
+    worker_exc = source.get_worker_exception()
+    assert worker_exc is not None
+    assert isinstance(worker_exc, AssertionError)
+    assert str(worker_exc) == "Custom assertion error from threaded worker"
+
+    # Test caching: second call should return the same cached exception
+    worker_exc2 = source.get_worker_exception()
+    assert worker_exc2 is worker_exc  # Same object, proving it's cached
+
+
+def test_get_worker_exception_multiprocessing():
+    """Test get_worker_exception method in multiprocessing mode."""
+
+    @dataclass
+    class FailingProcessSource(ParallelizeSourceElement):
+        """Source that fails in worker with a specific error."""
+
+        _use_threading_override: bool = False
+
+        def __post_init__(self):
+            super().__post_init__()
+
+        def new(self, pad):
+            return Frame(data=None)
+
+        def worker_process(self, context: WorkerContext) -> None:
+            raise ValueError("Custom value error from process worker")
+
+    # Create the element
+    source = FailingProcessSource(source_pad_names=("test",))
+
+    # Start the worker process and let it fail
+    source.worker.start()
+    source.worker.join(timeout=2)
+
+    # Verify that the worker terminated and we can get the exception
+    assert source.terminated.is_set()
+
+    # Test that get_worker_exception returns the stored exception
+    worker_exc = source.get_worker_exception()
+    assert worker_exc is not None
+    assert isinstance(worker_exc, ValueError)
+    assert str(worker_exc) == "Custom value error from process worker"
+
+    # Test caching: second call should return the same cached exception
+    worker_exc2 = source.get_worker_exception()
+    assert worker_exc2 is worker_exc  # Same object, proving it's cached
+
+
+def test_get_worker_exception_pipeline():
+    """Test that worker exceptions are properly chained through the pipeline."""
+
+    @dataclass
+    class ExceptionSource(ParallelizeSourceElement):
+        """A source that raises an exception in worker_process."""
+
+        _use_threading_override: bool = True  # Force threading mode
+
+        def __post_init__(self):
+            super().__post_init__()
+
+        def new(self, pad):
+            return Frame(data=None)
+
+        def worker_process(self, context: WorkerContext) -> None:
+            """Worker that raises a test exception."""
+            raise ValueError("Test exception from worker")
+
+    pipeline = Pipeline()
+    pipeline.insert(
+        ExceptionSource(
+            name="src1",
+            source_pad_names=("H1",),
+        ),
+        NullSink(
+            name="snk1",
+            sink_pad_names=("H1",),
+        ),
+        link_map={
+            "snk1:snk:H1": "src1:src:H1",
+        },
+    )
+
+    # The key test: pipeline should raise RuntimeError but preserve the
+    # original ValueError in the chain
+    with pytest.raises(RuntimeError, match="worker stopped before EOS") as exc_info:
+        pipeline.run()
+
+    # Verify the original ValueError is in the exception chain
+    current_exc = exc_info.value
+    found_value_error = False
+    while current_exc is not None:
+        if isinstance(current_exc, ValueError) and "Test exception from worker" in str(
+            current_exc
+        ):
+            found_value_error = True
+            break
+        current_exc = current_exc.__cause__
+
+    assert (
+        found_value_error
+    ), "Original ValueError should be preserved in exception chain"
 
 
 if __name__ == "__main__":

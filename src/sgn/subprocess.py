@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import logging
 import multiprocessing
@@ -35,6 +36,7 @@ class WorkerContext:
         self.shutdown_event = worker_shutdown
         self.shared_memory = kwargs.get("shm_list", [])
         self.state = {}  # Persistent dict for worker state across calls
+        self.worker_exception = None
         self._raw_kwargs = kwargs
 
     def should_stop(self) -> bool:
@@ -230,7 +232,7 @@ class Parallelize(SignalEOS):
         try:
             # Disable auto-parallelization since we're already in a Parallelize context
             self.pipeline.run(auto_parallelize=False)
-        except Exception as e:
+        except Exception:
             # Signal all workers to stop when an exception occurs
             for p in Parallelize.instance_list:
                 p.worker_stop.set()
@@ -252,7 +254,7 @@ class Parallelize(SignalEOS):
                     p.worker.join(Parallelize.join_timeout)
                     if hasattr(p.worker, "kill") and p.worker.is_alive():
                         p.worker.kill()
-            raise RuntimeError(e)
+            raise
 
         # Signal all workers to stop when pipeline completes normally
         for p in Parallelize.instance_list:
@@ -332,13 +334,14 @@ class _ParallelizeBase(Parallelize):
         # Extract worker parameters automatically from instance attributes
         worker_params = self._extract_worker_parameters()
 
-        # Create appropriate queue based on mode
+        # Create appropriate queues based on mode
         if self.use_threading:
             self.in_queue = queue.Queue(maxsize=self.queue_maxsize)
             self.out_queue = queue.Queue(maxsize=self.queue_maxsize)
             self.worker_stop = threading.Event()
             self.worker_shutdown = threading.Event()
             self.terminated = threading.Event()
+            self.worker_exception = queue.Queue(maxsize=1)
             self.worker = threading.Thread(
                 target=self._worker_wrapper,
                 args=(self.terminated,),
@@ -348,6 +351,7 @@ class _ParallelizeBase(Parallelize):
                     "outq": self.out_queue,
                     "worker_stop": self.worker_stop,
                     "worker_shutdown": self.worker_shutdown,
+                    "worker_exception": self.worker_exception,
                     **worker_params,
                 },
                 daemon=False,  # Ensure the thread doesn't terminate too early
@@ -358,6 +362,7 @@ class _ParallelizeBase(Parallelize):
             self.worker_stop = multiprocessing.Event()
             self.worker_shutdown = multiprocessing.Event()
             self.terminated = multiprocessing.Event()
+            self.worker_exception = multiprocessing.Queue(maxsize=1)
             self.worker = multiprocessing.Process(
                 target=self._worker_wrapper,
                 args=(self.terminated,),
@@ -367,6 +372,7 @@ class _ParallelizeBase(Parallelize):
                     "outq": self.out_queue,
                     "worker_stop": self.worker_stop,
                     "worker_shutdown": self.worker_shutdown,
+                    "worker_exception": self.worker_exception,
                     **worker_params,
                 },
                 daemon=False,  # Ensure the process doesn't terminate too early
@@ -374,6 +380,9 @@ class _ParallelizeBase(Parallelize):
 
         # Add to the global instance list
         Parallelize.instance_list.append(self)
+
+        # Storage for retrieved worker exception in main process
+        self._retrieved_worker_exception = None
 
     def _extract_worker_parameters(self):
         """Extract parameters for worker_process method from instance attributes."""
@@ -405,9 +414,19 @@ class _ParallelizeBase(Parallelize):
             shm_list=kwargs.get("shm_list", []),
         )
 
+        # Get shared exception storage
+        worker_exception = kwargs.get("worker_exception")
+
         # Extract worker parameters (excluding the special ones)
         worker_params = {}
-        special_keys = {"shm_list", "inq", "outq", "worker_stop", "worker_shutdown"}
+        special_keys = {
+            "shm_list",
+            "inq",
+            "outq",
+            "worker_stop",
+            "worker_shutdown",
+            "worker_exception",
+        }
         for key, value in kwargs.items():
             if key not in special_keys:
                 worker_params[key] = value
@@ -454,6 +473,10 @@ class _ParallelizeBase(Parallelize):
 
         except Exception as e:
             print("Exception in worker:", repr(e))
+            # Store the exception in shared queue for main thread access
+            if worker_exception is not None:
+                with contextlib.suppress(Exception):
+                    worker_exception.put(e)
         finally:
             terminated.set()
             if context.should_shutdown() and not context.should_stop():
@@ -557,6 +580,41 @@ class _ParallelizeBase(Parallelize):
         self.out_queue = None
         return out
 
+    def get_worker_exception(self):
+        """Get the worker exception if available, returning None if no exception."""
+        # Return cached exception if we already retrieved it
+        if self._retrieved_worker_exception is not None:
+            return self._retrieved_worker_exception
+
+        if not hasattr(self, "worker_exception") or self.worker_exception is None:
+            return None
+
+        # Try to get the exception from the worker queue and cache it
+        with contextlib.suppress(Exception):
+            exc = self.worker_exception.get_nowait()
+            if exc is not None:
+                self._retrieved_worker_exception = exc
+            return exc
+
+    def check_worker_terminated(self):
+        """
+        Check for premature worker termination.
+
+        This method verifies that the worker has not terminated before
+        reaching End-Of-Stream (EOS). It is used internally to detect abnormal worker
+        termination.
+
+        Raises:
+            RuntimeError: If the worker has terminated but has not reached EOS,
+                         chained with the original worker exception if available
+        """
+        if self.terminated.is_set() and not self.at_eos:
+            worker_exc = self.get_worker_exception()
+            if worker_exc:
+                raise RuntimeError("worker stopped before EOS") from worker_exc
+            else:
+                raise RuntimeError("worker stopped before EOS")
+
     def internal(self):
         """
         Check for premature worker termination.
@@ -566,10 +624,10 @@ class _ParallelizeBase(Parallelize):
         termination.
 
         Raises:
-            RuntimeError: If the worker has terminated but has not reached EOS
+            RuntimeError: If the worker has terminated but has not reached EOS,
+                         chained with the original worker exception if available
         """
-        if self.terminated.is_set() and not self.at_eos:
-            raise RuntimeError("worker stopped before EOS")
+        self.check_worker_terminated()
 
 
 @dataclass
@@ -834,6 +892,8 @@ class ParallelizeSourceElement(SourceElement, _ParallelizeBase, Parallelize):
 
     frame_factory: Callable = Frame
     at_eos: bool = False
+
+    internal = _ParallelizeBase.internal
 
     def __post_init__(self):
         SourceElement.__post_init__(self)
