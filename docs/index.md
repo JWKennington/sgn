@@ -30,7 +30,7 @@ bound to classes called ["Source Elements"](api/base/#sgn.base.SourceElement),
 Elements"](api/base/#sgn.base.SinkElement). Collections of elements arranged in
 a graph along with the event loop are contained in a
 ["Pipeline"](api/base/#sgn.apps.Pipeline) Data must have an origin (Source) and
-a end point (Sink) in all graphs. 
+a end point (Sink) in all graphs.
 
 ```
             ----------------------
@@ -41,7 +41,7 @@ a end point (Sink) in all graphs.
 |                     |                      | The event loop runs this graph over and
 |                     |                      | over pulling data through the pads
 |           --- [sink pad 'b'] ---           |
-|          |                      |          | The collection of elements and event 
+|          |                      |          | The collection of elements and event
 |          |  Transform Element 1 |          | loop is managed by a Pipeline class
 |          |                      |          |
 |           ---[source pad 'b']---           |
@@ -50,13 +50,13 @@ a end point (Sink) in all graphs.
 |                    ...                     |
 |                    ...                     |
 |                     |                      |
-|                     | data flow            | 
- \                    V                      | 
+|                     | data flow            |
+ \                    V                      |
   \         --- [sink pad 'x'] ---          /
    \       |                      |        /
     \      |   Sink Element 1     |       /
      >     |                      |      ^
-            ----------------------       
+            ----------------------
 ```
 
 ### Key concepts
@@ -102,13 +102,21 @@ class MySinkClass(SinkElement):
         print (frame.data)
 
 source = MySourceClass(source_pad_names = ("a",))
-sink = MySinkClass(sink_pad_names = ("x",))
+sink = MySinkClass(sink_pad_names = ("a",))  # Matching pad names
 
 pipeline = Pipeline()
 
-pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"]})
+pipeline.connect(source, sink)  # Automatic connection with matching names
 
 pipeline.run()
+```
+
+### Alternative: Explicit Linking
+
+For more complex scenarios or when you need explicit control, you can still use the traditional approach:
+
+```{.python notest}
+pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"]})
 ```
 
 If you run this, it will run forever and you will see

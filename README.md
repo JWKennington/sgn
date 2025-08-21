@@ -76,16 +76,9 @@ snk = CollectSink(
 # Create the Pipeline
 p = Pipeline()
 
-# Insert elements into pipeline and link them explicitly
-p.insert(
-    src,
-    trn1,
-    snk,
-    link_map={
-        "t1:snk:H1": "src1:src:H1",
-        "snk1:snk:H1": "t1:src:H1",
-    },
-)
+# Connect elements using pipeline.connect()
+p.connect(src, trn1)  # Connects matching pad names automatically
+p.connect(trn1, snk)  # H1 -> H1
 
 # Run the pipeline
 p.run()
@@ -93,6 +86,28 @@ p.run()
 # Check the result of the sink queue to see outputs
 assert list(snk.collects["snk1:snk:H1"]) == [10, 20, 30]
 
+```
+
+### Advanced Grouping and Selection
+
+SGN also supports grouping elements and selecting specific pads for more complex pipelines:
+
+```python
+from sgn import Pipeline, IterSource, NullSink
+from sgn.groups import group, select
+
+# Create multiple sources
+src1 = IterSource(name="src1", source_pad_names=["H1"])
+src2 = IterSource(name="src2", source_pad_names=["L1", "V1"])
+
+# Create sink
+sink = NullSink(name="sink", sink_pad_names=["H1", "L1"])
+
+# Group sources and select specific pads
+sources = group(src1, select(src2, "L1"))  # Include all of src1, only L1 from src2
+
+pipeline = Pipeline()
+pipeline.connect(sources, sink)  # Automatic matching: H1->H1, L1->L1
 ```
 
 The above example can be modified to use any data type, including json-friendly
@@ -251,18 +266,18 @@ complicated example with multiple pads:
 |                                             |
 |              Source Element 1               |
 |                                             |
- --- [source pad 'a'] --- [source pad 'b'] --- 
+ --- [source pad 'a'] --- [source pad 'b'] ---
            |                 |
            | data flow       |
            V                 V
- --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- 
-|                                             | 
+ --- [sink pad 'x'  ] --- [sink pad 'y'  ] ---
+|                                             |
 |               Sink Element 1                |
-|                                             | 
+|                                             |
 ----------------------------------------------
 ```
 
-```python 
+```python
 from dataclasses import dataclass
 from sgn.base import SourceElement, SinkElement, Frame
 from sgn.apps import Pipeline
@@ -302,7 +317,7 @@ pipeline.run()
 Running this produces the following output:
 
 ```
-e1-056827:~ crh184$ ./sgn-readme 
+e1-056827:~ crh184$ ./sgn-readme
 Hello!
 How are you?
 Hello!
@@ -405,7 +420,7 @@ class MySourceClass(SourceElement):
         super().__post_init__()
         # save a pad map also hashed by pad not the string
         # NOTE: this must be done after super() post init so that the source pads exist
-        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
         self.cnt = 0
     def internal(self):
         self.cnt += 1
@@ -432,7 +447,7 @@ pipeline = Pipeline()
 pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"], sink.snks["y"]: source.srcs["b"],})
 
 pipeline.run()
-``` 
+```
 
 which now produces
 
@@ -459,7 +474,7 @@ sink pads (but not the other way around). Lets try to implement this graph
 |                                             |
 |              Source Element 1               |
 |                                             |
- --- [source pad 'a'] --- [source pad 'b'] --- 
+ --- [source pad 'a'] --- [source pad 'b'] ---
            |\                |\
            | \               | \
            |  \              |  \_________________________________________
@@ -478,10 +493,10 @@ sink pads (but not the other way around). Lets try to implement this graph
            |                 |                               /
            | data flow       |                              /
            V                 V                             V
- --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- [sink pad 'z'  ] --- 
-|                                                                  | 
+ --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- [sink pad 'z'  ] ---
+|                                                                  |
 |               Sink Element 1                                     |
-|                                                                  | 
+|                                                                  |
 -------------------------------------------------------------------
 ```
 
@@ -500,7 +515,7 @@ class MySourceClass(SourceElement):
         super().__post_init__()
         # save a pad map also hashed by pad not the string
         # NOTE: this must be done after super() post init so that the source pads exist
-        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()} 
+        self.pad_map = {self.srcs[p]: d for p,d in self.pad_str_map.items()}
         self.cnt = 0
     def internal(self):
         self.cnt += 1
@@ -525,8 +540,8 @@ class MyTransformClass(TransformElement):
     def new(self, pad):
         # This element just has one source pad
         return self.outframe
-        
-        
+
+
 class MySinkClass(SinkElement):
     def __post_init__(self):
         super().__post_init__()
@@ -546,9 +561,9 @@ sink = MySinkClass(sink_pad_names = ("x","y","z"))
 pipeline = Pipeline()
 
 pipeline.insert(source,
-               transform, 
+               transform,
                sink,
-               link_map = {sink.snks["x"]: source.srcs["a"], 
+               link_map = {sink.snks["x"]: source.srcs["a"],
                            sink.snks["y"]: source.srcs["b"],
                            transform.snks["l"]: source.srcs["a"],
                            transform.snks["m"]: source.srcs["b"],
@@ -561,17 +576,17 @@ pipeline.run()
 which produces
 
 ```
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
- Hello! How are you? ?uoy era woH !olleH 
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
+ Hello! How are you? ?uoy era woH !olleH
 ```
 ### All you need to know about pads and names
 
@@ -580,7 +595,7 @@ as the hash).  When developing you might get a bit turned around about how to
 access and reference pads by name.  Here are a few rules:
 
 - Elements have a notion of a short pad name.  These are verbatim what get
-  passed to `source_pad_names` and `sink_pad_names`. 
+  passed to `source_pad_names` and `sink_pad_names`.
 - The Element base classes will initialize pads with long pad names of the form
   `<element name>:["snk" | "source"]:<short name>`.
 - These long names are almost never needed for anything programmatically but

@@ -10,6 +10,7 @@ except ImportError:
 
 # Import flattening
 from sgn.base import SourcePad, SinkPad, TransformElement, SourceElement, SinkElement
+from sgn.groups import group, select
 from sgn.frames import Frame, IterFrame
 from sgn.sinks import CollectSink, DequeSink, NullSink
 from sgn.sources import DequeSource, IterSource, NullSource, SignalEOS

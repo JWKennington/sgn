@@ -21,6 +21,7 @@ from sgn.base import (
     SourcePad,
     get_sgn_logger,
 )
+from sgn.groups import ElementGroup, PadSelection
 from sgn.profile import async_sgn_mem_profile
 from sgn.visualize import visualize
 
@@ -120,6 +121,127 @@ class Pipeline:
             self.graph.update(graph)
 
         return self
+
+    def connect(
+        self,
+        source: Union[Element, ElementGroup, PadSelection],
+        sink: Union[Element, ElementGroup, PadSelection],
+        link_map: Optional[Dict[str, str]] = None,
+    ) -> Pipeline:
+        """Connect elements, ElementGroups, or PadSelections using implicit linking.
+
+        This method supports multiple linking patterns:
+        1. Element-to-element linking with implicit pad matching:
+           pipeline.connect(source_element, sink_element)
+        2. Element-to-element linking with explicit mapping:
+           pipeline.connect(source_element, sink_element, link_map={"sink": "source"})
+        3. ElementGroup linking (supports elements and pad selections):
+           pipeline.connect(group(s1, s2), sink_element)
+           pipeline.connect(group(source, select(element, "pad1")), sink)
+        4. Direct PadSelection linking:
+           pipeline.connect(select(source, "pad1"), sink_element)
+
+        Args:
+            source:
+                Element, ElementGroup, or PadSelection, the source for linking
+            sink:
+                Element, ElementGroup, or PadSelection, the sink for linking
+            link_map:
+                dict[str, str], optional, explicit mapping of sink pad names to
+                source pad names.
+
+        Returns:
+            Pipeline: The pipeline with the new links added.
+
+        Raises:
+            ValueError: If implicit linking strategy is ambiguous.
+            TypeError: If arguments are of unexpected types.
+        """
+        if isinstance(source, SinkElement):
+            msg = f"Source '{source.name}' is a SinkElement and has no source pads"
+            raise ValueError(msg)
+        if isinstance(sink, SourceElement):
+            msg = f"Sink '{sink.name}' is a SourceElement and has no sink pads"
+            raise ValueError(msg)
+
+        source_pads = source.srcs
+        sink_pads = sink.snks
+
+        # Ensure all elements are inserted in pipeline
+        def ensure_elements_inserted(obj):
+            if isinstance(obj, (SourceElement, TransformElement, SinkElement)):
+                if obj.name not in self._registry:
+                    self.insert(obj)
+            elif isinstance(obj, ElementGroup):
+                for element in obj.elements:
+                    if element.name not in self._registry:
+                        self.insert(element)
+            elif isinstance(obj, PadSelection):
+                if obj.element.name not in self._registry:
+                    self.insert(obj.element)
+
+        ensure_elements_inserted(source)
+        ensure_elements_inserted(sink)
+
+        return self._connect_pads(source_pads, sink_pads, link_map)
+
+    def _connect_pads(
+        self,
+        source_pads: Dict[str, SourcePad],
+        sink_pads: Dict[str, SinkPad],
+        link_map: Optional[Dict[str, str]] = None,
+    ) -> Pipeline:
+        """Connect source and sink pads using implicit linking strategies."""
+        resolved_link_map: Dict[Union[str, SinkPad], Union[str, SourcePad]]
+        source_pad_names = set(source_pads.keys())
+        sink_pad_names = set(sink_pads.keys())
+
+        # Determine linking strategy
+        if link_map:
+            # Explicit mapping provided
+            resolved_link_map = {}
+            for sink_pad_name, source_pad_name in link_map.items():
+                if sink_pad_name not in sink_pads:
+                    msg = f"sink pad '{sink_pad_name}' not found"
+                    raise KeyError(msg)
+                if source_pad_name not in source_pads:
+                    msg = f"source pad '{source_pad_name}' not found"
+                    raise KeyError(msg)
+
+                sink_pad = sink_pads[sink_pad_name]
+                source_pad = source_pads[source_pad_name]
+                resolved_link_map[sink_pad] = source_pad
+
+            return self.link(resolved_link_map)
+
+        elif source_pad_names == sink_pad_names:
+            # One-to-one linking strategy: same pad names
+            resolved_link_map = {
+                sink_pads[name]: source_pads[name] for name in source_pad_names
+            }
+            return self.link(resolved_link_map)
+
+        elif len(sink_pad_names) == 1:
+            # N-to-one linking strategy
+            sink_pad = next(iter(sink_pads.values()))
+            for source_pad in source_pads.values():
+                self.link({sink_pad: source_pad})
+            return self
+
+        elif len(source_pad_names) == 1:
+            # One-to-N linking strategy
+            source_pad = next(iter(source_pads.values()))
+            resolved_link_map = {
+                sink_pad: source_pad for sink_pad in sink_pads.values()
+            }
+            return self.link(resolved_link_map)
+
+        else:
+            msg = (
+                "unable to determine unambiguous linking strategy from source "
+                "and sink pads. an explicit link_map is required."
+            )
+            raise ValueError(msg)
 
     def nodes(self, pads: bool = True, intra: bool = False) -> tuple[str, ...]:
         """Get the nodes in the pipeline.
