@@ -6,9 +6,11 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Optional, Sequence, Union
+from typing import Callable, Dict, Generic, Optional, Sequence, TypeVar, Union
 
 from .frames import DataSpec, Frame
+
+FrameLike = TypeVar("FrameLike", bound=Frame)
 
 SGN_LOG_LEVELS = {
     "DEBUG": logging.DEBUG,
@@ -401,7 +403,7 @@ class SourceElement(ElementLike):
 
 
 @dataclass(repr=False, kw_only=True)
-class TransformElement(ElementLike):
+class TransformElement(ElementLike, Generic[FrameLike]):
     """Both "source_pads" and "sink_pads" must exist. The execution scheduling
     flow of the logic within a TransformElement is as follows: 1.) all sink
     pads, 2.) the internal pad, 3.) all source pads. The execution of all
@@ -456,7 +458,7 @@ class TransformElement(ElementLike):
         # Second, (internal -> all sources)
         self.graph.update({s: {self.internal_pad} for s in self.source_pads})
 
-    def pull(self, pad: SinkPad, frame: Frame) -> None:
+    def pull(self, pad: SinkPad, frame: FrameLike) -> None:
         """Pull data from the input pads (source pads of upstream elements), must be
         implemented by subclasses.
 
@@ -468,7 +470,7 @@ class TransformElement(ElementLike):
         """
         raise NotImplementedError
 
-    def new(self, pad: SourcePad) -> Frame:
+    def new(self, pad: SourcePad) -> FrameLike:
         """New frames are created on "pad". Must be provided by subclass.
 
         Args:
@@ -482,7 +484,7 @@ class TransformElement(ElementLike):
 
 
 @dataclass(kw_only=True)
-class SinkElement(ElementLike):
+class SinkElement(ElementLike, Generic[FrameLike]):
     """Sink element represents a terminal node in a pipeline, that typically writes data
     to disk, etc. Sink_pads must exist but not source_pads.
 
@@ -539,7 +541,7 @@ class SinkElement(ElementLike):
         """
         self._at_eos[pad] = True
 
-    def pull(self, pad: SinkPad, frame: Frame) -> None:
+    def pull(self, pad: SinkPad, frame: FrameLike) -> None:
         """Pull for a SinkElement represents the action of associating a frame with a
         particular input source pad a frame. This function must be provided by the
         subclass, and is where any "final" behavior must occur, e.g. writing to disk,
