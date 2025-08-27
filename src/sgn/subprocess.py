@@ -9,7 +9,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Protocol
 
 from sgn import SinkElement, TransformElement
 from sgn.base import SourceElement
@@ -17,6 +17,77 @@ from sgn.frames import Frame
 from sgn.sources import SignalEOS
 
 logger = logging.getLogger("sgn.subprocess")
+
+
+class QueueProtocol(Protocol):
+    """Protocol defining a common Queue interface."""
+
+    def get(self, block: bool = True, timeout: Optional[float] = None) -> Any:
+        """Get an item from the queue."""
+        ...
+
+    def put(
+        self, item: Any, block: bool = True, timeout: Optional[float] = None
+    ) -> None:
+        """Put an item into the queue."""
+        ...
+
+    def empty(self) -> bool:
+        """Return True if the queue is empty."""
+        ...
+
+    def get_nowait(self) -> Any:
+        """Get an item from the queue without blocking."""
+        ...
+
+    def put_nowait(self, item: Any) -> None:
+        """Put an item into the queue without blocking."""
+        ...
+
+
+class QueueWrapper:
+    """
+    A wrapper that provides a unified interface for both Queue implementations.
+
+    This abstraction handles the differences between multiprocessing.Queue and
+    queue.Queue APIs, specifically providing no-op implementations for
+    multiprocessing-specific methods when wrapping a queue.Queue.
+    """
+
+    def __init__(self, queue_instance: QueueProtocol):
+        self._queue = queue_instance
+
+    def get(self, block: bool = True, timeout: Optional[float] = None) -> Any:
+        """Get an item from the queue."""
+        return self._queue.get(block=block, timeout=timeout)
+
+    def put(
+        self, item: Any, block: bool = True, timeout: Optional[float] = None
+    ) -> None:
+        """Put an item into the queue."""
+        self._queue.put(item, block=block, timeout=timeout)
+
+    def empty(self) -> bool:
+        """Return True if the queue is empty."""
+        return self._queue.empty()
+
+    def get_nowait(self) -> Any:
+        """Get an item from the queue without blocking."""
+        return self._queue.get_nowait()
+
+    def put_nowait(self, item: Any) -> None:  # pragma: no cover
+        """Put an item into the queue without blocking."""
+        self._queue.put_nowait(item)
+
+    def cancel_join_thread(self) -> None:  # pragma: no cover
+        """Cancel the background thread (no-op for queue.Queue)."""
+        if hasattr(self._queue, "cancel_join_thread"):
+            self._queue.cancel_join_thread()
+
+    def close(self) -> None:  # pragma: no cover
+        """Close the queue (no-op for queue.Queue)."""
+        if hasattr(self._queue, "close"):
+            self._queue.close()
 
 
 class WorkerContext:
@@ -136,9 +207,9 @@ class Parallelize(SignalEOS):
         super().__exit__(exc_type, exc_value, exc_traceback)
         # rejoin all the workers
         for e in Parallelize.instance_list:
-            if e.in_queue is not None and hasattr(e.in_queue, "cancel_join_thread"):
+            if e.in_queue is not None:
                 e.in_queue.cancel_join_thread()
-            if e.out_queue is not None and hasattr(e.out_queue, "cancel_join_thread"):
+            if e.out_queue is not None:
                 e.out_queue.cancel_join_thread()
 
             if (
@@ -239,11 +310,9 @@ class Parallelize(SignalEOS):
 
             # Clean up all workers
             for p in Parallelize.instance_list:
-                if p.in_queue is not None and hasattr(p.in_queue, "cancel_join_thread"):
+                if p.in_queue is not None:
                     p.in_queue.cancel_join_thread()
-                if p.out_queue is not None and hasattr(
-                    p.out_queue, "cancel_join_thread"
-                ):
+                if p.out_queue is not None:
                     p.out_queue.cancel_join_thread()
 
                 if (
@@ -336,12 +405,12 @@ class _ParallelizeBase(Parallelize):
 
         # Create appropriate queues based on mode
         if self.use_threading:
-            self.in_queue = queue.Queue(maxsize=self.queue_maxsize)
-            self.out_queue = queue.Queue(maxsize=self.queue_maxsize)
+            self.in_queue = QueueWrapper(queue.Queue(maxsize=self.queue_maxsize))
+            self.out_queue = QueueWrapper(queue.Queue(maxsize=self.queue_maxsize))
             self.worker_stop = threading.Event()
             self.worker_shutdown = threading.Event()
             self.terminated = threading.Event()
-            self.worker_exception = queue.Queue(maxsize=1)
+            self.worker_exception = QueueWrapper(queue.Queue(maxsize=1))
             self.worker = threading.Thread(
                 target=self._worker_wrapper,
                 args=(self.terminated,),
@@ -357,12 +426,16 @@ class _ParallelizeBase(Parallelize):
                 daemon=False,  # Ensure the thread doesn't terminate too early
             )
         else:
-            self.in_queue = multiprocessing.Queue(maxsize=self.queue_maxsize)
-            self.out_queue = multiprocessing.Queue(maxsize=self.queue_maxsize)
+            self.in_queue = QueueWrapper(
+                multiprocessing.Queue(maxsize=self.queue_maxsize)
+            )
+            self.out_queue = QueueWrapper(
+                multiprocessing.Queue(maxsize=self.queue_maxsize)
+            )
             self.worker_stop = multiprocessing.Event()
             self.worker_shutdown = multiprocessing.Event()
             self.terminated = multiprocessing.Event()
-            self.worker_exception = multiprocessing.Queue(maxsize=1)
+            self.worker_exception = QueueWrapper(multiprocessing.Queue(maxsize=1))
             self.worker = multiprocessing.Process(
                 target=self._worker_wrapper,
                 args=(self.terminated,),
@@ -505,32 +578,28 @@ class _ParallelizeBase(Parallelize):
         """Drain and close the input and output queues.
 
         Args:
-            input_queue: The input queue to drain and close
-            output_queue: The output queue to drain and close
+            input_queue: The input QueueWrapper to drain and close
+            output_queue: The output QueueWrapper to drain and close
         """
         # Drain output queue
         if output_queue is not None:
             try:
                 while True:
-                    if hasattr(output_queue, "get_nowait"):
-                        output_queue.get_nowait()
+                    output_queue.get_nowait()
             except (queue.Empty, Exception):
                 pass
-            # Close the queue if it supports closing
-            if hasattr(output_queue, "close"):
-                output_queue.close()
+            # Close the queue
+            output_queue.close()
 
         # Drain input queue
         if input_queue is not None:
             try:
                 while True:
-                    if hasattr(input_queue, "get_nowait"):
-                        input_queue.get_nowait()
+                    input_queue.get_nowait()
             except (queue.Empty, Exception):
                 pass
-            # Close the queue if it supports closing
-            if hasattr(input_queue, "close"):
-                input_queue.close()
+            # Close the queue
+            input_queue.close()
 
     def sub_process_shutdown(self, timeout=0):
         """
@@ -569,8 +638,7 @@ class _ParallelizeBase(Parallelize):
             try:
                 while True:
                     # Queue.empty() is not reliable, so we use get_nowait()
-                    if hasattr(self.out_queue, "get_nowait"):
-                        out.append(self.out_queue.get_nowait())
+                    out.append(self.out_queue.get_nowait())
             except (queue.Empty, Exception):
                 pass  # Queue is empty
 

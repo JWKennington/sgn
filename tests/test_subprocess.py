@@ -194,7 +194,7 @@ class NumberSource(SourceElement, SignalEOS):
 class SimpleThreadedSource(ParallelizeSourceElement):
     """A simple source element that generates sequential numbers using a thread."""
 
-    _use_threading_override = True
+    _use_threading_override: bool = True
     count: int = 3
 
     def __post_init__(self):
@@ -253,7 +253,7 @@ class SimpleThreadedSource(ParallelizeSourceElement):
 class SimpleProcessSource(ParallelizeSourceElement):
     """A simple source element that generates squared numbers using a process."""
 
-    _use_threading_override = False  # Use multiprocessing
+    _use_threading_override: bool = False  # Use multiprocessing
     count: int = 3
 
     def __post_init__(self):
@@ -312,7 +312,7 @@ class SimpleProcessSource(ParallelizeSourceElement):
 class ThreadedMultiplier(ParallelizeTransformElement):
     """A transform element that multiplies input by a factor using threading."""
 
-    _use_threading_override = True
+    _use_threading_override: bool = True
     multiplier: int = 2
     at_eos: bool = False
 
@@ -348,7 +348,7 @@ class ThreadedMultiplier(ParallelizeTransformElement):
 class ProcessedSquarer(ParallelizeTransformElement):
     """A transform element that squares input using multiprocessing."""
 
-    _use_threading_override = False
+    _use_threading_override: bool = False
     at_eos: bool = False
 
     def __post_init__(self):
@@ -383,7 +383,7 @@ class ProcessedSquarer(ParallelizeTransformElement):
 class ResultCollector(ParallelizeSinkElement):
     """A sink element that collects results for testing."""
 
-    _use_threading_override = True
+    _use_threading_override: bool = True
     at_eos: bool = False
 
     def __post_init__(self):
