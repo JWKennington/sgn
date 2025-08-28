@@ -8,6 +8,11 @@ try:
 except ImportError:
     __version__ = "0.0.0"
 
+# Set up custom logging levels
+from sgn.logger import setup_custom_levels
+
+setup_custom_levels()
+
 # Import flattening
 from sgn.base import SourcePad, SinkPad, TransformElement, SourceElement, SinkElement
 from sgn.groups import group, select

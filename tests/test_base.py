@@ -2,21 +2,16 @@
 
 import asyncio
 import random
-import os
 from dataclasses import dataclass
-from logging import Logger
-from unittest import mock
 
 import pytest
 
 from sgn.base import (
-    SGN_LOG_LEVELS,
     ElementLike,
     Frame,
     SinkPad,
     SourcePad,
     UniqueID,
-    get_sgn_logger,
 )
 from sgn.frames import DataSpec
 
@@ -168,31 +163,3 @@ class TestElementLike:
         # Pad list will have an automatically generated internal pad as the
         # last entry
         assert len(el.pad_list) == 3 and el.pad_list[:2] == [src, snk]
-
-
-class TestLogging:
-    """Test group for logging functions."""
-
-    def test_set_default_level_via_env_var(self):
-        """Test setting the log level via an environment variable."""
-        with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "DEBUG"}):
-            assert os.environ["SGNLOGLEVEL"] == "DEBUG"
-
-            logger = get_sgn_logger("sample", SGN_LOG_LEVELS)
-            assert isinstance(logger, Logger)
-
-    def test_set_scoped_level_via_env_var(self):
-        """Test setting the element scoped log level via an environment variable."""
-        with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "myelement:DEBUG"}):
-            assert os.environ["SGNLOGLEVEL"] == "myelement:DEBUG"
-
-            logger = get_sgn_logger("sample", SGN_LOG_LEVELS).getChild("myelement")
-            assert isinstance(logger, Logger)
-
-    def test_err_default_invalid_level(self):
-        """Test setting the log level via an environment variable."""
-        with mock.patch.dict(os.environ, {"SGNLOGLEVEL": "INVALID"}):
-            assert os.environ["SGNLOGLEVEL"] == "INVALID"
-
-            with pytest.raises(ValueError):
-                get_sgn_logger("sample", SGN_LOG_LEVELS)

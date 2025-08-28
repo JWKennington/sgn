@@ -3,77 +3,16 @@
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generic, Optional, Sequence, TypeVar, Union
+from typing import Callable, Generic, Optional, Sequence, TypeVar, Union
 
 from .frames import DataSpec, Frame
 
 FrameLike = TypeVar("FrameLike", bound=Frame)
 
-SGN_LOG_LEVELS = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL,
-    "MEMPROF": 51,
-}
-# Support a memory profiling level
-logging.addLevelName(SGN_LOG_LEVELS["MEMPROF"], "MEMPROF")
-# logging.basicConfig(level=SGN_LOG_LEVELS["MEMPROF"],
-#                    format='[MEMPROF] %(message)s',
-#                    )
-
-
-def __memprofile(self, message, *args, **kws):
-    if self.isEnabledFor(SGN_LOG_LEVELS["MEMPROF"]):
-        self._log(SGN_LOG_LEVELS["MEMPROF"], message, args, **kws)
-
-
-logging.Logger.memprofile = __memprofile  # type: ignore
-SGN_LOG_LEVEL_VAR = "SGNLOGLEVEL"
-
-
-def get_sgn_logger(
-    name: str, levels: Dict[str, int] = SGN_LOG_LEVELS
-) -> logging.Logger:
-    """Utility function for constructing a logger with a given name and log level.
-
-    Args:
-        name:
-            str, The name of the logger
-        levels:
-            Dict[str, int], A dictionary of log levels to choose from
-
-    Returns:
-        logging.Logger, The logger with the specified name and log level
-    """
-    sgnlogger = logging.getLogger(name)
-    sgnlogger.addHandler(logging.StreamHandler())
-
-    def parse_elem_level(x, default=name):
-        y = x.split(":")
-        name, level = (default, y[0]) if len(y) == 1 else (y[0], y[1])
-        if level not in levels:
-            raise ValueError(f"Invalid log level: {level}, choose " f"{list(levels)}")
-        return name, level
-
-    if SGN_LOG_LEVEL_VAR in os.environ:
-        levels = dict(
-            [parse_elem_level(x) for x in os.environ[SGN_LOG_LEVEL_VAR].split()]
-        )
-        for n in levels:
-            if n == name:
-                sgnlogger.setLevel(levels[n])
-            else:
-                sgnlogger.getChild(n).setLevel(levels[n])
-    return sgnlogger
-
-
-LOGGER = get_sgn_logger("sgn", SGN_LOG_LEVELS)
+logger = logging.getLogger("sgn")
 
 
 @dataclass
@@ -182,7 +121,7 @@ class SourcePad(UniqueID, PadLike):
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
         if self.element is not None:
-            LOGGER.getChild(self.element.name).info("\t%s : %s", self, self.output)
+            logger.getChild(self.element.name).info("\t%s : %s", self, self.output)
 
 
 @dataclass(eq=False, repr=False)
@@ -261,7 +200,7 @@ class SinkPad(UniqueID, PadLike):
             raise ValueError(msg)
         self.call(self, self.input)
         if self.element is not None:
-            LOGGER.getChild(self.element.name).info("\t%s:%s", self, self.input)
+            logger.getChild(self.element.name).info("\t%s:%s", self, self.input)
 
 
 @dataclass(eq=False, repr=False)

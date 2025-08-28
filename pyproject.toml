@@ -119,6 +119,7 @@ omit = [
 ]
 exclude_also = [
 	"^\\s*\\.\\.\\.\\s*$",
+    "if TYPE_CHECKING:",
 ]
 
 [tool.isort]
@@ -162,7 +163,7 @@ extend-ignore = [
     "S603",
 ]
 per-file-ignores = [
-    "__init__.py:F401",
+    "__init__.py:E402,F401",
     "_version.py:BLK100",
     "docs/conf.py:E501",
     "tests/*.py:E731",

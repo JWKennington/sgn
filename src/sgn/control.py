@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import socket
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,11 +9,10 @@ from queue import Queue
 from threading import Thread
 
 from sgn import SinkElement, SourceElement, TransformElement
-from sgn.base import SGN_LOG_LEVELS, get_sgn_logger
 from sgn.bottle import Bottle, request, response, run  # type: ignore
 from sgn.sources import SignalEOS
 
-LOGGER = get_sgn_logger("control", SGN_LOG_LEVELS)
+logger = logging.getLogger("sgn.control")
 
 
 # Define a function to run the Bottle app in a separate thread
@@ -163,7 +163,7 @@ class HTTPControl(SignalEOS):
             daemon=True,
         )
         HTTPControl.http_thread.start()  # Start the Bottle app as a subthread
-        LOGGER.info(
+        logger.info(
             "Bottle app running on http://%s:%s", HTTPControl.host, HTTPControl.port
         )
         with open(self.registry_file, "w") as f:
