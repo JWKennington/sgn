@@ -7,6 +7,8 @@ from sgn.control import (
     HTTPControlTransformElement,
     HTTPControlSinkElement,
 )
+from sgn.frames import Frame
+from sgn.base import SourcePad, SinkPad
 
 import http.client
 import urllib.parse
@@ -117,18 +119,42 @@ def standard_library_get(url, params=None, headers=None):
     }
 
 
+class DummyHTTPControlSourceElement(HTTPControlSourceElement):
+    """Dummy implementation of HTTPControlSourceElement for testing."""
+
+    def new(self, pad: SourcePad) -> Frame:
+        return Frame()
+
+
+class DummyHTTPControlTransformElement(HTTPControlTransformElement):
+    """Dummy implementation of HTTPControlTransformElement for testing."""
+
+    def new(self, pad: SourcePad) -> Frame:
+        return Frame()
+
+    def pull(self, pad: SinkPad, frame: Frame) -> None:
+        pass
+
+
+class DummyHTTPControlSinkElement(HTTPControlSinkElement):
+    """Dummy implementation of HTTPControlSinkElement for testing."""
+
+    def pull(self, pad: SinkPad, frame: Frame) -> None:
+        pass
+
+
 class TestHTTPControlElements:
     """Tests for HTTPControlSourceElement, HTTPTransformElement and
     HTTPControlSinkElement classes."""
 
     def test_init_and_context_manager(self, tmp_path):
-        HTTPControlSourceElement(
+        DummyHTTPControlSourceElement(
             name="testsrc",
             source_pad_names=[
                 "blah",
             ],
         )
-        HTTPControlTransformElement(
+        DummyHTTPControlTransformElement(
             name="testtrans",
             source_pad_names=[
                 "blah",
@@ -137,7 +163,7 @@ class TestHTTPControlElements:
                 "blah",
             ],
         )
-        HTTPControlSinkElement(
+        DummyHTTPControlSinkElement(
             name="testsink",
             sink_pad_names=[
                 "blah",

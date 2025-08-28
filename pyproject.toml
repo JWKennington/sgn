@@ -117,6 +117,9 @@ omit = [
 	"*/__init__.py",
 	"src/sgn/bottle.py",
 ]
+exclude_also = [
+	"^\\s*\\.\\.\\.\\s*$",
+]
 
 [tool.isort]
 profile = "black"
