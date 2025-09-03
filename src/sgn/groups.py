@@ -8,7 +8,7 @@ for flexible and intuitive pipeline construction.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Union, overload
+from typing import Dict, Iterator, Protocol, Tuple, Union, overload
 
 from .base import (
     Element,
@@ -20,8 +20,59 @@ from .base import (
 )
 
 
+class PadProvider(Protocol):
+    """Protocol defining the interface required by PadIteratorMixin."""
+
+    @property
+    def srcs(self) -> Dict[str, SourcePad]:
+        """Get source pads as a dictionary mapping pad names to SourcePad objects."""
+        ...
+
+    @property
+    def snks(self) -> Dict[str, SinkPad]:
+        """Get sink pads as a dictionary mapping pad names to SinkPad objects."""
+        ...
+
+    @property
+    def elements(self) -> list[Element]:
+        """Get all elements referenced by this object."""
+        ...
+
+
+class PadIteratorMixin:
+    """Mixin class that provides iteration methods for pad selections."""
+
+    def select_by_source(self: PadProvider) -> Iterator[Tuple[str, PadSelection]]:
+        """Iterate over source pads, yielding (pad_name, single_pad_selection) tuples.
+
+        Each yielded PadSelection contains only a single source pad.
+        Raises ValueError if there are no source pads.
+        """
+        srcs = self.srcs
+        if not srcs:
+            msg = "No source pads available in this selection"
+            raise ValueError(msg)
+
+        for pad_name, pad in srcs.items():
+            yield pad_name, PadSelection(element=pad.element, pad_names={pad_name})
+
+    def select_by_sink(self: PadProvider) -> Iterator[Tuple[str, PadSelection]]:
+        """Iterate over sink pads, yielding (pad_name, single_pad_selection) tuples.
+
+        Each yielded PadSelection contains only a single sink pad.
+        Raises ValueError if there are no sink pads.
+        """
+        snks = self.snks
+        if not snks:
+            msg = "No sink pads available in this selection"
+            raise ValueError(msg)
+
+        for pad_name, pad in snks.items():
+            yield pad_name, PadSelection(element=pad.element, pad_names={pad_name})
+
+
 @dataclass
-class PadSelection:
+class PadSelection(PadIteratorMixin):
     """Represents a selection of specific pads from an element.
 
     This allows users to specify exactly which pads from an element
@@ -80,7 +131,7 @@ class PadSelection:
 
 
 @dataclass
-class ElementGroup:
+class ElementGroup(PadIteratorMixin):
     """A unified group for elements and pad selections.
 
     This class holds a collection of elements and pad selections without
