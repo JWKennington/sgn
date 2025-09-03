@@ -518,23 +518,54 @@ def test_pipeline_connect_linking_strategies():
     assert len(pipeline2.graph) > 0
 
 
-def test_pipeline_connect_ambiguous_linking_error():
-    """Test error when linking strategy is ambiguous."""
+def test_pipeline_connect_partial_matching():
+    """Test partial matching strategy - connect all matching pad names."""
     from sgn.sources import IterSource
     from sgn.sinks import NullSink
     from sgn.groups import group
 
-    # multiple sources and multiple sinks with different names
+    # Sources with pads: H1, L1, V1
     src1 = IterSource(name="src1", source_pad_names=["H1", "L1"])
     src2 = IterSource(name="src2", source_pad_names=["V1"])
-    sink1 = NullSink(name="sink1", sink_pad_names=["out1"])
-    sink2 = NullSink(name="sink2", sink_pad_names=["out2"])
+
+    # Sinks with pads: H1, L1, out (only H1 and L1 should match)
+    sink1 = NullSink(name="sink1", sink_pad_names=["H1", "L1"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["out"])
 
     pipeline = Pipeline()
     sources = group(src1, src2)  # 3 source pads: H1, L1, V1
-    sinks = group(sink1, sink2)  # 2 sink pads: out1, out2
+    sinks = group(sink1, sink2)  # 3 sink pads: H1, L1, out
 
-    # This is ambiguous - can't determine how to map 3 sources to 2 sinks
+    # Should connect H1->H1 and L1->L1, ignoring V1 and out
+    pipeline.connect(sources, sinks)
+
+    # Verify connections were made (should have at least the 2 matching connections)
+    assert len(pipeline.graph) >= 2
+
+    # Verify elements were inserted
+    assert "src1" in pipeline._registry
+    assert "src2" in pipeline._registry
+    assert "sink1" in pipeline._registry
+    assert "sink2" in pipeline._registry
+
+
+def test_pipeline_connect_ambiguous_linking_error():
+    """Test error when linking strategy is ambiguous (no matching pads)."""
+    from sgn.sources import IterSource
+    from sgn.sinks import NullSink
+    from sgn.groups import group
+
+    # multiple sources and multiple sinks with completely different names
+    src1 = IterSource(name="src1", source_pad_names=["src_H1", "src_L1"])
+    src2 = IterSource(name="src2", source_pad_names=["src_V1"])
+    sink1 = NullSink(name="sink1", sink_pad_names=["sink_out1"])
+    sink2 = NullSink(name="sink2", sink_pad_names=["sink_out2"])
+
+    pipeline = Pipeline()
+    sources = group(src1, src2)  # 3 source pads: src_H1, src_L1, src_V1
+    sinks = group(sink1, sink2)  # 2 sink pads: sink_out1, sink_out2
+
+    # No matching pad names - should still be ambiguous
     with pytest.raises(
         ValueError, match="unable to determine unambiguous linking strategy"
     ):
