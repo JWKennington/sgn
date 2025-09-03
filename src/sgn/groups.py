@@ -8,7 +8,7 @@ for flexible and intuitive pipeline construction.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Union
+from typing import Dict, Union, overload
 
 from .base import (
     Element,
@@ -91,16 +91,32 @@ class ElementGroup:
 
     items: list[Union[Element, PadSelection]] = field(default_factory=list)
 
-    def select(self, *element_names: str) -> ElementGroup:
-        """Select a subset of items by element name."""
-        selected_items = []
+    def select(self, *pad_names: str) -> ElementGroup:
+        """Select pads from items in the group by pad name."""
+        selected_items: list[Union[Element, PadSelection]] = []
+        pad_names_set = set(pad_names)
+
         for item in self.items:
             if isinstance(item, PadSelection):
-                element_name = item.element.name
+                # For existing pad selections, intersect with requested pad names
+                element = item.element
+                available_pads = item.pad_names
             else:
-                element_name = item.name
-            if element_name in element_names:
-                selected_items.append(item)
+                # For elements, get all their pad names
+                element = item
+                available_pads = set()
+                if isinstance(element, (SourceElement, TransformElement)):
+                    available_pads.update(element.srcs.keys())
+                if isinstance(element, (TransformElement, SinkElement)):
+                    available_pads.update(element.snks.keys())
+
+            # Find intersection of available pads with requested pad names
+            matching_pads = available_pads & pad_names_set
+            if matching_pads:
+                selected_items.append(
+                    PadSelection(element=element, pad_names=matching_pads)
+                )
+
         return ElementGroup(items=selected_items)
 
     @property
@@ -156,22 +172,61 @@ class ElementGroup:
         return combined_pads
 
 
-def select(element: Element, *pad_names: str) -> PadSelection:
-    """Create a PadSelection for specific pads from an element.
+@overload
+def select(target: Element, *pad_names: str) -> PadSelection: ...
+
+
+@overload
+def select(target: PadSelection, *pad_names: str) -> PadSelection: ...
+
+
+@overload
+def select(target: ElementGroup, *pad_names: str) -> ElementGroup: ...
+
+
+def select(
+    target: Union[Element, PadSelection, ElementGroup], *pad_names: str
+) -> Union[PadSelection, ElementGroup]:
+    """Create or refine pad selections from elements, existing selections, or groups.
 
     Args:
-        element: The element to select pads from.
+        target: The element, pad selection, or element group to select pads from.
         *pad_names: Names of the pads to select.
 
     Returns:
-        A selection representing the specified pads from the element.
+        A PadSelection if target is Element or PadSelection,
+        or ElementGroup if target is ElementGroup.
 
     Examples:
-        >>> src = IterSource(name="src", source_pad_names=["H1", "L1"])
+        >>> src = IterSource(name="src", source_pad_names=["H1", "L1", "V1"])
         >>> h1_only = select(src, "H1")
-        >>> group_with_selection = group(other_src, h1_only)
+        >>> h1_l1_only = select(src, "H1", "L1")
+        >>>
+        >>> # Narrow an existing selection
+        >>> h1_from_selection = select(h1_l1_only, "H1")
+        >>>
+        >>> # Select from a group
+        >>> sources = group(src1, src2)
+        >>> h1_from_group = select(sources, "H1")
     """
-    return PadSelection(element=element, pad_names=set(pad_names))
+    match target:
+        case SourceElement() | TransformElement() | SinkElement():
+            return PadSelection(element=target, pad_names=set(pad_names))
+        case PadSelection():
+            # Narrow the existing selection by intersecting pad names
+            new_pad_names = target.pad_names & set(pad_names)
+            if not new_pad_names:
+                msg = (
+                    f"No matching pads found. Requested: {set(pad_names)}, "
+                    f"Available: {target.pad_names}"
+                )
+                raise ValueError(msg)
+            return PadSelection(element=target.element, pad_names=new_pad_names)
+        case ElementGroup():
+            return target.select(*pad_names)
+        case _:
+            msg = f"Expected Element, PadSelection, or ElementGroup, got {type(target)}"
+            raise TypeError(msg)
 
 
 def group(*items: Union[Element, PadSelection, ElementGroup]) -> ElementGroup:
