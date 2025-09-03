@@ -47,6 +47,7 @@ class PadSelection:
         if invalid_names:
             msg = (
                 f"Pad names {invalid_names} not found on element '{self.element.name}'"
+                f" Pad names available: {all_pad_names}"
             )
             raise ValueError(msg)
 
