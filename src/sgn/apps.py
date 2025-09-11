@@ -5,13 +5,13 @@ from __future__ import annotations
 
 import asyncio
 import graphlib
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, Optional, Union
 
 from sgn import SourceElement, TransformElement
 from sgn.base import (
-    SGN_LOG_LEVELS,
     Element,
     ElementLike,
     InternalPad,
@@ -19,13 +19,13 @@ from sgn.base import (
     SinkElement,
     SinkPad,
     SourcePad,
-    get_sgn_logger,
 )
 from sgn.groups import ElementGroup, PadSelection
+from sgn.logger import configure_sgn_logging
 from sgn.profile import async_sgn_mem_profile
 from sgn.visualize import visualize
 
-LOGGER = get_sgn_logger("pipeline", SGN_LOG_LEVELS)
+logger = logging.getLogger("sgn.pipeline")
 
 
 class Pipeline:
@@ -348,7 +348,7 @@ class Pipeline:
         """
         visualize(self, label=label, path=Path(path))
 
-    @async_sgn_mem_profile(LOGGER)
+    @async_sgn_mem_profile(logger)
     async def __execute_graph_loop(self) -> None:
         async def _partial(node):
             try:
@@ -359,7 +359,7 @@ class Pipeline:
                 raise exc_type(msg) from e
 
         self.__loop_counter += 1
-        LOGGER.info("Executing graph loop %s:", self.__loop_counter)
+        logger.info("Executing graph loop %s:", self.__loop_counter)
         ts = graphlib.TopologicalSorter(self.graph)
         ts.prepare()
         while ts.is_active():
@@ -399,6 +399,7 @@ class Pipeline:
 
     def run(self) -> None:
         """Run the pipeline until End Of Stream (EOS)"""
+        configure_sgn_logging()
         self.check()
         if not self.loop.is_running():
             self.loop.run_until_complete(self._execute_graphs())

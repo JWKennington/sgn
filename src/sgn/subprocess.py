@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import multiprocessing
 import multiprocessing.shared_memory
 import queue
@@ -9,11 +10,11 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 from sgn import SinkElement, TransformElement
-from sgn.base import SGN_LOG_LEVELS, SourceElement, get_sgn_logger
+from sgn.base import SourceElement
 from sgn.frames import Frame
 from sgn.sources import SignalEOS
 
-LOGGER = get_sgn_logger("subprocess", SGN_LOG_LEVELS)
+logger = logging.getLogger("sgn.subprocess")
 
 
 class Parallelize(SignalEOS):

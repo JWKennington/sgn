@@ -4,54 +4,111 @@ from __future__ import annotations
 
 import linecache
 import tracemalloc
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar
 
-from sgn.base import SGN_LOG_LEVELS
+from sgn.logger import SGN_LOG_LEVELS
 
-# from typing import Any, Callable, Dict, Optional, Sequence, Union
+if TYPE_CHECKING:
+    from tracemalloc import Snapshot, Statistic, StatisticDiff
+
+F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
 
-def async_sgn_mem_profile(logger):
-    def __sgn_mem_profile(func):
+SGN_FIRST_MEM_USAGE: float | None = None
 
-        if not tracemalloc.is_tracing():
-            tracemalloc.start()
 
-        async def wrapper(*args, **kwargs):
+def async_sgn_mem_profile(logger) -> Callable[[F], F]:
+    """Decorator for async functions to enable memory profiling based on logger level.
+
+    This decorator provides efficient memory profiling by checking the logger level
+    only on the first function call, then using the appropriate wrapper (profiling
+    or no-op) for all subsequent calls.
+
+    The memory profiling is enabled when the logger's effective level is at or below
+    the MEMPROF level (5). When enabled, it uses Python's tracemalloc to capture
+    memory snapshots before and after function execution, displaying detailed
+    memory usage statistics.
+
+    Args:
+        logger: The logger instance to use for determining profiling level and
+               outputting memory statistics.
+
+    Returns:
+        A decorator function that wraps async functions with memory profiling
+        capabilities.
+
+    Example:
+        >>> logger = logging.getLogger("my_app")
+        >>> @async_sgn_mem_profile(logger)
+        ... async def my_function():
+        ...     # Function implementation
+        ...     pass
+    """
+
+    def decorator(func: F) -> F:
+        actual_wrapper: Callable[..., Awaitable[Any]] | None = None
+
+        async def profiling_wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Memory profiling wrapper that captures and reports memory usage."""
+            if not tracemalloc.is_tracing():
+                tracemalloc.start()
             snap1 = tracemalloc.take_snapshot()
-            result = await func(*args, **kwargs)  # type: ignore
+            result = await func(*args, **kwargs)
             snap2 = tracemalloc.take_snapshot()
-            display_top(snap1, snap2, logger)
+            display_top(logger, snap1, snap2)
             return result
 
-        return wrapper
-
-    def __do_nothing(func):
-        async def wrapper(*args, **kwargs):
-            result = await func(*args, **kwargs)  # type: ignore
+        async def no_op_wrapper(*args: Any, **kwargs: Any) -> Any:
+            """No-op wrapper that executes the function without profiling overhead."""
+            result = await func(*args, **kwargs)
             return result
 
-        return wrapper
+        async def dynamic_wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Wrapper that determines implementation on first call then delegates."""
+            nonlocal actual_wrapper
 
-    if logger.level == SGN_LOG_LEVELS["MEMPROF"]:
-        return __sgn_mem_profile
-    else:
-        return __do_nothing
+            if actual_wrapper is None:
+                # First call - determine which wrapper to use based on logger level
+                if logger.getEffectiveLevel() <= SGN_LOG_LEVELS["MEMPROF"]:
+                    actual_wrapper = profiling_wrapper
+                else:
+                    actual_wrapper = no_op_wrapper
+
+            # Delegate to the determined wrapper
+            return await actual_wrapper(*args, **kwargs)
+
+        return dynamic_wrapper  # type: ignore
+
+    return decorator
 
 
-SGN_FIRST_MEM_USAGE = None
+def display_topstats(
+    logger,
+    top_stats: list[Statistic] | list[StatisticDiff],
+    limit: int,
+    msg: str = "cumulative",
+) -> int:
+    """Display memory usage statistics in a formatted table.
 
+    Args:
+        logger: SGN logger instance with memprofile method for outputting statistics.
+        top_stats: List of memory statistics to display.
+        limit: Maximum number of top entries to show.
+        msg: Description message for the statistics type (e.g., "cumulative", "diff").
 
-def display_topstats(logger, top_stats, limit, msg="cumulative"):
+    Returns:
+        Total memory size in bytes across all statistics.
+    """
     logger.memprofile("\n[MEMPROF] | Top %s lines of memory usage: %s", limit, msg)
     logger.memprofile("[MEMPROF] |")
     for index, stat in enumerate(top_stats[:limit], 1):
-        frame = stat.traceback[0]
+        frame = stat.traceback[0]  # type: ignore[attr-defined]
         logger.memprofile(
             "[MEMPROF] | #%s: %s:%s: %.1f KiB",
             index,
             frame.filename,
             frame.lineno,
-            stat.size / 1024,
+            stat.size / 1024,  # type: ignore[attr-defined]
         )
         line = linecache.getline(frame.filename, frame.lineno).strip()
         if line:
@@ -66,7 +123,30 @@ def display_topstats(logger, top_stats, limit, msg="cumulative"):
     return total
 
 
-def display_top(snapshot1, snapshot2, logger, key_type="lineno", limit=10):
+def display_top(
+    logger,
+    snapshot1: Snapshot,
+    snapshot2: Snapshot,
+    key_type: str = "lineno",
+    limit: int = 10,
+) -> None:
+    """Display comprehensive memory profiling information from two snapshots.
+
+    This function compares two memory snapshots to show both cumulative memory
+    usage and the difference between snapshots. It filters out internal Python
+    memory allocations and displays the top memory-consuming lines of code.
+
+    Args:
+        logger: SGN logger instance with memprofile method for outputting statistics.
+        snapshot1: First memory snapshot (taken before the operation).
+        snapshot2: Second memory snapshot (taken after the operation).
+        key_type: Grouping method for statistics ("lineno", "filename", or "traceback").
+        limit: Maximum number of top entries to display in each section.
+
+    Note:
+        This function tracks the first memory usage measurement globally and
+        shows the change from that baseline in subsequent calls.
+    """
     global SGN_FIRST_MEM_USAGE
     snapshot1 = snapshot1.filter_traces(
         (
