@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Generic, Optional, Sequence, TypeVar, Union
 
@@ -75,20 +76,8 @@ def get_sgn_logger(
 LOGGER = get_sgn_logger("sgn", SGN_LOG_LEVELS)
 
 
-class _PostInitBase:
-    """Mixin class used to resolve issues with the builtin object class with
-    __post_init__ and using multiple inheritance.
-
-    See https://stackoverflow.com/a/59987363/23231262.
-    """
-
-    def __post_init__(self):
-        """Intercept the __post_init__ calls so they aren't relayed to `object`"""
-        pass
-
-
 @dataclass
-class UniqueID(_PostInitBase):
+class UniqueID:
     """Generic class from which all classes that participate in an execution graph
     should be derived. Enforces a unique name and hashes based on that name.
 
@@ -103,7 +92,6 @@ class UniqueID(_PostInitBase):
 
     def __post_init__(self):
         """Handle setup of the UniqueID class, including the `._id` attribute."""
-        super().__post_init__()
         # give every element a truly unique identifier
         self._id = uuid.uuid4().hex
         if not self.name:
@@ -134,7 +122,7 @@ class UniqueID(_PostInitBase):
 
 
 @dataclass(eq=False, repr=False)
-class PadLike:
+class PadLike(ABC):
     """Pads are 1:1 with graph nodes but source and sink pads must be grouped into
     elements in order to exchange data from sink->source.  source->sink exchanges happen
     between elements.
@@ -159,13 +147,14 @@ class PadLike:
     call: Callable
     is_linked: bool = False
 
+    @abstractmethod
     async def __call__(self) -> None:
         """The call method for a pad must be implemented by the element that the pad
         belongs to.
 
         This method will be called when the pad is called in the graph.
         """
-        raise NotImplementedError
+        ...
 
 
 @dataclass(eq=False, repr=False)
@@ -357,7 +346,7 @@ class ElementLike(UniqueID):
 
 
 @dataclass(repr=False, kw_only=True)
-class SourceElement(ElementLike):
+class SourceElement(ABC, ElementLike):
     """Initialize with a list of source pads. Every source pad is added to the graph
     with no dependencies.
 
@@ -389,6 +378,7 @@ class SourceElement(ElementLike):
         assert self.source_pads and not self.sink_pads
         self.graph.update({s: {self.internal_pad} for s in self.source_pads})
 
+    @abstractmethod
     def new(self, pad: SourcePad) -> Frame:
         """New frames are created on "pad". Must be provided by subclass.
 
@@ -399,11 +389,11 @@ class SourceElement(ElementLike):
         Returns:
             Frame, The new frame to be passed through the source pad
         """
-        raise NotImplementedError
+        ...
 
 
 @dataclass(repr=False, kw_only=True)
-class TransformElement(ElementLike, Generic[FrameLike]):
+class TransformElement(ABC, ElementLike, Generic[FrameLike]):
     """Both "source_pads" and "sink_pads" must exist. The execution scheduling
     flow of the logic within a TransformElement is as follows: 1.) all sink
     pads, 2.) the internal pad, 3.) all source pads. The execution of all
@@ -458,6 +448,7 @@ class TransformElement(ElementLike, Generic[FrameLike]):
         # Second, (internal -> all sources)
         self.graph.update({s: {self.internal_pad} for s in self.source_pads})
 
+    @abstractmethod
     def pull(self, pad: SinkPad, frame: FrameLike) -> None:
         """Pull data from the input pads (source pads of upstream elements), must be
         implemented by subclasses.
@@ -468,8 +459,9 @@ class TransformElement(ElementLike, Generic[FrameLike]):
             frame:
                 Frame, The frame that is pulled from the source pad
         """
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def new(self, pad: SourcePad) -> FrameLike:
         """New frames are created on "pad". Must be provided by subclass.
 
@@ -480,11 +472,11 @@ class TransformElement(ElementLike, Generic[FrameLike]):
         Returns:
             Frame, The new frame to be passed through the source pad
         """
-        raise NotImplementedError
+        ...
 
 
 @dataclass(kw_only=True)
-class SinkElement(ElementLike, Generic[FrameLike]):
+class SinkElement(ABC, ElementLike, Generic[FrameLike]):
     """Sink element represents a terminal node in a pipeline, that typically writes data
     to disk, etc. Sink_pads must exist but not source_pads.
 
@@ -541,6 +533,7 @@ class SinkElement(ElementLike, Generic[FrameLike]):
         """
         self._at_eos[pad] = True
 
+    @abstractmethod
     def pull(self, pad: SinkPad, frame: FrameLike) -> None:
         """Pull for a SinkElement represents the action of associating a frame with a
         particular input source pad a frame. This function must be provided by the
@@ -553,7 +546,7 @@ class SinkElement(ElementLike, Generic[FrameLike]):
             frame:
                 Frame, The frame that is being received
         """
-        raise NotImplementedError
+        ...
 
 
 Element = Union[TransformElement, SinkElement, SourceElement]

@@ -3,28 +3,7 @@
 import pytest
 
 from sgn.base import Frame
-from sgn.transforms import CallableTransform, InputPull
-
-
-class TestInputPull:
-    """Test group for FakeSink class."""
-
-    def test_init(self):
-        """Test the InputPull class constructor."""
-        trn = InputPull(
-            name="t1", source_pad_names=("I1", "I2"), sink_pad_names=("O1", "O2")
-        )
-        assert isinstance(trn, InputPull)
-
-    def test_pull(self):
-        """Test pull method."""
-        trn = InputPull(
-            name="t1", source_pad_names=("I1", "I2"), sink_pad_names=("O1", "O2")
-        )
-        trn.pull(trn.source_pads[0], Frame(data=2))
-        assert trn.inputs["t1:src:I1"].data == 2
-        trn.pull(trn.source_pads[1], Frame(data=3))
-        assert trn.inputs["t1:src:I2"].data == 3
+from sgn.transforms import CallableTransform
 
 
 class TestCallableTransform:

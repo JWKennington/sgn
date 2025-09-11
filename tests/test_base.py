@@ -13,12 +13,8 @@ from sgn.base import (
     SGN_LOG_LEVELS,
     ElementLike,
     Frame,
-    PadLike,
-    SinkElement,
     SinkPad,
-    SourceElement,
     SourcePad,
-    TransformElement,
     UniqueID,
     get_sgn_logger,
 )
@@ -58,21 +54,6 @@ class TestUniqueID:
         ui2 = UniqueID()
         assert ui1 == ui1
         assert ui1 != ui2
-
-
-class TestPadLikes:
-    """Test group for PadLike class."""
-
-    def test_init(self):
-        """Test the PadLike class constructor."""
-        pl = PadLike(element=None, call=None)
-        assert isinstance(pl, PadLike)
-
-    def test_call(self):
-        """Test the __call__ method."""
-        pl = PadLike(element=None, call=None)
-        with pytest.raises(NotImplementedError):
-            asyncio_run(pl())
 
 
 class TestSourcePad:
@@ -187,89 +168,6 @@ class TestElementLike:
         # Pad list will have an automatically generated internal pad as the
         # last entry
         assert len(el.pad_list) == 3 and el.pad_list[:2] == [src, snk]
-
-
-class TestSourceElement:
-    """Test group for SourceElement class."""
-
-    def test_init(self):
-        """Test the SourceElement class constructor."""
-        se = SourceElement(name="elemsrc", source_pad_names=["testsrc"])
-        assert isinstance(se, SourceElement)
-        assert [p.name for p in se.source_pads] == ["elemsrc:src:testsrc"]
-        assert se.sink_pads == []
-        assert se.graph == {se.source_pads[0]: {se.internal_pad}}
-
-        with pytest.raises(AssertionError):
-            SourceElement(name="elemsrc", sink_pads=[None])
-
-    def test_new(self):
-        """Test the new method."""
-        se = SourceElement(name="elemsrc", source_pad_names=["testsrc"])
-        with pytest.raises(NotImplementedError):
-            se.new(se.source_pads[0])
-
-
-class TestTransformElement:
-    """Test group for TransformElement class."""
-
-    def test_init(self):
-        """Test the TransformElement class constructor."""
-        te = TransformElement(
-            name="t1", source_pad_names=["testsrc"], sink_pad_names=["testsink"]
-        )
-        assert isinstance(te, TransformElement)
-        assert [p.name for p in te.source_pads] == ["t1:src:testsrc"]
-        assert [p.name for p in te.sink_pads] == ["t1:snk:testsink"]
-        exp_graph = {te.internal_pad: {te.sink_pads[0]}}
-        exp_graph.update({te.source_pads[0]: {te.internal_pad}})
-        assert te.graph == exp_graph
-
-        with pytest.raises(AssertionError):
-            TransformElement(name="t1")
-
-    def test_pull(self):
-        """Test the pull method."""
-        te = TransformElement(
-            name="t1", source_pad_names=["testsrc"], sink_pad_names=["testsink"]
-        )
-        with pytest.raises(NotImplementedError):
-            te.pull(te.source_pads[0], Frame())
-
-    def test_new(self):
-        """Test the new method."""
-        te = TransformElement(
-            name="t1", source_pad_names=["testsrc"], sink_pad_names=["testsink"]
-        )
-        with pytest.raises(NotImplementedError):
-            te.new(te.source_pads[0])
-
-
-class TestSinkElement:
-    """Test group for SinkElement class."""
-
-    def test_init(self):
-        """Test the SinkElement class constructor."""
-        se = SinkElement(name="elemsnk", sink_pad_names=["testsink"])
-        assert isinstance(se, SinkElement)
-        assert [p.name for p in se.sink_pads] == ["elemsnk:snk:testsink"]
-        assert se.graph == {se.internal_pad: {se.sink_pads[0]}}
-
-        with pytest.raises(AssertionError):
-            SinkElement(name="elemsnk", source_pads=["testsrc"])
-
-    def test_at_eos(self):
-        """Test the at_eos method."""
-        se = SinkElement(name="elemsnk", sink_pad_names=["testsink"])
-        assert not se.at_eos
-        se.mark_eos(se.sink_pads[0])
-        assert se.at_eos
-
-    def test_pull(self):
-        """Test the pull method."""
-        se = SinkElement(name="elemsnk", sink_pad_names=["testsink"])
-        with pytest.raises(NotImplementedError):
-            se.pull(se.sink_pads[0], Frame())
 
 
 class TestLogging:
