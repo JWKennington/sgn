@@ -36,6 +36,9 @@ Issues = "https://git.ligo.org/greg/sgn/issues"
 bottle = [
     "bottle",
 ]
+inspect = [
+    "sgn-inspect",
+]
 visualize = [
     "graphviz",
 ]
