@@ -8,7 +8,6 @@ import graphlib
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Union
 
 from sgn import SourceElement, TransformElement
 from sgn.base import (
@@ -43,7 +42,7 @@ class Pipeline:
         Registers methods to produce source, transform and sink elements and to assemble
         those elements in a directed acyclic graph. Also establishes an event loop.
         """
-        self._registry: dict[str, Union[Pad, Element]] = {}
+        self._registry: dict[str, Pad | Element] = {}
         self.graph: dict[Pad, set[Pad]] = {}
         self.loop = asyncio.get_event_loop()
         self.__loop_counter = 0
@@ -57,7 +56,7 @@ class Pipeline:
     def insert(
         self,
         *elements: Element,
-        link_map: Optional[dict[Union[str, SinkPad], Union[str, SourcePad]]] = None,
+        link_map: dict[str | SinkPad, str | SourcePad] | None = None,
     ) -> Pipeline:
         """Insert element(s) into the pipeline.
 
@@ -65,7 +64,7 @@ class Pipeline:
             *elements:
                 Iterable[Element], the ordered elements to insert into the pipeline
             link_map:
-                Optional[dict[Union[str, SinkPad], Union[str, SourcePad]]],
+                dict[str | SinkPad, str | SourcePad] | None,
                 a mapping of source pad to sink pad names to link
 
         Returns:
@@ -93,9 +92,7 @@ class Pipeline:
             self.link(link_map)
         return self
 
-    def link(
-        self, link_map: Dict[Union[str, SinkPad], Union[str, SourcePad]]
-    ) -> Pipeline:
+    def link(self, link_map: dict[str | SinkPad, str | SourcePad]) -> Pipeline:
         """Link pads in a pipeline.
 
         Args:
@@ -124,9 +121,9 @@ class Pipeline:
 
     def connect(
         self,
-        source: Union[Element, ElementGroup, PadSelection],
-        sink: Union[Element, ElementGroup, PadSelection],
-        link_map: Optional[Dict[str, str]] = None,
+        source: Element | ElementGroup | PadSelection,
+        sink: Element | ElementGroup | PadSelection,
+        link_map: dict[str, str] | None = None,
     ) -> Pipeline:
         """Connect elements, ElementGroups, or PadSelections using implicit linking.
 
@@ -193,12 +190,12 @@ class Pipeline:
 
     def _connect_pads(
         self,
-        source_pads: Dict[str, SourcePad],
-        sink_pads: Dict[str, SinkPad],
-        link_map: Optional[Dict[str, str]] = None,
+        source_pads: dict[str, SourcePad],
+        sink_pads: dict[str, SinkPad],
+        link_map: dict[str, str] | None = None,
     ) -> Pipeline:
         """Connect source and sink pads using implicit linking strategies."""
-        resolved_link_map: Dict[Union[str, SinkPad], Union[str, SourcePad]]
+        resolved_link_map: dict[str | SinkPad, str | SourcePad]
         source_pad_names = set(source_pads.keys())
         sink_pad_names = set(sink_pads.keys())
 

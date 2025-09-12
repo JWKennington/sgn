@@ -12,9 +12,10 @@ import sys
 import time
 import warnings
 from collections import deque
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass
 from time import sleep
-from typing import Any, Callable, Dict, Generator, Iterable, Iterator, Optional, Union
+from typing import Any
 
 try:
     import psutil
@@ -106,8 +107,8 @@ class NullSource(SourceElement, SignalEOS):
     """
 
     frame_factory: Callable = Frame
-    wait: Optional[float] = None
-    num_frames: Optional[int] = None
+    wait: float | None = None
+    num_frames: int | None = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -148,14 +149,14 @@ class IterSource(SourceElement):
             where the key is the pad name and the value is the Iterable. These
             will be coerced to iterators, so they can be any iterable type.
         eos_on_empty:
-            Union[dict[str, bool], bool], default True, a mapping of source
+            dict[str, bool] | bool, default True, a mapping of source
             pads to boolean values, where the key is the pad name and the value
             is the boolean. If a bool is given, the value is applied to all
             pads. If True, EOS is signaled when the iterator is empty.
     """
 
-    iters: Optional[dict[str, Iterable[Any]]] = None
-    eos_on_empty: Union[dict[str, bool], bool] = True
+    iters: dict[str, Iterable[Any]] | None = None
+    eos_on_empty: dict[str, bool] | bool = True
     frame_factory: Callable = Frame
 
     def __post_init__(self):
@@ -294,7 +295,7 @@ class DequeSource(IterSource):
             dict[str, deque ], a mapping of source pads to deque s, where the
             key is the pad name and the value is the deque
         eos_on_empty:
-            Union[dict[str, bool], bool], default True, a mapping of source
+            dict[str, bool] | bool, default True, a mapping of source
             pads to boolean values, where the key is the pad name and the value
             is the boolean. If a bool is given, the value is applied to all
             pads. If True, EOS is signaled when the deque is empty.
@@ -343,7 +344,7 @@ class StatsSource(SourceElement):
 
     Args:
         interval:
-            Optional[float], time in seconds between stats collection.
+            float | None, time in seconds between stats collection.
             If None, stats are collected every time new() is called.
         include_process_stats:
             bool, whether to include statistics about the current process.
@@ -354,16 +355,16 @@ class StatsSource(SourceElement):
         eos_on_signal:
             bool, whether to end the stream on receiving a signal (SIGINT/SIGTERM).
         wait:
-            Optional[float], time in seconds to wait between frames.
+            float | None, time in seconds to wait between frames.
             If None, frames are produced as fast as possible.
     """
 
-    interval: Optional[float] = None
+    interval: float | None = None
     include_process_stats: bool = True
     include_system_stats: bool = True
     frame_factory: Callable = Frame
     eos_on_signal: bool = True
-    wait: Optional[float] = None
+    wait: float | None = None
 
     def __post_init__(self):
         """Post initialization setup for StatsSource."""
@@ -389,7 +390,7 @@ class StatsSource(SourceElement):
         if self.eos_on_signal:
             self._signal_handler = SignalEOS
 
-    def _collect_process_stats(self) -> Dict[str, Any]:
+    def _collect_process_stats(self) -> dict[str, Any]:
         """Collect statistics for the current process.
 
         Returns:
@@ -449,7 +450,7 @@ class StatsSource(SourceElement):
 
         return proc_info
 
-    def _collect_system_stats(self) -> Dict[str, Any]:
+    def _collect_system_stats(self) -> dict[str, Any]:
         """Collect system-wide statistics.
 
         Returns:
@@ -558,7 +559,7 @@ class StatsSource(SourceElement):
         if self.wait is not None:
             time.sleep(self.wait)
 
-        stats: Dict[str, Any] = {}
+        stats: dict[str, Any] = {}
 
         # Check if we should collect stats based on the interval
         if self.should_collect_stats():

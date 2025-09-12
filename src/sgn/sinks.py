@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable, MutableSequence
 from dataclasses import dataclass, field
-from typing import Callable, Dict, MutableSequence
 
 from sgn.base import SinkElement, SinkPad
 from sgn.frames import Frame
@@ -66,7 +66,7 @@ class CollectSink(SinkElement):
             so we prevent the latter from being possible.
     """
 
-    collects: Dict[str, MutableSequence] = field(default_factory=dict)
+    collects: dict[str, MutableSequence] = field(default_factory=dict)
     extract_data: bool = True
     collection_factory: Callable = list
 

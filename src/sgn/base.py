@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Callable, Generic, Optional, Sequence, TypeVar, Union
+from typing import Generic, TypeVar
 
 from .frames import DataSpec, Frame
 
@@ -113,7 +114,7 @@ class SourcePad(UniqueID, PadLike):
             is called.
     """
 
-    output: Optional[Frame] = None
+    output: Frame | None = None
 
     async def __call__(self) -> None:
         """When called, a source pad receives a Frame from the element that the pad
@@ -149,9 +150,9 @@ class SinkPad(UniqueID, PadLike):
             through this pad. This is set when this sink pad is first called
     """
 
-    other: Optional[SourcePad] = None
-    input: Optional[Frame] = None
-    data_spec: Optional[DataSpec] = None
+    other: SourcePad | None = None
+    input: Frame | None = None
+    data_spec: DataSpec | None = None
 
     def link(self, other: SourcePad) -> dict[Pad, set[Pad]]:
         """Returns a dictionary of dependencies suitable for adding to a graphlib graph.
@@ -497,5 +498,5 @@ class SinkElement(ABC, ElementLike, Generic[FrameLike]):
         ...
 
 
-Element = Union[TransformElement, SinkElement, SourceElement]
-Pad = Union[SinkPad, SourcePad, InternalPad]
+Element = TransformElement | SinkElement | SourceElement
+Pad = SinkPad | SourcePad | InternalPad
