@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import linecache
+import logging
 import tracemalloc
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar
 
@@ -69,7 +70,11 @@ def async_sgn_mem_profile(logger) -> Callable[[F], F]:
 
             if actual_wrapper is None:
                 # First call - determine which wrapper to use based on logger level
-                if logger.getEffectiveLevel() <= SGN_LOG_LEVELS["MEMPROF"]:
+                log_level = logger.getEffectiveLevel()
+                if (
+                    log_level <= SGN_LOG_LEVELS["MEMPROF"]
+                    and log_level != logging.NOTSET
+                ):
                     actual_wrapper = profiling_wrapper
                 else:
                     actual_wrapper = no_op_wrapper
