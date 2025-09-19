@@ -36,16 +36,23 @@ Issues = "https://git.ligo.org/greg/sgn/issues"
 bottle = [
     "bottle",
 ]
-visualize = [
-    "graphviz",
+inspect = [
+    "sgn-inspect",
 ]
 monitoring = [
     "psutil",
 ]
-test = [
+visualize = [
+    "graphviz",
+]
+all = [
     "sgn[bottle]",
-    "sgn[visualize]",
+    "sgn[inspect]",
     "sgn[monitoring]",
+    "sgn[visualize]",
+]
+test = [
+    "sgn[all]",
     "numpy",
     "pytest",
     "pytest-cov",
