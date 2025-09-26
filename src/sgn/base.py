@@ -314,7 +314,8 @@ class SourceElement(ABC, ElementLike):
         # short names for easier recall
         self.srcs = {n: p for n, p in zip(self.source_pad_names, self.source_pads)}
         self.rsrcs = {p: n for n, p in zip(self.source_pad_names, self.source_pads)}
-        assert self.source_pads and not self.sink_pads
+        assert self.source_pads, "SourceElement must specify source pads"
+        assert not self.sink_pads, "SourceElement must not specify sink pads"
         self.graph.update({s: {self.internal_pad} for s in self.source_pads})
 
     @abstractmethod
@@ -379,7 +380,7 @@ class TransformElement(ABC, ElementLike, Generic[FrameLike]):
         self.snks = {n: p for n, p in zip(self.sink_pad_names, self.sink_pads)}
         self.rsrcs = {p: n for n, p in zip(self.source_pad_names, self.source_pads)}
         self.rsnks = {p: n for n, p in zip(self.sink_pad_names, self.sink_pads)}
-        assert self.source_pads and self.sink_pads
+        assert self.source_pads and self.sink_pads, "TransformElement must specify both sink and source pads"
 
         # Make maximal bipartite graph in two pieces
         # First, (all sinks -> internal)
@@ -445,7 +446,8 @@ class SinkElement(ABC, ElementLike, Generic[FrameLike]):
         self.snks = {n: p for n, p in zip(self.sink_pad_names, self.sink_pads)}
         self.rsnks = {p: n for n, p in zip(self.sink_pad_names, self.sink_pads)}
         self._at_eos = {p: False for p in self.sink_pads}
-        assert self.sink_pads and not self.source_pads
+        assert self.sink_pads, "SinkElement must specify sink pads"
+        assert not self.source_pads, "SinkElement must not specify any source pads"
         self.sink_pad_names_full = [p.name for p in self.sink_pads]
 
         # Update graph to be (all sinks -> internal)
