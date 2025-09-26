@@ -194,7 +194,7 @@ class Parallelize(SignalEOS):
             RuntimeError: If an exception occurs during pipeline execution
             AssertionError: If no pipeline was provided to the SubProcess
         """
-        assert self.pipeline is not None
+        assert self.pipeline is not None, "Pipeline must be provided to Parallelize constructor before running"
         try:
             self.pipeline.run()
         except Exception as e:
