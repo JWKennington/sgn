@@ -18,7 +18,7 @@
 </p>
 
 
-SGN is a lightweight Python library for creating and executing task graphs
+`SGN` is a lightweight Python library for creating and executing task graphs
 asynchronously for streaming data. With only builtin-dependencies, SGN is easy
 to install and use. This page is for the base library `sgn`, but there is a
 family of libraries that extend the functionality of SGN, including:
