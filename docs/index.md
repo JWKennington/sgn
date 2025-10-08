@@ -10,16 +10,75 @@ including:
 
 ## Installation
 
-To install SGN, simply run:
+For the latest development version, install directly from git:
+
+```bash
+pip install git+https://git.ligo.org/greg/sgn.git
+```
+
+Or for a stable release:
 
 ```bash
 pip install sgn
 ```
 
 SGN has no dependencies outside of the Python standard library, so it should be easy to install on any
-system.
+system. That being said, developers must install extra packages to help with development, please see below.
 
-## Quick Start
+??? info "Developer Installation"
+    For developers who want to contribute or work with the full development environment, install with the `dev` extras:
+
+    ```bash
+    pip install "git+https://git.ligo.org/greg/sgn.git#egg=sgn[dev]"
+    ```
+
+    Or for a local editable installation:
+
+    ```bash
+    git clone https://git.ligo.org/greg/sgn.git
+    cd sgn
+    pip install -e ".[dev]"
+    ```
+
+    The `dev` extras include:
+
+    - **docs**: MkDocs and extensions for building documentation
+    - **lint**: Code formatting and linting tools (black, flake8, mypy, etc.)
+    - **test**: Testing tools (pytest, pytest-cov, pytest-markdown-docs)
+    - **monitoring**: Performance monitoring tools (psutil)
+
+    After installation, run `make` to verify your development environment:
+
+    ```bash
+    make
+    ```
+
+    This will run formatting, linting, type checking, and tests to ensure everything is set up correctly.
+
+    This is a 100% coverage package and we hold ourselves to that standard. No MRs will be accepted without
+    make passing and maintaining 100% coverage. Here is something like what you should see after make
+
+    ```bash
+    --------- coverage: platform darwin, python 3.11.11-final-0 ----------
+    Name                    Stmts   Miss   Cover   Missing
+    ------------------------------------------------------
+    src/sgn/apps.py           180      0  100.0%
+    src/sgn/base.py           142      0  100.0%
+    src/sgn/control.py        113      0  100.0%
+    src/sgn/frames.py          19      0  100.0%
+    src/sgn/groups.py          96      0  100.0%
+    src/sgn/logger.py          43      0  100.0%
+    src/sgn/profile.py         59      0  100.0%
+    src/sgn/sinks.py           45      0  100.0%
+    src/sgn/sources.py        202      0  100.0%
+    src/sgn/subprocess.py     214      0  100.0%
+    src/sgn/transforms.py      67      0  100.0%
+    src/sgn/visualize.py       59      0  100.0%
+    ------------------------------------------------------
+    TOTAL                    1239      0  100.0%
+    ```
+
+## Overview
 
 SGN will execute a directed acyclic graph of ["Source
 Pads"](api/base/#sgn.base.SourcePad) that produce data and ["Sink
@@ -33,30 +92,39 @@ a graph along with the event loop are contained in a
 a end point (Sink) in all graphs.
 
 ```
-            ----------------------
-    v      |                      |      <
-   /       |   Source Element 1   |       \
-  /        |                      |        \
- /          ---[source pad 'a']---          \
-|                     |                      | The event loop runs this graph over and
-|                     |                      | over pulling data through the pads
-|           --- [sink pad 'b'] ---           |
-|          |                      |          | The collection of elements and event
-|          |  Transform Element 1 |          | loop is managed by a Pipeline class
-|          |                      |          |
-|           ---[source pad 'b']---           |
-|                     |                      |
-|                     |                      |
-|                    ...                     |
-|                    ...                     |
-|                     |                      |
-|                     | data flow            |
- \                    V                      |
-  \         --- [sink pad 'x'] ---          /
-   \       |                      |        /
-    \      |   Sink Element 1     |       /
-     >     |                      |      ^
-            ----------------------
+  ┌───────────────────────────────────────────────────────────────────┐
+  │                    Pipeline Event Loop (Repeats)                  │
+  │  ┌─────────────┐                                                  │
+  │  │            \ /                                                 │
+  │  │             v                                                  │
+  │  │   ┌──────────────────────┐                                     │
+  │  │   │  Source Element      │  Produces data and sends            │
+  │  │   │                      │  it downstream via source pads      │
+  │  │   │   [ source pad ]     │                                     │
+  │  │   └─────────┬────────────┘                                     │
+  │  │             │                                                  │
+  │  │             │  Frame                                           │
+  │  │             ▼                                                  │
+  │  │   ┌─────────┴────────────┐                                     │
+  │  │   │   [ sink pad ]       │  Receives data, processes it,       │
+  │  │   │                      │  and sends it to source pads        │
+  │  │   │  Transform Element   │                                     │
+  │  │   │                      │                                     │
+  │  │   │   [ source pad ]     │                                     │
+  │  │   └─────────┬────────────┘                                     │
+  │  │             │                                                  │
+  │  │             │  Frame                                           │
+  │  │             ▼                                                  │
+  │  │   ┌─────────┴────────────┐                                     │
+  │  │   │   [ sink pad ]       │  Consumes data from upstream        │
+  │  │   │                      │  (write to file, network, etc.)     │
+  │  │   │  Sink Element        │                                     │
+  │  │   │                      │                                     │
+  │  │   └──────────────────────┘                                     │
+  │  │     ,                                                          │
+  │  └─── <  Loop repeats: Each iteration pulls Frames through the    │
+  │        `               graph until end of stream (EOS)            │
+  └───────────────────────────────────────────────────────────────────┘
 ```
 
 ### Key concepts
@@ -81,61 +149,8 @@ a end point (Sink) in all graphs.
 - **Pipeline**: A pipeline is a collection of elements that are connected together to form a task graph. Pipelines can
   be executed to process data, and can be used to create complex data processing workflows.
 
+## Getting Started
 
-### Hello World
-
-Here is a simple example that passes the string "hello" as data for every execution of the event loop
-
-
-```{.python notest}
-#!/usr/bin/env python3
-
-from sgn.base import SourceElement, SinkElement, Frame
-from sgn.apps import Pipeline
-
-class MySourceClass(SourceElement):
-    def new(self, pad):
-        return Frame(data="hello")
-
-class MySinkClass(SinkElement):
-    def pull(self, pad, frame):
-        print (frame.data)
-
-source = MySourceClass(source_pad_names = ("a",))
-sink = MySinkClass(sink_pad_names = ("a",))  # Matching pad names
-
-pipeline = Pipeline()
-
-pipeline.connect(source, sink)  # Automatic connection with matching names
-
-pipeline.run()
-```
-
-### Alternative: Explicit Linking
-
-For more complex scenarios or when you need explicit control, you can still use the traditional approach:
-
-```{.python notest}
-pipeline.insert(source, sink, link_map = {sink.snks["x"]: source.srcs["a"]})
-```
-
-If you run this, it will run forever and you will see
-
-```
-hello
-hello
-hello
-hello
-hello
-hello
-hello
-hello
-hello
-hello
-...
-```
-
-
-Please see [Tutorials](tutorials/) for more information.
+Please see the [Tutorials](tutorials/) for step-by-step examples and detailed usage information.
 
 

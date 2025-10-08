@@ -3,34 +3,35 @@
 Graphs can have other elements called "transform elements." These have both source and sink pads.  Also, it is possible to connect a source pad to multiple sink pads (but not the other way around). Lets try to implement this graph
 
 ```
- ---------------------------------------------
-|                                             |
-|              Source Element 1               |
-|                                             |
- --- [source pad 'a'] --- [source pad 'b'] ---
-           |\                |\
-           | \               | \
-           |  \              |  \_________________________________________
-           |   \_____________|_________________________                   \
-           |                 |                         \                   \
-           |                 |                          V                   V
-           |                 |                 --- [sink pad 'l'  ] --- [sink pad 'm'  ] ---
-           |                 |                |                                             |
-           |                 |                |            Transform Element 1              |
-           |                 |                |                                             |
-           |                 |                 ------------- [source pad 'n'] --------------
-           |                 |                                   /
-           |                 |                                  /
-           |                 |                                 /
-           |                 |                                /
-           |                 |                               /
-           | data flow       |                              /
-           V                 V                             V
- --- [sink pad 'x'  ] --- [sink pad 'y'  ] --- [sink pad 'z'  ] ---
-|                                                                  |
-|               Sink Element 1                                     |
-|                                                                  |
--------------------------------------------------------------------
+  ┌────────────────────────────────────────────────────────────┐
+  │                     Source Element                         │
+  │                                                            │
+  │ [ source pad ]                              [ source pad ] │
+  └──────────┬─────────────────────────────────────┬───────────┘
+     ┌───────┼─────────┐              ┌────────────┼────────┐
+     │         Frame   │              │  Frame              │
+     │                 │              │                     │
+     │                 │              │                     │
+     │                 │              │                     │
+     │                 ▼              ▼                     │
+     │          ┌───────────────────────────┐               │
+     │          │ [ sink pad ] [ sink pad ] │               │
+     │          │                           │               │
+     │          │     Transform Element     │               │
+     │          │                           │               │
+     │          │      [ source pad ]       │               │
+     │          └───────────────────────────┘               │
+     │                       │                              │
+     │                       │  Frame                       │
+     │                       │                              │
+     │                       │                              │
+     │                       │                              │
+     ▼                       ▼                              ▼
+  ┌──┴───────────────────────┴──────────────────────────────┴───┐
+  │ [ sink pad ]        [ sink pad ]              [ sink pad ]  │
+  │                                                             │
+  │                       Sink Element 1                        │
+  └─────────────────────────────────────────────────────────────┘
 ```
 
 ```python
@@ -110,7 +111,7 @@ pipeline.run()
 ```
 which produces
 
-```
+```text
  Hello! How are you? ?uoy era woH !olleH
  Hello! How are you? ?uoy era woH !olleH
  Hello! How are you? ?uoy era woH !olleH

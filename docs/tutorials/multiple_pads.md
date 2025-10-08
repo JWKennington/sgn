@@ -6,19 +6,19 @@ generally what the "correct" behavior is is up to you. Lets try a more complicat
 example with multiple pads
 
 ```
- ---------------------------------------------
-|                                             |
-|              Source Element 1               |
-|                                             |
- --- [source pad 'a'] --- [source pad 'b'] ---
-           |                 |
-           | data flow       |
-           V                 V
- --- [sink pad 'x'  ] --- [sink pad 'y'  ] ---
-|                                             |
-|               Sink Element 1                |
-|                                             |
-----------------------------------------------
+  ┌─────────────────────────────────────────┐
+  │        Source Element 1                 │
+  │                                         │
+  │  [ source pad 'a' ]  [ source pad 'b' ] │
+  └──────────┬────────────────────┬─────────┘
+             │                    │
+             │  Frame             │  Frame
+             ▼                    ▼
+  ┌──────────┴────────────────────┴─────────┐
+  │  [ sink pad 'x' ]    [ sink pad 'y' ]   │
+  │                                         │
+  │        Sink Element 1                   │
+  └─────────────────────────────────────────┘
 ```
 
 ```python

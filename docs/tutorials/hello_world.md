@@ -28,7 +28,7 @@ pipeline.run()
 
 If you run this, it will run forever and you will see
 
-```
+```text
 hello
 hello
 hello

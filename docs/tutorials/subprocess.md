@@ -47,7 +47,7 @@ SGN supports both threading and multiprocessing concurrency models. You can choo
 
 You can set the default mode for all elements by setting the `Parallelize.use_threading_default` class attribute:
 
-```text
+```{.python notest}
 # Example (pseudocode)
 from sgn.subprocess import Parallelize
 
@@ -59,7 +59,7 @@ Parallelize.use_threading_default = True
 
 You can specify the concurrency mode for a specific pipeline using the `use_threading` parameter:
 
-```text
+```{.python notest}
 # Example (pseudocode)
 from sgn.subprocess import Parallelize
 from sgn.apps import Pipeline
@@ -374,7 +374,7 @@ if __name__ == "__main__":
 
 For more efficient data sharing when using processes (not needed for threads), especially with large data structures like NumPy arrays, you can use shared memory. The `to_shm()` method creates a shared memory segment that will be automatically cleaned up when the Parallelize context manager exits.
 
-```text
+```{.python notest}
 # Create shared data in the main process
 import numpy as np
 from sgn.subprocess import Parallelize
@@ -391,7 +391,7 @@ shm_ref = Parallelize.to_shm("shared_array_example", shared_data)
 
 Then in your process worker:
 
-```text
+```{.python notest}
 @staticmethod
 def sub_process_internal(**kwargs):
     import numpy as np
@@ -419,7 +419,7 @@ The `ParallelizeTransformElement` and `ParallelizeSinkElement` classes provide t
 
 When either an orderly shutdown is requested or an exception occurs in the main thread, the `worker_shutdown` event will be set. This allows workers to perform cleanup operations before terminating:
 
-```text
+```{.python notest}
 @staticmethod
 def sub_process_internal(**kwargs):
     inq, outq = kwargs["inq"], kwargs["outq"]
@@ -460,7 +460,7 @@ def sub_process_internal(**kwargs):
 
 You can also implement graceful shutdown in your element's `pull` method:
 
-```text
+```{.python notest}
 def pull(self, pad, frame):
     # Send frame to worker if it exists
     if self.in_queue is not None:
