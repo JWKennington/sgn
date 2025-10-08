@@ -3,16 +3,24 @@ site_name: Streaming Graph Navigator (SGN) Documentation
 nav:
   - Home: index.md
   - Tutorials:
-    - tutorials/hello_world.md
-    - tutorials/end_of_stream.md
-    - tutorials/multiple_pads.md
-    - tutorials/internal_pad.md
-    - tutorials/transforms.md
-    - tutorials/http_control.md
-    - tutorials/memory_profiling.md
-    - tutorials/signal_handling.md
-    - tutorials/subprocess.md
-    - tutorials/stats_monitoring.md
+    - Basic Tutorials:
+      - Hello World: tutorials/hello_world.md
+      - End of Stream: tutorials/end_of_stream.md
+      - Multiple Pads: tutorials/multiple_pads.md
+      - Internal Pads: tutorials/internal_pad.md
+      - Transform Elements: tutorials/transforms.md
+    - Pipeline Tutorials:
+      - Connection Basics: tutorials/pipeline_connection_basics.md
+      - Automatic Connection Strategies: tutorials/pipeline_connection_strategies.md
+      - Element Grouping: tutorials/pipeline_grouping.md
+      - Pad Selection: tutorials/pipeline_selection.md
+      - Pipeline Visualization: tutorials/pipeline_visualization.md
+    - Advanced Tutorials:
+      - HTTP Control: tutorials/http_control.md
+      - Memory Profiling: tutorials/memory_profiling.md
+      - Signal Handling: tutorials/signal_handling.md
+      - Subprocess: tutorials/subprocess.md
+      - Stats Monitoring: tutorials/stats_monitoring.md
   - FAQs:
     - faqs/pads.md
   - User Guide:
@@ -45,6 +53,9 @@ plugins:
 theme:
   name: material
   logo: assets/img/sgn.png
+  features:
+    - content.code.copy
+    - content.code.annotate
 
 
 extra_css:
@@ -53,11 +64,18 @@ extra_css:
 
 
 markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
   - pymdownx.superfences:
+      preserve_tabs: true
+  - pymdownx.details
   - toc:
       permalink: true
       toc_depth: 4
-  - admonition: {}
+  - admonition
 
 
 extra:
