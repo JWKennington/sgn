@@ -21,6 +21,9 @@ include:
     inputs:
       pages_when: "default"
 
+flake8-code_quality:
+  image: python:3.12
+
 python_test:
   before_script:
     - apt-get update
