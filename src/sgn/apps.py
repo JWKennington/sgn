@@ -141,6 +141,12 @@ class Pipeline:
         4. Direct PadSelection linking:
            pipeline.connect(select(source, "pad1"), sink_element)
 
+        Implicit linking strategies (when no link_map provided):
+        1. Exact match: Connect when source and sink pad names are identical
+        2. Partial match: Connect all matching pad names (ignores non-matching pads)
+        3. N-to-1: Single sink pad, connect all source pads to it
+        4. 1-to-N: Single source pad, connect to all sink pads
+
         Args:
             source:
                 Element, ElementGroup, or PadSelection, the source for linking
@@ -218,6 +224,14 @@ class Pipeline:
             # One-to-one linking strategy: same pad names
             resolved_link_map = {
                 sink_pads[name]: source_pads[name] for name in source_pad_names
+            }
+            return self.link(resolved_link_map)
+
+        elif source_pad_names & sink_pad_names:
+            # Partial matching strategy: connect all matching pad names
+            matching_names = source_pad_names & sink_pad_names
+            resolved_link_map = {
+                sink_pads[name]: source_pads[name] for name in matching_names
             }
             return self.link(resolved_link_map)
 
