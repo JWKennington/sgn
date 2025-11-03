@@ -106,6 +106,44 @@ class TestPipeline:
         p.run()
         assert snk.deques["snk1:snk:H1"] == deque([13, 12, 11])
 
+    def test_run_with_exception_in_pipeline(self):
+        """Test that exceptions in pipeline elements are properly handled."""
+        p = Pipeline()
+        src = DequeSource(
+            name="src1",
+            source_pad_names=("H1",),
+            iters={"src1:src:H1": deque([1])},
+        )
+        snk = DequeSink(
+            name="snk1",
+            sink_pad_names=("H1",),
+        )
+
+        # Create a transform that will raise an exception
+        def failing_transform(frame):
+            if frame.data is not None:
+                raise ValueError("Intentional test exception")
+            return frame.data
+
+        p.insert(
+            src,
+            CallableTransform.from_callable(
+                name="failing_transform",
+                sink_pad_names=("H1",),
+                callable=failing_transform,
+                output_pad_name="H1",
+            ),
+            snk,
+            link_map={
+                "failing_transform:snk:H1": src.srcs["H1"],
+                snk.sink_pads[0]: "failing_transform:src:H1",
+            },
+        )
+
+        # Run with auto_parallelize=False to force normal pipeline execution
+        with pytest.raises(ValueError, match="Intentional test exception"):
+            p.run(auto_parallelize=False)
+
     def test_run_while_a_running_event_loop_exist(self):
         """Test execute graphs while a running event loop exist."""
         loop = asyncio.get_event_loop()

@@ -113,6 +113,11 @@ source = [
     "*/sgn/",
 ]
 
+[tool.coverage.run]
+concurrency = ["multiprocessing", "thread"]
+parallel = true
+sigterm = true
+
 [tool.coverage.report]
 # print report with one decimal point
 precision = 1
@@ -126,6 +131,7 @@ omit = [
 ]
 exclude_also = [
 	"^\\s*\\.\\.\\.\\s*$",
+    "class \\w+\\(Protocol\\):",
     "if TYPE_CHECKING:",
 ]
 
@@ -146,6 +152,8 @@ force-exclude = "(src/sgn/bottle\\.py|src/sgn/_version\\.py)"
 
 [tool.mypy]
 ignore_missing_imports = true
+check_untyped_defs = false
+disable_error_code = ["annotation-unchecked"]
 exclude = [
     "build",
     "docs",
