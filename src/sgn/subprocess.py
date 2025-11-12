@@ -19,6 +19,104 @@ from sgn.sources import SignalEOS
 logger = logging.getLogger("sgn.subprocess")
 
 
+def _worker_wrapper_function(terminated, worker_class, worker_method_name, **kwargs):
+    """Module-level wrapper function to avoid pickling issues.
+
+    This function is at module level so it can be pickled by multiprocessing.
+    It creates a temporary instance of the worker class solely to call the
+    worker_process method with the provided parameters.
+    """
+    # Create the context object with clean queue wrappers
+    context = WorkerContext(
+        input_queue=kwargs.get("inq"),
+        output_queue=kwargs.get("outq"),
+        worker_stop=kwargs.get("worker_stop"),
+        worker_shutdown=kwargs.get("worker_shutdown"),
+        shm_list=kwargs.get("shm_list", []),
+    )
+
+    # Get shared exception storage
+    worker_exception = kwargs.get("worker_exception")
+
+    # Extract worker parameters (excluding the special ones)
+    worker_params = {}
+    special_keys = {
+        "shm_list",
+        "inq",
+        "outq",
+        "worker_stop",
+        "worker_shutdown",
+        "worker_exception",
+    }
+    for key, value in kwargs.items():
+        if key not in special_keys:
+            worker_params[key] = value
+
+    # Get the worker method from the class
+    worker_method = getattr(worker_class, worker_method_name)
+
+    # Create a minimal instance to satisfy method call requirements
+    # We can't use a full instance since it may not be pickleable
+    temp_instance = object.__new__(worker_class)
+
+    try:
+        while not context.should_stop() and not context.should_shutdown():
+            try:
+                # Call the user's clean worker_process method
+                worker_method(temp_instance, context, **worker_params)
+            except KeyboardInterrupt:
+                # Specifically catch and ignore KeyboardInterrupt to prevent
+                # workers from terminating when Ctrl+C is pressed
+                # This allows the main process to handle the interrupt and
+                # coordinate a clean shutdown of all workers
+                print("worker received KeyboardInterrupt...continuing.")
+                continue
+
+        # Handle graceful shutdown
+        if context.should_shutdown() and not context.should_stop():
+            tries = 0
+            num_empty = 3
+            while True:
+                try:
+                    # Check if input queue is empty
+                    is_empty = (
+                        context.input_queue.empty() if context.input_queue else True
+                    )
+
+                    if not is_empty:
+                        worker_method(temp_instance, context, **worker_params)
+                        tries = 0  # reset
+                    else:
+                        time.sleep(1)
+                        tries += 1
+                        if tries > num_empty:
+                            # Try several times to make sure queue is actually empty
+                            # FIXME: find a better way
+                            break
+                except (queue.Empty, Exception):
+                    time.sleep(1)
+                    tries += 1
+                    if tries > num_empty:
+                        break
+
+    except Exception as e:
+        print("Exception in worker:", repr(e))
+        # Store the exception in shared queue for main thread access
+        if worker_exception is not None:
+            with contextlib.suppress(Exception):
+                worker_exception.put(e)
+    finally:
+        terminated.set()
+        if context.should_shutdown() and not context.should_stop():
+            while not context.should_stop():
+                time.sleep(1)
+        # Call the static drain method
+        if hasattr(worker_class, "_drain_queues"):
+            worker_class._drain_queues(
+                input_queue=kwargs.get("inq"), output_queue=kwargs.get("outq")
+            )
+
+
 class QueueProtocol(Protocol):
     """Protocol defining a common Queue interface."""
 
@@ -412,8 +510,8 @@ class _ParallelizeBase(Parallelize):
             self.terminated = threading.Event()
             self.worker_exception = QueueWrapper(queue.Queue(maxsize=1))
             self.worker = threading.Thread(
-                target=self._worker_wrapper,
-                args=(self.terminated,),
+                target=_worker_wrapper_function,
+                args=(self.terminated, self.__class__, "worker_process"),
                 kwargs={
                     "shm_list": Parallelize.shm_list,
                     "inq": self.in_queue,
@@ -437,8 +535,8 @@ class _ParallelizeBase(Parallelize):
             self.terminated = multiprocessing.Event()
             self.worker_exception = QueueWrapper(multiprocessing.Queue(maxsize=1))
             self.worker = multiprocessing.Process(
-                target=self._worker_wrapper,
-                args=(self.terminated,),
+                target=_worker_wrapper_function,
+                args=(self.terminated, self.__class__, "worker_process"),
                 kwargs={
                     "shm_list": Parallelize.shm_list,
                     "inq": self.in_queue,
@@ -475,89 +573,6 @@ class _ParallelizeBase(Parallelize):
                 extracted[param_name] = param.default
 
         return extracted
-
-    def _worker_wrapper(self, terminated, **kwargs):
-        """Clean wrapper that calls the user's worker_process method."""
-        # Create the context object with clean queue wrappers
-        context = WorkerContext(
-            input_queue=kwargs.get("inq"),
-            output_queue=kwargs.get("outq"),
-            worker_stop=kwargs.get("worker_stop"),
-            worker_shutdown=kwargs.get("worker_shutdown"),
-            shm_list=kwargs.get("shm_list", []),
-        )
-
-        # Get shared exception storage
-        worker_exception = kwargs.get("worker_exception")
-
-        # Extract worker parameters (excluding the special ones)
-        worker_params = {}
-        special_keys = {
-            "shm_list",
-            "inq",
-            "outq",
-            "worker_stop",
-            "worker_shutdown",
-            "worker_exception",
-        }
-        for key, value in kwargs.items():
-            if key not in special_keys:
-                worker_params[key] = value
-
-        try:
-            while not context.should_stop() and not context.should_shutdown():
-                try:
-                    # Call the user's clean worker_process method
-                    self.worker_process(context, **worker_params)
-                except KeyboardInterrupt:
-                    # Specifically catch and ignore KeyboardInterrupt to prevent
-                    # workers from terminating when Ctrl+C is pressed
-                    # This allows the main process to handle the interrupt and
-                    # coordinate a clean shutdown of all workers
-                    print("worker received KeyboardInterrupt...continuing.")
-                    continue
-
-            # Handle graceful shutdown
-            if context.should_shutdown() and not context.should_stop():
-                tries = 0
-                num_empty = 3
-                while True:
-                    try:
-                        # Check if input queue is empty
-                        is_empty = (
-                            context.input_queue.empty() if context.input_queue else True
-                        )
-
-                        if not is_empty:
-                            self.worker_process(context, **worker_params)
-                            tries = 0  # reset
-                        else:
-                            time.sleep(1)
-                            tries += 1
-                            if tries > num_empty:
-                                # Try several times to make sure queue is actually empty
-                                # FIXME: find a better way
-                                break
-                    except (queue.Empty, Exception):
-                        time.sleep(1)
-                        tries += 1
-                        if tries > num_empty:
-                            break
-
-        except Exception as e:
-            print("Exception in worker:", repr(e))
-            # Store the exception in shared queue for main thread access
-            if worker_exception is not None:
-                with contextlib.suppress(Exception):
-                    worker_exception.put(e)
-        finally:
-            terminated.set()
-            if context.should_shutdown() and not context.should_stop():
-                while not context.should_stop():
-                    time.sleep(1)
-            self._drain_queues(
-                input_queue=kwargs.get("inq"), output_queue=kwargs.get("outq")
-            )
 
     def worker_process(self, context: WorkerContext, *args: Any, **kwargs: Any) -> None:
         """Override this method in subclasses to implement worker logic.

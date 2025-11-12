@@ -20,6 +20,7 @@ from sgn.subprocess import (
     ParallelizeSinkElement,
     ParallelizeSourceElement,
     WorkerContext,
+    _worker_wrapper_function,
 )
 from sgn.base import SourceElement, Frame
 from sgn.apps import Pipeline
@@ -604,7 +605,7 @@ def test_subprocess_run_exception():
 # Test low-level subprocess wrapper components
 #
 def test_subprocess_wrapper():
-    """Test the basic operation of _worker_wrapper."""
+    """Test the basic operation of _worker_wrapper_function."""
     terminated = multiprocessing.Event()
     shutdown = multiprocessing.Event()
     stop = multiprocessing.Event()
@@ -617,9 +618,10 @@ def test_subprocess_wrapper():
         def worker_process(self, context):
             pass
 
-    element = TestElement()
-    element._worker_wrapper(
+    _worker_wrapper_function(
         terminated,
+        TestElement,
+        "worker_process",
         worker_shutdown=shutdown,
         worker_stop=stop,
         inq=inq,
@@ -628,7 +630,7 @@ def test_subprocess_wrapper():
 
 
 def test_subprocess_wrapper_with_exception():
-    """Test _worker_wrapper with a function that raises an exception."""
+    """Test _worker_wrapper_function with a function that raises an exception."""
     terminated = multiprocessing.Event()
     shutdown = multiprocessing.Event()
     stop = multiprocessing.Event()
@@ -639,9 +641,10 @@ def test_subprocess_wrapper_with_exception():
         def worker_process(self, context):
             raise RuntimeError("nope")
 
-    element = TestElement()
-    element._worker_wrapper(
+    _worker_wrapper_function(
         terminated,
+        TestElement,
+        "worker_process",
         worker_shutdown=shutdown,
         worker_stop=stop,
         inq=inq,
@@ -653,7 +656,7 @@ def test_subprocess_wrapper_with_exception():
 
 
 def test_subprocess_wrapper_with_threading():
-    """Test _sub_process_wrapper with threading."""
+    """Test _worker_wrapper_function with threading."""
     terminated = threading.Event()
     shutdown = threading.Event()
     stop = threading.Event()
@@ -667,11 +670,9 @@ def test_subprocess_wrapper_with_threading():
         def worker_process(self, context):
             raise ValueError("nope")
 
-    element = TestElement()
-
     thread = threading.Thread(
-        target=element._worker_wrapper,
-        args=(terminated,),
+        target=_worker_wrapper_function,
+        args=(terminated, TestElement, "worker_process"),
         kwargs={
             "worker_shutdown": shutdown,
             "worker_stop": stop,
@@ -718,12 +719,12 @@ def test_subprocess_keyboard_interrupt():
                 # Signal to stop now
                 stop.set()
 
-    element = TestElement()
-
     # Run the wrapper in a thread
     def run_wrapper():
-        element._worker_wrapper(
+        _worker_wrapper_function(
             terminated,
+            TestElement,
+            "worker_process",
             worker_shutdown=shutdown,
             worker_stop=stop,
             inq=inq,
@@ -778,12 +779,12 @@ def test_subprocess_drain_queue():
             except queue.Empty:
                 pass
 
-    element = TestElement()
-
     # Use a thread so we can set process_stop after a delay
     def run_wrapper():
-        element._worker_wrapper(
+        _worker_wrapper_function(
             terminated,
+            TestElement,
+            "worker_process",
             worker_shutdown=worker_shutdown,
             worker_stop=worker_stop,
             inq=inq,
@@ -1164,27 +1165,29 @@ def test_worker_exception_storage_threading():
     assert str(stored_exception) == "Test exception from worker"
 
 
+# Module-level class for test_worker_exception_storage_multiprocessing
+# Must be at module level to be pickleable by multiprocessing
+@dataclass
+class ExceptionSourceForTest(ParallelizeSourceElement):
+    """A source that raises an exception in worker_process."""
+
+    _use_threading_override: bool = False
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    def new(self, pad):
+        return Frame(data=None)
+
+    def worker_process(self, context: WorkerContext) -> None:
+        """Worker that raises a test exception."""
+        raise ValueError("Test exception from worker")
+
+
 def test_worker_exception_storage_multiprocessing():
     """Test worker exception storage in multiprocessing mode."""
-
-    @dataclass
-    class ExceptionSource(ParallelizeSourceElement):
-        """A source that raises an exception in worker_process."""
-
-        _use_threading_override: bool = False
-
-        def __post_init__(self):
-            super().__post_init__()
-
-        def new(self, pad):
-            return Frame(data=None)
-
-        def worker_process(self, context: WorkerContext) -> None:
-            """Worker that raises a test exception."""
-            raise ValueError("Test exception from worker")
-
     # Create the source element
-    source = ExceptionSource(source_pad_names=("test",))
+    source = ExceptionSourceForTest(source_pad_names=("test",))
 
     # Start the worker process and let it fail
     source.worker.start()
@@ -1239,26 +1242,28 @@ def test_get_worker_exception_threading():
     assert worker_exc2 is worker_exc  # Same object, proving it's cached
 
 
+# Module-level class for test_get_worker_exception_multiprocessing
+# Must be at module level to be pickleable by multiprocessing
+@dataclass
+class FailingProcessSourceForTest(ParallelizeSourceElement):
+    """Source that fails in worker with a specific error."""
+
+    _use_threading_override: bool = False
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    def new(self, pad):
+        return Frame(data=None)
+
+    def worker_process(self, context: WorkerContext) -> None:
+        raise ValueError("Custom value error from process worker")
+
+
 def test_get_worker_exception_multiprocessing():
     """Test get_worker_exception method in multiprocessing mode."""
-
-    @dataclass
-    class FailingProcessSource(ParallelizeSourceElement):
-        """Source that fails in worker with a specific error."""
-
-        _use_threading_override: bool = False
-
-        def __post_init__(self):
-            super().__post_init__()
-
-        def new(self, pad):
-            return Frame(data=None)
-
-        def worker_process(self, context: WorkerContext) -> None:
-            raise ValueError("Custom value error from process worker")
-
     # Create the element
-    source = FailingProcessSource(source_pad_names=("test",))
+    source = FailingProcessSourceForTest(source_pad_names=("test",))
 
     # Start the worker process and let it fail
     source.worker.start()
