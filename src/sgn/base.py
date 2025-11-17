@@ -121,7 +121,7 @@ class SourcePad(UniqueID, PadLike):
         self.output = self.call(pad=self)
         assert isinstance(self.output, Frame)
         if self.element is not None:
-            logger.getChild(self.element.name).info("\t%s : %s", self, self.output)
+            self.element.logger.info("\t%s : %s", self, self.output)
 
 
 @dataclass(eq=False, repr=False)
@@ -200,7 +200,7 @@ class SinkPad(UniqueID, PadLike):
             raise ValueError(msg)
         self.call(self, self.input)
         if self.element is not None:
-            logger.getChild(self.element.name).info("\t%s:%s", self, self.input)
+            self.element.logger.info("\t%s:%s", self, self.input)
 
 
 @dataclass(eq=False, repr=False)
@@ -277,6 +277,11 @@ class ElementLike(UniqueID):
         all_pads.extend(self.sink_pads)
         all_pads.append(self.internal_pad)
         return all_pads
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Return the logger scoped to this element, e.g. sgn.{name}."""
+        return logger.getChild(self.name)
 
     def internal(self) -> None:
         """An optional method to call inbetween sink and source pads of an element, by
