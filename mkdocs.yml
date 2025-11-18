@@ -1,4 +1,4 @@
-site_name: Streaming Graph Navigator (SGN) Documentation
+site_name: Stream Graph Navigator (SGN) Documentation
 
 nav:
   - Home: index.md
