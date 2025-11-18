@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional, Sequence
 
 from sgn.base import SinkPad, SourcePad, TransformElement
 from sgn.frames import Frame
@@ -150,8 +150,8 @@ class CallableTransform(InputPull):
         cls,
         name: str,
         combos: Iterable[tuple[tuple[str, ...], Callable, str]],
-        sink_pad_names: Optional[Sequence[str]] = None,
-        source_pad_names: Optional[Sequence[str]] = None,
+        sink_pad_names: Sequence[str] | None = None,
+        source_pad_names: Sequence[str] | None = None,
     ):
         """Create a CallableTransform from a list of combinations.
 

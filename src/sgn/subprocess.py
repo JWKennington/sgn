@@ -9,7 +9,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Callable, Protocol
 
 from sgn import SinkElement, TransformElement
 from sgn.base import SourceElement
@@ -120,13 +120,11 @@ def _worker_wrapper_function(terminated, worker_class, worker_method_name, **kwa
 class QueueProtocol(Protocol):
     """Protocol defining a common Queue interface."""
 
-    def get(self, block: bool = True, timeout: Optional[float] = None) -> Any:
+    def get(self, block: bool = True, timeout: float | None = None) -> Any:
         """Get an item from the queue."""
         ...
 
-    def put(
-        self, item: Any, block: bool = True, timeout: Optional[float] = None
-    ) -> None:
+    def put(self, item: Any, block: bool = True, timeout: float | None = None) -> None:
         """Put an item into the queue."""
         ...
 
@@ -155,13 +153,11 @@ class QueueWrapper:
     def __init__(self, queue_instance: QueueProtocol):
         self._queue = queue_instance
 
-    def get(self, block: bool = True, timeout: Optional[float] = None) -> Any:
+    def get(self, block: bool = True, timeout: float | None = None) -> Any:
         """Get an item from the queue."""
         return self._queue.get(block=block, timeout=timeout)
 
-    def put(
-        self, item: Any, block: bool = True, timeout: Optional[float] = None
-    ) -> None:
+    def put(self, item: Any, block: bool = True, timeout: float | None = None) -> None:
         """Put an item into the queue."""
         self._queue.put(item, block=block, timeout=timeout)
 
@@ -273,7 +269,7 @@ class Parallelize(SignalEOS):
     # Instance variable for thread mode
     use_threading: bool = False
 
-    def __init__(self, pipeline=None, use_threading: Optional[bool] = None):
+    def __init__(self, pipeline=None, use_threading: bool | None = None):
         """
         Initialize the Parallelize context manager.
 
@@ -485,10 +481,10 @@ class _ParallelizeBase(Parallelize):
                     pass
     """
 
-    queue_maxsize: Optional[int] = 100
+    queue_maxsize: int | None = 100
     err_maxsize: int = 16384
     # Flag that can be set by subclasses to override the default
-    _use_threading_override: Optional[bool] = None
+    _use_threading_override: bool | None = None
 
     def __post_init__(self):
         # Determine whether to use threading

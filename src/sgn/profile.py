@@ -5,7 +5,8 @@ from __future__ import annotations
 import linecache
 import logging
 import tracemalloc
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from sgn.logger import SGN_LOG_LEVELS
 
