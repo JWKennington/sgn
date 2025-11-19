@@ -87,6 +87,10 @@ class PadLike(ABC):
     call: Callable
     is_linked: bool = False
 
+    def __post_init__(self):
+        self.pad_name = self.name
+        self.name = f"{self.element.name}:{self.pad_type}:{self.pad_name}"
+
     @abstractmethod
     async def __call__(self) -> None:
         """The call method for a pad must be implemented by the element that the pad
@@ -94,6 +98,12 @@ class PadLike(ABC):
 
         This method will be called when the pad is called in the graph.
         """
+        ...
+
+    @property
+    @abstractmethod
+    def pad_type(self) -> str:
+        """The pad's type string representation."""
         ...
 
 
@@ -115,6 +125,14 @@ class SourcePad(UniqueID, PadLike):
     """
 
     output: Frame | None = None
+
+    def __post_init__(self):
+        PadLike.__post_init__(self)
+        UniqueID.__post_init__(self)
+
+    @property
+    def pad_type(self) -> str:
+        return "src"
 
     async def __call__(self) -> None:
         """When called, a source pad receives a Frame from the element that the pad
@@ -153,6 +171,14 @@ class SinkPad(UniqueID, PadLike):
     other: SourcePad | None = None
     input: Frame | None = None
     data_spec: DataSpec | None = None
+
+    def __post_init__(self):
+        PadLike.__post_init__(self)
+        UniqueID.__post_init__(self)
+
+    @property
+    def pad_type(self) -> str:
+        return "snk"
 
     def link(self, other: SourcePad) -> dict[Pad, set[Pad]]:
         """Returns a dictionary of dependencies suitable for adding to a graphlib graph.
@@ -226,6 +252,14 @@ class InternalPad(UniqueID, PadLike):
             str, optional, The unique name for this object
     """
 
+    def __post_init__(self):
+        PadLike.__post_init__(self)
+        UniqueID.__post_init__(self)
+
+    @property
+    def pad_type(self) -> str:
+        return "inl"
+
     async def __call__(self) -> None:
         """When called, an internal pad receives a Frame from the element that the pad
         belongs to."""
@@ -256,9 +290,7 @@ class ElementLike(UniqueID):
         """Establish the graph attribute as an empty dictionary."""
         super().__post_init__()
         self.graph = {}
-        self.internal_pad = InternalPad(
-            name=f"{self.name}:inl:inl", element=self, call=self.internal
-        )
+        self.internal_pad = InternalPad(name="inl", element=self, call=self.internal)
 
     @property
     def source_pad_dict(self) -> dict[str, SourcePad]:
@@ -311,11 +343,11 @@ class SourceElement(ABC, ElementLike):
         super().__post_init__()
         self.source_pads = [
             SourcePad(
-                name=f"{self.name}:src:{n}",
+                name=pad_name,
                 element=self,
                 call=self.new,
             )
-            for n in self.source_pad_names
+            for pad_name in self.source_pad_names
         ]
         # short names for easier recall
         self.srcs = {n: p for n, p in zip(self.source_pad_names, self.source_pads)}
@@ -367,19 +399,19 @@ class TransformElement(ABC, ElementLike, Generic[FrameLike]):
         super().__post_init__()
         self.source_pads = [
             SourcePad(
-                name=f"{self.name}:src:{n}",
+                name=pad_name,
                 element=self,
                 call=self.new,
             )
-            for n in self.source_pad_names
+            for pad_name in self.source_pad_names
         ]
         self.sink_pads = [
             SinkPad(
-                name=f"{self.name}:snk:{n}",
+                name=pad_name,
                 element=self,
                 call=self.pull,
             )
-            for n in self.sink_pad_names
+            for pad_name in self.sink_pad_names
         ]
         # short names for easier recall
         self.srcs = {n: p for n, p in zip(self.source_pad_names, self.source_pads)}
@@ -444,11 +476,11 @@ class SinkElement(ABC, ElementLike, Generic[FrameLike]):
         super().__post_init__()
         self.sink_pads = [
             SinkPad(
-                name=f"{self.name}:snk:{n}",
+                name=pad_name,
                 element=self,
                 call=self.pull,
             )
-            for n in self.sink_pad_names
+            for pad_name in self.sink_pad_names
         ]
         # short names for easier recall
         self.snks = {n: p for n, p in zip(self.sink_pad_names, self.sink_pads)}
