@@ -56,19 +56,15 @@ class CollectSink(SinkElement):
         extract_data:
             bool, default True, flag to indicate if the data should be
             extracted from the frame before adding it to the deque
-
-    Notes:
-        Ignoring empty frames:
-            If the frame is empty, it is not added to the deque. The
-            motivating principle is that "empty frames preserve the
-            sink deque". An empty deque is equivalent (for our
-            purposes) to a deque filled with "None" values, so we
-            prevent the latter from being possible.
+        skip_empty:
+            bool, default True, flag to indicate the frame should be
+            skipped and not collected if its `data` payload is None.
 
     """
 
     collects: dict[str, MutableSequence] = field(default_factory=dict)
     extract_data: bool = True
+    skip_empty: bool = True
     collection_factory: Callable = list
 
     def __post_init__(self):
@@ -97,7 +93,7 @@ class CollectSink(SinkElement):
         """
         if frame.EOS:
             self.mark_eos(pad)
-        if frame.data is None:
+        if self.skip_empty and frame.data is None:
             return
         self.collects[self.rsnks[pad]].append(
             frame.data if self.extract_data else frame

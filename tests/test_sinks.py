@@ -79,6 +79,30 @@ class TestDeqSink:
         sink.internal()
         assert len(sink.deques["I1"]) == 1
 
+    def test_pull_frame_skip_empty(self):
+        """Test pull."""
+        sink = DequeSink(
+            name="snk1",
+            sink_pad_names=("I1", "I2"),
+            extract_data=False,
+            skip_empty=True,
+        )
+        frame = Frame(data=None)
+        sink.pull(sink.sink_pads[0], frame)
+        sink.internal()
+        assert len(sink.deques["I1"]) == 0
+
+        sink = DequeSink(
+            name="snk1",
+            sink_pad_names=("I1", "I2"),
+            extract_data=False,
+            skip_empty=False,
+        )
+        frame = Frame(data=None)
+        sink.pull(sink.sink_pads[0], frame)
+        sink.internal()
+        assert sink.deques["I1"][0] == frame
+
     def test_pull_eos(self):
         """Test pull."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"))
