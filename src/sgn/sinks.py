@@ -75,25 +75,16 @@ class CollectSink(SinkElement):
         super().__post_init__()
         if not self.collects:
             self.collects = {
-                pad.name: self.collection_factory() for pad in self.sink_pads
+                name: self.collection_factory() for name in self.sink_pad_names
             }
         else:
             self.collects = {
                 name: self.collection_factory(iterable)
                 for name, iterable in self.collects.items()
             }
-
-        # Check that the deque_map has the correct number of deque s
-        if not len(self.collects) == len(self.sink_pads):
-            raise ValueError("The number of iterables must match the number of pads")
-
-        # Check that the deque_map has the correct pad names
-        for pad_name in self.collects:
-            if pad_name not in self.sink_pad_names_full:
-                raise ValueError(
-                    f"DequeSink has a iterable for a pad that does not exist, "
-                    f"got: {pad_name}, options are: {self.sink_pad_names}"
-                )
+        assert set(self.collects) == set(
+            self.sink_pad_names
+        ), "The `collects` attribute keys should match sink_pad_names"
 
     def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Pull in frame and add it to pad collection.
@@ -108,7 +99,7 @@ class CollectSink(SinkElement):
             self.mark_eos(pad)
         if frame.data is None:
             return
-        self.collects[pad.name].append(
+        self.collects[self.rsnks[pad]].append(
             frame.data if self.extract_data else frame
         )
 

@@ -104,7 +104,7 @@ class TestPipeline:
         )
 
         p.run()
-        assert snk.deques["snk1:snk:H1"] == deque([13, 12, 11])
+        assert snk.deques["H1"] == deque([13, 12, 11])
 
     def test_run_with_exception_in_pipeline(self):
         """Test that exceptions in pipeline elements are properly handled."""

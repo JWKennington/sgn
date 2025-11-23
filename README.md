@@ -84,7 +84,7 @@ p.connect(trn1, snk)  # H1 -> H1
 p.run()
 
 # Check the result of the sink queue to see outputs
-assert list(snk.collects["snk1:snk:H1"]) == [10, 20, 30]
+assert list(snk.collects["H1"]) == [10, 20, 30]
 
 ```
 
