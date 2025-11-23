@@ -95,9 +95,6 @@ class CollectSink(SinkElement):
                     f"got: {pad_name}, options are: {self.sink_pad_names}"
                 )
 
-        # Create attr for storing most recent inputs per pad
-        self.inputs = {}
-
     def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Pull in frame and add it to pad collection.
 
@@ -109,25 +106,11 @@ class CollectSink(SinkElement):
         """
         if frame.EOS:
             self.mark_eos(pad)
-
-        self.inputs[pad.name] = frame
-
-    def internal(self) -> None:
-        """Internal action is to append all most recent frames to the associated
-        collections, then empty the inputs dict.
-
-        Args:
-            pad:
-
-        Returns:
-        """
-        for pad_name, frame in self.inputs.items():
-            if frame.data is not None:
-                self.collects[pad_name].append(
-                    frame.data if self.extract_data else frame
-                )
-
-        self.inputs = {}
+        if frame.data is None:
+            return
+        self.collects[pad.name].append(
+            frame.data if self.extract_data else frame
+        )
 
 
 @dataclass
