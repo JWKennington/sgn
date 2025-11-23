@@ -18,13 +18,13 @@ from sgn.groups import group
 src1 = IterSource(
     name="src1",
     source_pad_names=["H1"],
-    iters={"src1:src:H1": [1, 2, 3]}
+    iters={"H1": [1, 2, 3]}
 )
 
 src2 = IterSource(
     name="src2",
     source_pad_names=["L1"],
-    iters={"src2:src:L1": [10, 20, 30]}
+    iters={"L1": [10, 20, 30]}
 )
 
 # Create sinks for the data
@@ -54,9 +54,9 @@ multi_source = IterSource(
     name="multi_src",
     source_pad_names=["H1", "L1", "V1"],
     iters={
-        "multi_src:src:H1": [1, 2, 3],
-        "multi_src:src:L1": [10, 20, 30],
-        "multi_src:src:V1": [100, 200, 300]  # We won't use this
+        "H1": [1, 2, 3],
+        "L1": [10, 20, 30],
+        "V1": [100, 200, 300]  # We won't use this
     }
 )
 
@@ -82,16 +82,16 @@ from sgn.groups import group, select
 dedicated_source = IterSource(
     name="dedicated",
     source_pad_names=["H1"],
-    iters={"dedicated:src:H1": [1, 2, 3]}
+    iters={"H1": [1, 2, 3]}
 )
 
 multi_source = IterSource(
     name="multi",
     source_pad_names=["L1", "V1", "unused"],
     iters={
-        "multi:src:L1": [10, 20, 30],
-        "multi:src:V1": [100, 200, 300],
-        "multi:src:unused": [1000, 2000, 3000]  # Not needed
+        "L1": [10, 20, 30],
+        "V1": [100, 200, 300],
+        "unused": [1000, 2000, 3000]  # Not needed
     }
 )
 

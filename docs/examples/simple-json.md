@@ -65,7 +65,7 @@ def demean_if_trusted(frame: IterFrame):
 src = IterSource(
     name="src1",
     source_pad_names=["H1"],
-    iters={"src1:src:H1": payloads},
+    iters={"H1": payloads},
     frame_factory=IterFrame,
 )
 

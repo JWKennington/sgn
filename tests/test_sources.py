@@ -80,9 +80,9 @@ class TestIterSource:
         src = IterSource(name="src1", source_pad_names=("O1", "O2"))
         assert isinstance(src, IterSource)
         assert [p.name for p in src.source_pads] == ["src1:src:O1", "src1:src:O2"]
-        assert src.eos_on_empty == {"src1:src:O1": True, "src1:src:O2": True}
-        assert isinstance(src.iters["src1:src:O1"], Iterator)
-        assert isinstance(src.iters["src1:src:O2"], Iterator)
+        assert src.eos_on_empty == {"O1": True, "O2": True}
+        assert isinstance(src.iters["O1"], Iterator)
+        assert isinstance(src.iters["O2"], Iterator)
 
     def test_init_with_iter(self):
         """Test the DeqSource class constructor."""
@@ -90,12 +90,12 @@ class TestIterSource:
             name="src1",
             source_pad_names=("O1", "O2"),
             iters={
-                "src1:src:O1": iter(deque([1, 2, 3])),
-                "src1:src:O2": iter(deque([4, 5, 6])),
+                "O1": iter(deque([1, 2, 3])),
+                "O2": iter(deque([4, 5, 6])),
             },
         )
         assert isinstance(src, IterSource)
-        assert isinstance(src.iters["src1:src:O1"], Iterator)
+        assert isinstance(src.iters["O1"], Iterator)
 
     def test_init_err_deques_wrong_number(self):
         """Test init with wrong number of deques."""
@@ -104,9 +104,9 @@ class TestIterSource:
                 name="src1",
                 source_pad_names=("O1", "O2"),
                 iters={
-                    "src1:src:O1": deque(),
-                    "src1:src:O2": deque(),
-                    "src1:src:O3": deque(),
+                    "O1": deque(),
+                    "O2": deque(),
+                    "O3": deque(),
                 },
             )
 
@@ -138,7 +138,7 @@ class TestIterSource:
             IterSource(
                 name="src1",
                 source_pad_names=("O1", "O2"),
-                eos_on_empty={"src1:src:O1": True, "src1:src:O3": True},
+                eos_on_empty={"O1": True, "O3": True},
             )
 
     def test_new_empty(self):
@@ -160,15 +160,15 @@ class TestDeqSource:
         src = DequeSource(name="src1", source_pad_names=("O1", "O2"))
         assert isinstance(src, DequeSource)
         assert [p.name for p in src.source_pads] == ["src1:src:O1", "src1:src:O2"]
-        assert src.eos_on_empty == {"src1:src:O1": True, "src1:src:O2": True}
-        assert src.deques == {"src1:src:O1": deque(), "src1:src:O2": deque()}
+        assert src.eos_on_empty == {"O1": True, "O2": True}
+        assert src.deques == {"O1": deque(), "O2": deque()}
 
     def test_new_simple(self):
         """Test new with single item in queue."""
         src = DequeSource(name="src1", source_pad_names=("O1", "O2"))
 
         # Add item to queue as data payload
-        src.deques["src1:src:O1"].append("test")
+        src.deques["O1"].append("test")
 
         frame = src.new(src.source_pads[0])
         assert frame.data == "test"
@@ -188,7 +188,7 @@ class TestDeqSource:
         assert frame.data is None
 
         # Add item to queue as data payload
-        src.deques["src1:src:O1"].append("test2")
+        src.deques["O1"].append("test2")
 
         # Second frame should be empty
         frame = src.new(src.source_pads[0])

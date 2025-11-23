@@ -30,7 +30,7 @@ def scale(frame, factor: float):
 src = IterSource(
     name="src1",
     source_pad_names=["H1"],
-    iters={"src1:src:H1": [1, 2, 3]},
+    iters={"H1": [1, 2, 3]},
 )
 
 # Create a transform element using an arbitrary function
