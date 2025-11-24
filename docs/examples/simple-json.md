@@ -65,7 +65,7 @@ def demean_if_trusted(frame: IterFrame):
 src = IterSource(
     name="src1",
     source_pad_names=["H1"],
-    iters={"src1:src:H1": payloads},
+    iters={"H1": payloads},
     frame_factory=IterFrame,
 )
 
@@ -97,7 +97,7 @@ p.run()
 
 # Check the result of the sink queue to see outputs
 # We check each packet individually to avoid numpy array comparison issues
-result = list(snk.collects["snk1:snk:H1"])
+result = list(snk.collects["H1"])
 expected = [
     [
         {"time": datetime.datetime(2021, 1, 1, 0, 0, 0),

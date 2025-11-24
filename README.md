@@ -56,7 +56,7 @@ def scale(frame, factor: float):
 src = IterSource(
     name="src1",
     source_pad_names=["H1"],
-    iters={"src1:src:H1": [1, 2, 3]},
+    iters={"H1": [1, 2, 3]},
 )
 
 # Create a transform element using an arbitrary function
@@ -84,7 +84,7 @@ p.connect(trn1, snk)  # H1 -> H1
 p.run()
 
 # Check the result of the sink queue to see outputs
-assert list(snk.collects["snk1:snk:H1"]) == [10, 20, 30]
+assert list(snk.collects["H1"]) == [10, 20, 30]
 
 ```
 

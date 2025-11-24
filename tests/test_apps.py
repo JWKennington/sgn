@@ -86,7 +86,7 @@ class TestPipeline:
             name="src1",
             source_pad_names=("H1",),
             # TODO add key formatting helper
-            iters={"src1:src:H1": deque([1, 2, 3])},
+            iters={"H1": deque([1, 2, 3])},
         )
         p.insert(
             src,
@@ -104,7 +104,7 @@ class TestPipeline:
         )
 
         p.run()
-        assert snk.deques["snk1:snk:H1"] == deque([13, 12, 11])
+        assert snk.deques["H1"] == deque([13, 12, 11])
 
     def test_run_with_exception_in_pipeline(self):
         """Test that exceptions in pipeline elements are properly handled."""
@@ -112,7 +112,7 @@ class TestPipeline:
         src = DequeSource(
             name="src1",
             source_pad_names=("H1",),
-            iters={"src1:src:H1": deque([1])},
+            iters={"H1": deque([1])},
         )
         snk = DequeSink(
             name="snk1",
@@ -373,7 +373,7 @@ class TestPipelineGraphviz:
                 name="src1",
                 source_pad_names=("H1",),
                 # TODO add key formatting helper
-                iters={"src1:src:H1": deque([1, 2, 3])},
+                iters={"H1": deque([1, 2, 3])},
             ),
             CallableTransform.from_callable(
                 name="t1",

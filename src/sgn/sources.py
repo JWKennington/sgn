@@ -172,7 +172,7 @@ class IterSource(SourceElement):
         # Setup the iter_map if not given
         if self.iters is None:
             self.iters = {
-                pad.name: self._coerce_iterator([]) for pad in self.source_pads
+                name: self._coerce_iterator([]) for name in self.source_pad_names
             }
         else:
             self.iters = {
@@ -184,7 +184,7 @@ class IterSource(SourceElement):
         # Setup the limits if not given
         if isinstance(self.eos_on_empty, bool):
             self.eos_on_empty = {
-                pad.name: self.eos_on_empty for pad in self.source_pads
+                name: self.eos_on_empty for name in self.source_pad_names
             }
 
     def _validate_iters(self):
@@ -193,11 +193,11 @@ class IterSource(SourceElement):
             raise ValueError("The number of deque s must match the number of pads")
 
         # Check that the deque_map has the correct pad names
-        for pad_name in self.iters:
-            if pad_name not in [pad.name for pad in self.source_pads]:
+        for name in self.iters:
+            if name not in self.source_pad_names:
                 raise ValueError(
                     "DequeSource has a deque for a pad that does not exist, "
-                    f"got: {pad_name}, options are: {self.source_pad_names}"
+                    f"got: {name}, options are: {self.source_pad_names}"
                 )
 
     def _validate_eos_on_empty(self):
@@ -206,11 +206,11 @@ class IterSource(SourceElement):
             raise ValueError("The number of eos on empty must match the number of pads")
 
         # Check that the limits has the correct pad names
-        for pad_name in self.eos_on_empty:
-            if pad_name not in [pad.name for pad in self.source_pads]:
+        for name in self.eos_on_empty:
+            if name not in self.source_pad_names:
                 raise ValueError(
                     f"DequeSource has a eos on empty for a pad that does not exist, "
-                    f"got: {pad_name}, options are: {self.source_pad_names}"
+                    f"got: {name}, options are: {self.source_pad_names}"
                 )
 
     def _coerce_iterator(self, iterable):
@@ -273,8 +273,8 @@ class IterSource(SourceElement):
         # Get the pad iterator
         assert isinstance(self.iters, dict)
         assert isinstance(self.eos_on_empty, dict)
-        pad_iter = self.iters[pad.name]
-        pad_eos_on_empty = self.eos_on_empty[pad.name]
+        pad_iter = self.iters[self.rsrcs[pad]]
+        pad_eos_on_empty = self.eos_on_empty[self.rsrcs[pad]]
 
         # Get data from the iterator
         data = self._get_value(pad_iter)
