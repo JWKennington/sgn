@@ -7,7 +7,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import ClassVar, Generic, TypeVar
 
 from .frames import DataSpec, Frame
 
@@ -279,7 +279,23 @@ class ElementLike(UniqueID):
         sink_pads:
             list, optional, The list of SinkPad objects. This must be given for
             SinkElements or TransformElements
+
+    Note:
+        Subclasses can customize pad configuration by setting class-level attributes:
+            - static_sink_pads/static_source_pads: Pads that are always present
+              on this element type.
+            - allow_dynamic_sink_pads/allow_dynamic_source_pads: Boolean flags
+              controlling whether users can provide additional pad names at
+              instantiation. If False, only static_*_pads are allowed (fully
+              fixed). If True, user-provided pads are combined with
+              static_*_pads.
     """
+
+    # Class-level attributes for pad configuration
+    static_sink_pads: ClassVar[list[str]] = []
+    static_source_pads: ClassVar[list[str]] = []
+    allow_dynamic_sink_pads: ClassVar[bool] = True
+    allow_dynamic_source_pads: ClassVar[bool] = True
 
     source_pads: list[SourcePad] = field(default_factory=list)
     sink_pads: list[SinkPad] = field(default_factory=list)
@@ -338,9 +354,37 @@ class SourceElement(ABC, ElementLike):
 
     source_pad_names: Sequence[str] = field(default_factory=list)
 
+    def __init_subclass__(cls, **kwargs):
+        """Validate pad configuration at class definition time."""
+        super().__init_subclass__(**kwargs)
+
+        # Check: allow_dynamic_*_pads=False requires static_*_pads to be set
+        has_static_source = _has_static_pads(cls, "static_source_pads")
+        allow_dynamic_source = getattr(cls, "allow_dynamic_source_pads", True)
+
+        if not allow_dynamic_source and not has_static_source:
+            raise TypeError(
+                f"Element '{cls.__name__}' has allow_dynamic_source_pads=False but "
+                f"does not define static_source_pads. Elements must have at least one "
+                f"way to provide pads."
+            )
+
     def __post_init__(self):
         """Establish the source pads and graph attributes."""
         super().__post_init__()
+
+        # Check if user provided pads when allow_dynamic is False
+        if not self.allow_dynamic_source_pads and self.source_pad_names:
+            raise ValueError(
+                f"Element '{self.name}' has allow_dynamic_source_pads=False. "
+                f"Cannot specify source_pad_names."
+            )
+
+        # Add static pads to user-provided pads
+        self.source_pad_names = list(self.source_pad_names) + list(
+            self.static_source_pads
+        )
+
         self.source_pads = [
             SourcePad(
                 name=pad_name,
@@ -394,9 +438,51 @@ class TransformElement(ABC, ElementLike, Generic[FrameLike]):
     source_pad_names: Sequence[str] = field(default_factory=list)
     sink_pad_names: Sequence[str] = field(default_factory=list)
 
+    def __init_subclass__(cls, **kwargs):
+        """Validate pad configuration at class definition time."""
+        super().__init_subclass__(**kwargs)
+
+        # Check: allow_dynamic_*_pads=False requires static_*_pads to be set
+        has_static_sink = _has_static_pads(cls, "static_sink_pads")
+        allow_dynamic_sink = getattr(cls, "allow_dynamic_sink_pads", True)
+        has_static_source = _has_static_pads(cls, "static_source_pads")
+        allow_dynamic_source = getattr(cls, "allow_dynamic_source_pads", True)
+
+        if not allow_dynamic_sink and not has_static_sink:
+            raise TypeError(
+                f"Element '{cls.__name__}' has allow_dynamic_sink_pads=False but "
+                f"does not define static_sink_pads. Elements must have at least one "
+                f"way to provide pads."
+            )
+        if not allow_dynamic_source and not has_static_source:
+            raise TypeError(
+                f"Element '{cls.__name__}' has allow_dynamic_source_pads=False but "
+                f"does not define static_source_pads. Elements must have at least one "
+                f"way to provide pads."
+            )
+
     def __post_init__(self):
         """Establish the source pads and sink pads and graph attributes."""
         super().__post_init__()
+
+        # Check if user provided pads when allow_dynamic is False
+        if not self.allow_dynamic_sink_pads and self.sink_pad_names:
+            raise ValueError(
+                f"Element '{self.name}' has allow_dynamic_sink_pads=False. "
+                f"Cannot specify sink_pad_names."
+            )
+        if not self.allow_dynamic_source_pads and self.source_pad_names:
+            raise ValueError(
+                f"Element '{self.name}' has allow_dynamic_source_pads=False. "
+                f"Cannot specify source_pad_names."
+            )
+
+        # Add static pads to user-provided pads
+        self.sink_pad_names = list(self.sink_pad_names) + list(self.static_sink_pads)
+        self.source_pad_names = list(self.source_pad_names) + list(
+            self.static_source_pads
+        )
+
         self.source_pads = [
             SourcePad(
                 name=pad_name,
@@ -471,9 +557,35 @@ class SinkElement(ABC, ElementLike, Generic[FrameLike]):
 
     sink_pad_names: Sequence[str] = field(default_factory=list)
 
+    def __init_subclass__(cls, **kwargs):
+        """Validate pad configuration at class definition time."""
+        super().__init_subclass__(**kwargs)
+
+        # Check: allow_dynamic_*_pads=False requires static_*_pads to be set
+        has_static_sink = _has_static_pads(cls, "static_sink_pads")
+        allow_dynamic_sink = getattr(cls, "allow_dynamic_sink_pads", True)
+
+        if not allow_dynamic_sink and not has_static_sink:
+            raise TypeError(
+                f"Element '{cls.__name__}' has allow_dynamic_sink_pads=False but "
+                f"does not define static_sink_pads. Elements must have at least one "
+                f"way to provide pads."
+            )
+
     def __post_init__(self):
         """Establish the sink pads and graph attributes."""
         super().__post_init__()
+
+        # Check if user provided pads when allow_dynamic is False
+        if not self.allow_dynamic_sink_pads and self.sink_pad_names:
+            raise ValueError(
+                f"Element '{self.name}' has allow_dynamic_sink_pads=False. "
+                f"Cannot specify sink_pad_names."
+            )
+
+        # Add static pads to user-provided pads
+        self.sink_pad_names = list(self.sink_pad_names) + list(self.static_sink_pads)
+
         self.sink_pads = [
             SinkPad(
                 name=pad_name,
@@ -532,3 +644,31 @@ class SinkElement(ABC, ElementLike, Generic[FrameLike]):
 
 Element = TransformElement | SinkElement | SourceElement
 Pad = SinkPad | SourcePad | InternalPad
+
+
+def _has_static_pads(cls: type, attr_name: str) -> bool:
+    """Check if a class defines static pads.
+
+    Static pads are considered defined if:
+    1. The attribute is overridden as a property (assume non-empty), OR
+    2. The attribute is overridden as a non-empty class variable
+
+    Args:
+        cls: The class to check
+        attr_name: The attribute name to check (e.g., 'static_sink_pads')
+
+    Returns:
+        True if static pads are defined, False otherwise
+    """
+    if attr_name not in cls.__dict__:
+        # Not overridden in this class, using base class default (empty)
+        return False
+
+    value = cls.__dict__[attr_name]
+
+    if isinstance(value, property):
+        # It's a property - assume it will return non-empty
+        return True
+    else:
+        # It's a class variable - check if non-empty
+        return bool(value)
