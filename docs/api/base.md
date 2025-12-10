@@ -169,6 +169,11 @@ pipeline.run()
   - Created by `TransformElement` and `SinkElement`
   - Access via `element.sink_pads` or `element.snks["name"]`
 
+Each pad has two name attributes:
+
+- `pad.pad_name` - The short name (e.g., `"output"`)
+- `pad.name` - The full qualified name (e.g., `"my_element:src:output"`)
+
 ### Accessing Pads
 
 Elements provide convenient shortcuts for accessing pads:
@@ -193,6 +198,10 @@ source = MySource(source_pad_names=["out1", "out2"], name="mysrc")
 pad1 = source.source_pads[0]                  # By index
 pad2 = source.srcs["out1"]                    # By short name (recommended)
 pad3 = source.source_pad_dict["mysrc:src:out1"]  # By full pad name
+
+# Pad naming attributes:
+print(pad2.pad_name)  # "out1" - the short name
+print(pad2.name)      # "mysrc:src:out1" - the full name
 ```
 
 ### Multiple Pads
@@ -223,6 +232,132 @@ source = MultiOutputSource()
 # source.srcs["numbers"] outputs: 1, 2, 3, ...
 # source.srcs["letters"] outputs: 'A', 'B', 'C', ...
 ```
+
+## Static Pads (Class-Level Pad Configuration)
+
+For reusable element classes, you can define pads at the class level using **static pads**. This provides several benefits:
+
+- **Consistency**: All instances of your element have the same required pads
+- **Simplicity**: Users don't need to specify pad names when instantiating
+- **Flexibility**: Optionally allow users to add extra pads beyond the static ones
+
+### Class-Level Attributes
+
+Elements support four class-level attributes for pad configuration:
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `static_sink_pads` | `ClassVar[list[str]]` | `[]` | Sink pads that are always present |
+| `static_source_pads` | `ClassVar[list[str]]` | `[]` | Source pads that are always present |
+| `allow_dynamic_sink_pads` | `ClassVar[bool]` | `True` | Whether users can add extra sink pads |
+| `allow_dynamic_source_pads` | `ClassVar[bool]` | `True` | Whether users can add extra source pads |
+
+### Pattern 1: Fixed Pads Only
+
+When you want an element to have a fixed set of pads that users cannot modify:
+
+```python
+from dataclasses import dataclass
+from typing import ClassVar
+from sgn.base import TransformElement, Frame
+
+@dataclass
+class AudioMixer(TransformElement):
+    """A mixer that always has exactly two inputs and one output."""
+
+    static_sink_pads: ClassVar[list[str]] = ["left", "right"]
+    static_source_pads: ClassVar[list[str]] = ["mixed"]
+    allow_dynamic_sink_pads: ClassVar[bool] = False
+    allow_dynamic_source_pads: ClassVar[bool] = False
+
+    def pull(self, pad, frame):
+        # Store frames from left/right channels
+        pass
+
+    def new(self, pad):
+        # Output mixed audio
+        return Frame(data="mixed_audio")
+
+# Create instance - no pad names needed!
+mixer = AudioMixer(name="stereo_mixer")
+
+# Pads are automatically created
+print(mixer.snks.keys())  # dict_keys(['left', 'right'])
+print(mixer.srcs.keys())  # dict_keys(['mixed'])
+
+# Trying to add custom pads raises an error
+# mixer = AudioMixer(sink_pad_names=["extra"])  # ValueError!
+```
+
+### Pattern 2: Static Pads + User Pads
+
+When you want required pads plus the flexibility for users to add more:
+
+```python
+from dataclasses import dataclass
+from typing import ClassVar
+from sgn.base import SourceElement, Frame
+
+@dataclass
+class SensorSource(SourceElement):
+    """A sensor that always has a monitor pad, but allows user-defined outputs."""
+
+    static_source_pads: ClassVar[list[str]] = ["monitor"]
+    # allow_dynamic_source_pads defaults to True
+
+    def new(self, pad):
+        if pad == self.srcs["monitor"]:
+            return Frame(data={"status": "ok"})
+        return Frame(data="sensor_reading")
+
+# User can add extra pads - they're combined with static pads
+sensor = SensorSource(source_pad_names=["temperature", "humidity"])
+
+# All pads are available
+print(sensor.srcs.keys())  # dict_keys(['temperature', 'humidity', 'monitor'])
+```
+
+### Pattern 3: Dynamic Pads via Property
+
+For advanced use cases, you can compute static pads based on instance attributes using a `@property`:
+
+```python
+from dataclasses import dataclass
+from sgn.base import TransformElement, Frame
+
+@dataclass
+class MultiBranchRouter(TransformElement):
+    """A router with configurable branch outputs."""
+
+    num_branches: int = 3
+
+    @property
+    def static_source_pads(self) -> list[str]:
+        return [f"branch_{i}" for i in range(self.num_branches)]
+
+    def pull(self, pad, frame):
+        self.current_data = frame.data
+
+    def new(self, pad):
+        return Frame(data=self.current_data)
+
+# Different instances can have different pads
+router3 = MultiBranchRouter(sink_pad_names=["input"], num_branches=3)
+router5 = MultiBranchRouter(sink_pad_names=["input"], num_branches=5)
+
+print(router3.srcs.keys())  # dict_keys(['input', 'branch_0', 'branch_1', 'branch_2'])
+print(router5.srcs.keys())  # dict_keys(['input', 'branch_0', ..., 'branch_4'])
+```
+
+!!! tip "When to Use Static Pads"
+    - **Fixed pads only**: Use when your element's interface is well-defined and shouldn't change (e.g., a stereo audio processor always needs left/right inputs)
+    - **Static + dynamic**: Use when you have required pads (like a monitoring output) but want to allow customization
+    - **Property-based**: Use when pad configuration depends on element parameters
+
+!!! warning "Validation Rules"
+    - If `allow_dynamic_*_pads=False`, you **must** define the corresponding `static_*_pads`
+    - Validation happens at class definition time, not runtime
+    - Attempting to set `allow_dynamic_source_pads=False` without `static_source_pads` raises `TypeError`
 
 ## Element Naming
 
