@@ -7,6 +7,7 @@ import asyncio
 import graphlib
 import logging
 import sys
+import time
 from pathlib import Path
 
 from sgn import SourceElement, TransformElement
@@ -429,6 +430,7 @@ class Pipeline:
 
         # Run normally without parallelization
         self.check()
+        __start = time.time()
         if not self.loop.is_running():
             self.loop.run_until_complete(self._execute_graphs())
         else:
@@ -446,3 +448,4 @@ class Pipeline:
             thread = threading.Thread(target=_run_in_fork, args=(self,))
             thread.start()
             thread.join()
+        logger.info("Pipeline().run() executed in %s seconds", (time.time() - __start))
