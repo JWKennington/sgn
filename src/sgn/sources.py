@@ -280,7 +280,11 @@ class IterSource(SourceElement):
         data = self._get_value(pad_iter)
 
         # Return the frame
-        return self.frame_factory(EOS=data is None and pad_eos_on_empty, data=data)
+        return self.frame_factory(
+            EOS=data is None and pad_eos_on_empty,
+            data=data,
+            is_gap=data is None,
+        )
 
 
 @dataclass

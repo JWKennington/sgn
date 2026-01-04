@@ -143,6 +143,7 @@ class CallableTransform(InputPull):
             # TODO: generalize this to choose any v. all behavior
             EOS=any(frame.EOS for frame in self.inputs.values()),
             data=res,
+            is_gap=any(frame.is_gap for frame in self.inputs.values()),
         )
 
     @classmethod

@@ -1,6 +1,9 @@
 """Test sinks module."""
 
+from __future__ import annotations
 from collections import deque
+from dataclasses import dataclass
+from typing import Iterable, Optional
 
 import pytest
 
@@ -63,6 +66,19 @@ class TestDeqSink:
         sink.internal()
         assert sink.deques["I1"][0] == frame
 
+    def test_pull_frame_buffers(self):
+        """Test pull."""
+
+        @dataclass
+        class BuffersFrame(Frame):
+            buffers: Optional[Iterable] = None
+
+        sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"), extract_data=True)
+        frame = BuffersFrame(data=None, buffers=["buffer1", "buffer2"], is_gap=False)
+        sink.pull(sink.sink_pads[0], frame)
+        sink.internal()
+        assert sink.deques["I1"][0] == frame.buffers
+
     def test_pull_frame_empty_preserves_deq(self):
         """Test pull."""
         sink = DequeSink(name="snk1", sink_pad_names=("I1", "I2"), extract_data=False)
@@ -74,7 +90,7 @@ class TestDeqSink:
         assert len(sink.deques["I1"]) == 1
         assert sink.deques["I1"][0] == frame
 
-        frame = Frame()
+        frame = Frame(is_gap=True)
         sink.pull(sink.sink_pads[0], frame)
         sink.internal()
         assert len(sink.deques["I1"]) == 1
@@ -87,7 +103,7 @@ class TestDeqSink:
             extract_data=False,
             skip_empty=True,
         )
-        frame = Frame(data=None)
+        frame = Frame(data=None, is_gap=True)
         sink.pull(sink.sink_pads[0], frame)
         sink.internal()
         assert len(sink.deques["I1"]) == 0

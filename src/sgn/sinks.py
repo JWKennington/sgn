@@ -82,6 +82,29 @@ class CollectSink(SinkElement):
             self.sink_pad_names
         ), "The `collects` attribute keys should match sink_pad_names"
 
+    def _extract_data(self, frame: Frame):
+        """Extract data from frame if extract_data is True.
+
+        Args:
+            frame:
+                Frame, the frame to extract data from
+
+        Returns:
+            The data from the frame if extract_data is True, otherwise
+            the frame itself.
+        """
+        if self.extract_data:
+            # TODO remove this hack when TSFrames agree to use the "data" attribute
+            #  of the base Frame class and treat "buffers" as an alias.
+            if hasattr(frame, "buffers"):
+                return frame.buffers
+
+            # Otherwise, return the data attribute
+            return frame.data
+
+        # Return the frame itself if extract_data is False
+        return frame
+
     def pull(self, pad: SinkPad, frame: Frame) -> None:
         """Pull in frame and add it to pad collection.
 
@@ -93,11 +116,9 @@ class CollectSink(SinkElement):
         """
         if frame.EOS:
             self.mark_eos(pad)
-        if self.skip_empty and frame.data is None:
+        if self.skip_empty and frame.is_gap:
             return
-        self.collects[self.rsnks[pad]].append(
-            frame.data if self.extract_data else frame
-        )
+        self.collects[self.rsnks[pad]].append(self._extract_data(frame))
 
 
 @dataclass

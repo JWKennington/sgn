@@ -11,6 +11,7 @@ class TestCallableTransform:
 
     def test_init(self):
         """Test the CallableTransform class constructor."""
+
         identity = lambda x: x
         trn = CallableTransform(
             name="t1",
