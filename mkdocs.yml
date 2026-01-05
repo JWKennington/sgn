@@ -16,6 +16,7 @@ nav:
       - Pad Selection: tutorials/pipeline_selection.md
       - Pipeline Visualization: tutorials/pipeline_visualization.md
     - Advanced Tutorials:
+      - Composing Elements: tutorials/compose.md
       - HTTP Control: tutorials/http_control.md
       - Memory Profiling: tutorials/memory_profiling.md
       - Signal Handling: tutorials/signal_handling.md

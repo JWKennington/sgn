@@ -9,6 +9,10 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 from sgn import SourceElement, TransformElement
 from sgn.base import (
@@ -28,79 +32,81 @@ from sgn.visualize import visualize
 logger = logging.getLogger("sgn.pipeline")
 
 
-class Pipeline:
-    """A Pipeline is essentially a directed acyclic graph of tasks that process frames.
+class Graph:
+    """Base class for managing element graphs and pad registries.
 
-    These tasks are grouped using Pads and Elements. The Pipeline class is responsible
-    for registering methods to produce source, transform and sink elements and to
-    assemble those elements in a directed acyclic graph. It also establishes an event
-    loop to execute the graph asynchronously.
+    This class provides the core functionality for building directed acyclic graphs
+    of elements and pads. It handles element insertion, pad registration, and
+    implicit/explicit linking between pads.
+
+    Both Pipeline and composed elements use this class for graph management.
     """
 
     def __init__(self) -> None:
-        """Class to establish and execute a graph of elements that will process frames.
-
-        Registers methods to produce source, transform and sink elements and to assemble
-        those elements in a directed acyclic graph. Also establishes an event loop.
-        """
+        """Initialize an empty graph with registry and element tracking."""
         self._registry: dict[str, Pad | Element] = {}
         self.graph: dict[Pad, set[Pad]] = {}
-        self.loop = asyncio.get_event_loop()
-        self.__loop_counter = 0
-        self.sinks: dict[str, SinkElement] = {}
         self.elements: list[Element] = []
 
-    def __getitem__(self, name):
-        """return a pipeline element or pad by name"""
+    def __getitem__(self, name: str) -> Pad | Element:
+        """Return a graph element or pad by name."""
         return self._registry[name]
+
+    def _insert_element(self, element: Element) -> None:
+        """Insert a single element into the graph.
+
+        This is the core insertion logic without sink tracking.
+        Subclasses can override to add additional behavior.
+
+        Args:
+            element: The element to insert
+        """
+        assert isinstance(
+            element, ElementLike
+        ), f"Element {element} is not an instance of a sgn.Element"
+        assert (
+            element.name not in self._registry
+        ), f"Element name '{element.name}' is already in use in this graph"
+        self._registry[element.name] = element
+        for pad in element.pad_list:
+            assert (
+                pad.name not in self._registry
+            ), f"Pad name '{pad.name}' is already in use in this graph"
+            self._registry[pad.name] = pad
+        self.graph.update(element.graph)
+        self.elements.append(element)
 
     def insert(
         self,
         *elements: Element,
         link_map: dict[str | SinkPad, str | SourcePad] | None = None,
-    ) -> Pipeline:
-        """Insert element(s) into the pipeline.
+    ) -> Self:
+        """Insert element(s) into the graph.
 
         Args:
             *elements:
-                Iterable[Element], the ordered elements to insert into the pipeline
+                Iterable[Element], the ordered elements to insert into the graph
             link_map:
                 dict[str | SinkPad, str | SourcePad] | None,
-                a mapping of source pad to sink pad names to link
+                a mapping of sink pad to source pad names to link
 
         Returns:
-            Pipeline, the pipeline with the elements inserted
+            Self, the graph with the elements inserted
         """
-
         for element in elements:
-            assert isinstance(
-                element, ElementLike
-            ), f"Element {element} is not an instance of a sgn.Element"
-            assert (
-                element.name not in self._registry
-            ), f"Element name '{element.name}' is already in use in this pipeline"
-            self._registry[element.name] = element
-            for pad in element.pad_list:
-                assert (
-                    pad.name not in self._registry
-                ), f"Pad name '{pad.name}' is already in use in this pipeline"
-                self._registry[pad.name] = pad
-            if isinstance(element, SinkElement):
-                self.sinks[element.name] = element
-            self.graph.update(element.graph)
-            self.elements.append(element)
+            self._insert_element(element)
         if link_map is not None:
             self.link(link_map)
         return self
 
-    def link(self, link_map: dict[str | SinkPad, str | SourcePad]) -> Pipeline:
-        """Link pads in a pipeline.
+    def link(self, link_map: dict[str | SinkPad, str | SourcePad]) -> Self:
+        """Link pads in a graph.
 
         Args:
             link_map:
-                dict[str, str], a mapping of sink pad to source pad names to link, note
-                that the keys of the dictionary are the source pad names and the
-                values are the sink pad names, so that: the data flows from value -> key
+                dict[str, str], a mapping of sink pad to source pad names to link.
+                Keys are sink pad names, values are source pad names.
+                Data flows from value -> key.
         """
         for sink_pad_name, source_pad_name in link_map.items():
             if isinstance(sink_pad_name, str):
@@ -125,19 +131,19 @@ class Pipeline:
         source: Element | ElementGroup | PadSelection,
         sink: Element | ElementGroup | PadSelection,
         link_map: dict[str, str] | None = None,
-    ) -> Pipeline:
+    ) -> Self:
         """Connect elements, ElementGroups, or PadSelections using implicit linking.
 
         This method supports multiple linking patterns:
         1. Element-to-element linking with implicit pad matching:
-           pipeline.connect(source_element, sink_element)
+           graph.connect(source_element, sink_element)
         2. Element-to-element linking with explicit mapping:
-           pipeline.connect(source_element, sink_element, link_map={"sink": "source"})
+           graph.connect(source_element, sink_element, link_map={"sink": "source"})
         3. ElementGroup linking (supports elements and pad selections):
-           pipeline.connect(group(s1, s2), sink_element)
-           pipeline.connect(group(source, select(element, "pad1")), sink)
+           graph.connect(group(s1, s2), sink_element)
+           graph.connect(group(source, select(element, "pad1")), sink)
         4. Direct PadSelection linking:
-           pipeline.connect(select(source, "pad1"), sink_element)
+           graph.connect(select(source, "pad1"), sink_element)
 
         Implicit linking strategies (when no link_map provided):
         1. Exact match: Connect when source and sink pad names are identical
@@ -155,7 +161,7 @@ class Pipeline:
                 source pad names.
 
         Returns:
-            Pipeline: The pipeline with the new links added.
+            Self: The graph with the new links added.
 
         Raises:
             ValueError: If implicit linking strategy is ambiguous.
@@ -171,8 +177,10 @@ class Pipeline:
         source_pads = source.srcs
         sink_pads = sink.snks
 
-        # Ensure all elements are inserted in pipeline
-        def ensure_elements_inserted(obj):
+        # Ensure all elements are inserted in graph
+        def ensure_elements_inserted(
+            obj: Element | ElementGroup | PadSelection,
+        ) -> None:
             if isinstance(obj, (SourceElement, TransformElement, SinkElement)):
                 if obj.name not in self._registry:
                     self.insert(obj)
@@ -194,8 +202,17 @@ class Pipeline:
         source_pads: dict[str, SourcePad],
         sink_pads: dict[str, SinkPad],
         link_map: dict[str, str] | None = None,
-    ) -> Pipeline:
-        """Connect source and sink pads using implicit linking strategies."""
+    ) -> Self:
+        """Connect source and sink pads using implicit linking strategies.
+
+        Args:
+            source_pads: Dictionary mapping pad names to source pads
+            sink_pads: Dictionary mapping pad names to sink pads
+            link_map: Optional explicit mapping of sink pad names to source pad names
+
+        Returns:
+            Self with the new links added
+        """
         resolved_link_map: dict[str | SinkPad, str | SourcePad]
         source_pad_names = set(source_pads.keys())
         sink_pad_names = set(sink_pads.keys())
@@ -254,6 +271,33 @@ class Pipeline:
                 "and sink pads. an explicit link_map is required."
             )
             raise ValueError(msg)
+
+
+class Pipeline(Graph):
+    """A Pipeline is essentially a directed acyclic graph of tasks that process frames.
+
+    These tasks are grouped using Pads and Elements. The Pipeline class is responsible
+    for registering methods to produce source, transform and sink elements and to
+    assemble those elements in a directed acyclic graph. It also establishes an event
+    loop to execute the graph asynchronously.
+    """
+
+    def __init__(self) -> None:
+        """Class to establish and execute a graph of elements that will process frames.
+
+        Registers methods to produce source, transform and sink elements and to assemble
+        those elements in a directed acyclic graph. Also establishes an event loop.
+        """
+        super().__init__()
+        self.loop = asyncio.get_event_loop()
+        self.__loop_counter = 0
+        self.sinks: dict[str, SinkElement] = {}
+
+    def _insert_element(self, element: Element) -> None:
+        """Insert element and track sink elements."""
+        super()._insert_element(element)
+        if isinstance(element, SinkElement):
+            self.sinks[element.name] = element
 
     def nodes(self, pads: bool = True, intra: bool = False) -> tuple[str, ...]:
         """Get the nodes in the pipeline.

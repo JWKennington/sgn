@@ -21,3 +21,9 @@ from sgn.sinks import CollectSink, DequeSink, NullSink
 from sgn.sources import DequeSource, IterSource, NullSource, SignalEOS
 from sgn.transforms import CallableTransform
 from sgn.apps import Pipeline
+from sgn.compose import (
+    Compose,
+    ComposedSourceElement,
+    ComposedTransformElement,
+    ComposedSinkElement,
+)
