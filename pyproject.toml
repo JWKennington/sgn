@@ -78,6 +78,7 @@ lint = [
     "isort",
     "mypy",
     "mypy-extensions",
+    "typing_extensions",
 ]
 dev = [
     "sgn[docs]",
